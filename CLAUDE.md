@@ -25,6 +25,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 |---|---|
 | Tout lancer (install, docker, migrations, bucket, seed, dev) | `make dev` → http://localhost:3000 |
 | Lint / types | `npm run lint` · `npm run typecheck` |
+| Tests E2E de non-régression (Playwright) | `make test-e2e` · `npm run test:e2e` — voir `docs/tests/E2E.md` |
 | Migrations | `npm run migrate:up` · `npm run migrate:down` |
 | Seed (idempotent) / bucket | `npm run seed` · `npm run ensure-bucket` |
 | Build prod | `npm run build` |
@@ -94,7 +95,7 @@ Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 - `AUTH_SECRET` codé en dur dans `lib/auth.ts` ; `lib/errors.ts` renvoie la stacktrace au client.
 - `domain/`, `ports/`, `adapters/`, `utils/` jamais importés ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes.
 - OCR Tesseract synchrone dans la requête HTTP, sans limite de taille ; création de NDF non atomique.
-- Aucun test, aucune CI, aucun contrat d'API (OpenAPI), pas d'observabilité.
+- Pas de tests unitaires ni de CI (seule la suite E2E de `docs/tests/E2E.md` existe), aucun contrat d'API (OpenAPI), pas d'observabilité.
 
 Ne pas « corriger au passage » un de ces points dans une PR sans rapport : ouvrir un sujet dédié. Voir le document de contexte du groupe pour la liste complète (S1–S9, A1–A7, Q1–Q6).
 

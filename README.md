@@ -59,6 +59,7 @@ make build   # build de production
 make start   # build puis démarre en production
 make lint
 make typecheck
+make test-e2e  # tests E2E de non-régression (voir docs/tests/E2E.md)
 make down    # arrête Postgres/LocalStack
 make clean   # arrête et supprime les données locales
 ```

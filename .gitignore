@@ -17,6 +17,12 @@
 # production
 /build
 
+# playwright (tests E2E)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # misc
 .DS_Store
 *.pem
