@@ -134,7 +134,17 @@ Les deux comptes partagent le même `company_id`, le premier administrant le sec
 
 ### Impact
 
-Le domaine email **n'identifie pas** une entreprise. Avec un domaine public (`gmail.com`, `outlook.com`, …), des personnes **sans lien** se retrouvent dans une même « entreprise » : le tout premier inscrit en `gmail.com` devient `hr_admin` de **tous** les comptes Gmail suivants, voit et décide leurs notes de frais. Inversement, une entreprise à plusieurs domaines est éclatée. C'est un défaut structurel du modèle de tenant, et une fuite inter-personnes directe sur domaines partagés.
+Le domaine email **n'identifie pas** une entreprise. Avec un domaine public (`gmail.com`, `outlook.com`, …), des personnes **sans lien** se retrouvent dans une même « entreprise » : le tout premier inscrit en `gmail.com` devient `hr_admin` de **tous** les comptes Gmail suivants. Inversement, une entreprise à plusieurs domaines est éclatée. C'est un défaut structurel du modèle de tenant.
+
+Ce que la RH obtient réellement (lu dans le code) :
+
+- l'**annuaire** de l'entreprise : nom, email, rôle et manager de tous les inscrits du domaine ([`src/app/api/hr/users/route.ts:13-15`](../../src/app/api/hr/users/route.ts#L13-L15)) ;
+- le **rattachement** de ces comptes à un manager ([`src/app/api/hr/users/[id]/manager/route.ts`](../../src/app/api/hr/users/[id]/manager/route.ts)) ;
+- la consultation et la décision des notes des **managers racines** uniquement ([`src/app/api/hr/expense-notes/route.ts:29-30`](../../src/app/api/hr/expense-notes/route.ts#L29-L30)). Elle ne voit **pas** les notes des employés, tranchées par leur manager.
+
+Sur un domaine public, le rôle `manager` ne s'attribuant pas par l'interface, l'impact pratique est l'exposition de l'annuaire (données personnelles) à un inconnu. Le scénario le plus grave est ailleurs : **préempter la RH d'une entreprise** en s'inscrivant le premier sur son domaine, avant ses salariés, pour obtenir son annuaire, l'organigramme et les notes de ses managers racines.
+
+*Correction du 18/10/2026 : la version initiale indiquait que la RH illégitime « voit et décide leurs notes de frais » ; elle ne voit que celles des managers racines.*
 
 ### Concept du cours et compromis
 
@@ -144,7 +154,7 @@ Le domaine email **n'identifie pas** une entreprise. Avec un domaine public (`gm
 
 ### Criticité × effort
 
-**Criticité 4/5** (collision inter-personnes sur domaines publics, RH illégitime) · **Effort 3/5** (refonte du rattachement + migration).
+**Criticité 4/5** (préemption de la RH d'une entreprise ; annuaire exposé entre inconnus sur domaines publics) · **Effort 3/5** (refonte du rattachement + migration).
 
 ---
 
