@@ -1,0 +1,85 @@
+# Intégration continue d'Expense.io. Décision et justification :
+# docs/adr/ADR-005-harnais-de-validation.md (§3).
+#
+# - check : lint, types et build de production, sans infrastructure ;
+# - e2e   : suite Playwright de docs/tests/E2E.md, via `make test-e2e`, avec
+#           Postgres et LocalStack lancés depuis docker-compose.yml (qui fait
+#           foi pour les images et les ports : rien n'est recopié ici).
+#
+# Les deux checks sont destinés à être obligatoires pour fusionner sur `main`.
+# Locale, la même vérification se lance avec `make verify`.
+name: CI
+
+on:
+  # Toutes les PR, y compris celles empilées sur une autre branche que main.
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Un nouveau push sur une PR annule l'exécution en cours ; sur main, chaque
+# commit est vérifié jusqu'au bout.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Lint et types
+        run: npm run check
+      # Même configuration qu'un poste de dev : .env créé depuis .env.example.
+      - run: make env
+      - name: Build de production
+        run: npm run build
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Installer Chromium pour Playwright
+        run: npx playwright install --with-deps chromium
+      # .env créé depuis .env.example (base et S3 jetables, aucun secret
+      # GitHub), Docker, migrations, bucket, puis la suite. Avec CI=true,
+      # playwright.config.ts interdit test.only, autorise un nouvel essai,
+      # utilise 2 workers et démarre lui-même `next dev`.
+      - name: Tests E2E
+        run: make test-e2e
+      - name: Rapport Playwright (traces et captures des échecs)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+      - name: Journaux de Postgres et LocalStack
+        if: failure()
+        run: docker compose logs --no-color --tail=200
