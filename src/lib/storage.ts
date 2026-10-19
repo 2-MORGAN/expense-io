@@ -32,7 +32,7 @@ export async function uploadReceipt(key: string, body: Buffer, contentType: stri
   )
 }
 
-export async function getReceiptUrl(key: string, expiresInSeconds = 300): Promise<string> {
+export async function getReceiptUrl(key: string, expiresInSeconds = 3600): Promise<string> {
   const command = new GetObjectCommand({ Bucket: BUCKET, Key: key })
   return getSignedUrl(getClient(), command, { expiresIn: expiresInSeconds })
 }
