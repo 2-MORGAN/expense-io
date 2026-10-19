@@ -208,7 +208,7 @@ Le worker ne conditionne pas les E2E : aucune notification n'est figée, la suit
 | **Architecture** (ADR-002) | Cas d'usage `SubmitExpenseNote`, `DecideExpenseNote`, `SuggestReceiptFields` dans la couche application. Ports `ReceiptStorage`, `Notification`, `Ocr`, `EventOutbox`. Le worker est un **adaptateur entrant** de plus, comme les route handlers : un monolithe modulaire, deux processus |
 | **Soutenance / live coding** | Une nouvelle notification se résume à un type d'événement plus un handler : extension guidée, testable sans SMTP |
 
-## Correctifs et tickets Linear (jalon J4, créés le 20/10)
+## Correctifs et tickets Linear (jalon J4, regroupés le 20/10 en 3 tickets : 2-475, 2-476, 2-484)
 
 Ordre : l'intégrité d'abord (T2 → T4), puis la charge (T1), puis les notifications (T6 → T7). T8 accompagne chaque PR. Priorités arbitrées par le PO le 20/10 : **notifications en P1, abandonnées le 25/10 si la vague 2 est en retard** (l'ADR reste alors la référence pour la soutenance).
 
@@ -216,11 +216,13 @@ Ordre : l'intégrité d'abord (T2 → T4), puis la charge (T1), puis les notific
 |---|---|---|---|---|---|
 | T1 | OCR : bornes octets, pixels avec réduction, concurrence, durée ; 503 sur panne (B11) | A4, B10, B11 | 1 j | P0 | 2-475 |
 | T2 | Soumission upload d'abord + clé `receipts/{companyId}/{uuid}` (avec WS1, S8) | A5, S8 | 1 j | P0 | 2-476 |
-| T3 | `Idempotency-Key` : migration, route, formulaire | A5, B9 | 1 j | P1 | 2-482 |
-| T4 | Script de nettoyage des notes sans reçu + contrainte `CHECK` | A5 | 0,5 j | P1 | 2-483 |
-| T5 | Réconciliation quotidienne des objets orphelins | A5 | 0,5 j | P2 | 2-493 |
+| T3 | `Idempotency-Key` : migration, route, formulaire | A5, B9 | 1 j | P1 | 2-476 |
+| T4 | Script de nettoyage des notes sans reçu + contrainte `CHECK` | A5 | 0,5 j | P1 | 2-476 |
+| T5 | Réconciliation quotidienne des objets orphelins | A5 | 0,5 j | P2 | 2-476 (bonus) |
 | T6 | Table `outbox_events` + worker (retries, backoff, DLQ) | A6 | 1,5 j | P1 | 2-484 |
 | T7 | Événements `submitted` / `decided`, destinataires, adaptateur SMTP + Mailpit ; décision `WHERE status = 'pending'` | A6, B8 | 1 j | P1 | 2-484 |
+
+L'**adaptateur SMTP + Mailpit** est livré en premier (étape 1 de 2-484, ≤ 23/10) : il sert aussi aux invitations de l'ADR-001 (S7) et n'est pas concerné par l'abandon éventuel des notifications le 25/10.
 | T8 | Tests : intégration avec pannes, nouveaux E2E API, retrait du harnais d'audit | Q4 | 1 j | — | dans chaque ticket |
 | T9 | Observabilité : `outcome` OCR, métriques d'outbox (avec WS5) | Q5 | 0,5 j | P2 | non planifié |
 

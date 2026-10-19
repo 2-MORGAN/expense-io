@@ -219,7 +219,7 @@ Décision : le minimum utile, pas une observabilité de production.
 
 P0 : avant la première fusion de refacto. P1 : avant le gel du 28 octobre. P2 : si le temps le permet.
 
-Tickets Linear (jalon J4, créés le 20/10) : T0 ✅ PR #4 · T1 ✅ PR #5 · T2 ✅ ruleset actif · T3, T4 et T11 → 2-477 · T5 et T6 → 2-489 · T7 à T9 → 2-490 · T10 → 2-494 · T12 dans les tickets de correctifs concernés · T13 non planifié · T14 → 2-481.
+Tickets Linear (jalon J4, regroupés le 20/10) : T0 ✅ PR #4 · T1 ✅ PR #5 · T2 ✅ ruleset actif · T3, T4 et T11 → 2-477 · T5 et T6 → 2-489 · T7 à T9 → 2-490 · T10 → 2-490 (bonus) · T12 dans les tickets de correctifs concernés · T13 non planifié · T14 → 2-481.
 
 | # | Ticket | Contenu et critère de fin | Prio | Effort | Dépend de |
 |---|---|---|---|---|---|

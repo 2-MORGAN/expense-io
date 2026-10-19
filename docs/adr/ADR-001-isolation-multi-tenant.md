@@ -233,13 +233,16 @@ Ordre : correctifs indépendants de l'ADR d'abord, puis par dépendance ; la bas
 | Création atomique de l'entreprise et de sa RH | S7 | Oui | Test d'intégration avec panne injectée ; SIGNUP-01 vert |
 | Invitations, extension de `NotificationPort`, vérification d'email du créateur, migration de `email_domain` | S7 | Oui | SIGNUP-08 et suivants ; SIGNUP-01/02/07 et FLOW-01 mis à jour |
 
-### Tickets Linear (jalon J4, créés le 20/10)
+### Tickets Linear (jalon J4, regroupés le 20/10)
 
-| Priorité | Tickets |
-|---|---|
-| P0 (vague 1, ≤ 22/10) | 2-471 S1 · 2-472 S2 · 2-473 S3 · 2-474 S5 |
-| P1 (vague 2, ≤ 26/10) | 2-478 migration RLS et création atomique · 2-496 S7 invitations et vérification d'email · 2-479 suppression des `getPool()` · 2-480 S9 · 2-481 bascule de `DATABASE_URL` · 2-476 création de note et S8 (WS3) · 2-485 S6 (WS4, attend l'ADR-004) · 2-484 rôles du worker (WS3) |
-| P2 (si le temps le permet) | 2-492 limite de tentatives |
+| Ticket | Contenu | Priorité | Dépend de |
+|---|---|---|---|
+| 2-471 | Correctifs rapides : S1, S2, S3, S5 (une PR par faille) | P0 | — |
+| 2-478 | Migration RLS : rôles, policies `company_id`, RLS sur `users`, fonctions `SECURITY DEFINER`, création atomique | P1 | — |
+| 2-496 | Identité : S7 invitations + vérification d'email, S9 rôle relu à chaque appel (limite de tentatives en bonus) | P1 | 2-471, 2-478 |
+| 2-481 | Bascule finale : suppression des `getPool()` + `DATABASE_URL` sur `expense_app` | P1 | 2-471, 2-476, 2-478, 2-496 |
+
+Hors WS1 : S6 → 2-485 (WS4, attend l'ADR-004) ; création de note et S8 → 2-476 (WS3) ; envoi des emails d'invitation et rôles du worker → 2-484 (WS3).
 
 ## Annexe A — Spike RLS du 18/10/2026
 
