@@ -49,7 +49,7 @@ npm run test:e2e
 | Cibler un serveur déjà démarré (ex. build de prod) | `npm run build`, `AUTH_TRUST_HOST=true npx next start -p 3100`, puis `E2E_BASE_URL=http://localhost:3100 npm run test:e2e` |
 | Base d'administration distincte pour les fixtures | `E2E_DATABASE_URL=postgres://…` (par défaut : `DATABASE_URL` de `.env`) |
 | Chromium déjà installé (CI sans téléchargement) | `E2E_CHROMIUM_PATH=/chemin/vers/chrome` |
-| Intégration continue | `CI=1` : pas de `test.only`, 1 nouvel essai, 2 workers, serveur toujours démarré par Playwright |
+| Intégration continue | `.github/workflows/ci.yml` lance `make test-e2e` sur chaque PR. `CI=1` : pas de `test.only`, 1 nouvel essai, 2 workers, serveur toujours démarré par Playwright |
 
 Sous PowerShell, une variable se définit ainsi : `$env:E2E_BASE_URL="http://localhost:3100"; npm run test:e2e`.
 
