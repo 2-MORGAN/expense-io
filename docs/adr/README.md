@@ -13,7 +13,7 @@ Seules les ADR au statut **Acceptée** font foi (règle de l'ADR-005, §2). Un t
 Décisions transverses du PO (20/10/2026) :
 
 - **401** sans session, **403** si le rôle est refusé (PR #8). À reprendre dans l'ADR-004.
-- **S7** : la règle « le premier inscrit d'un domaine devient RH » est une **spécification**, conservée (ADR-001, §3).
+- **S7** : la règle « le premier inscrit d'un domaine devient RH » est une **faille corrigée** : rejoindre une entreprise passe par une invitation de la RH, avec vérification d'email (ADR-001, §3 ; ticket 2-496).
 - Ordre de la refacto : correctifs de sécurité d'abord, puis helpers communs de l'ADR-002.
 
 Constats d'audit référencés par les ADR : [`docs/audit/`](../audit/).

@@ -16,7 +16,7 @@
 | Question | Décision |
 |---|---|
 | 1. Où isoler ? | **RLS effective** sous un rôle applicatif non-superuser : la base porte la frontière entre entreprises et la visibilité par rôle. Un **module de permissions** interne au monolithe (WS2) porte les règles d'action. `WHERE` existants conservés en défense en profondeur. Bascule de la connexion en dernier |
-| 2. Comment identifier l'entreprise ? | **Spécification** (décision du PO) : la règle d'inscription par domaine est gardée, la création de l'entreprise et de sa RH devient atomique. Écart sur les domaines publics en P2. Invitations et vérification d'email écartées, réouverture possible |
+| 2. Comment identifier l'entreprise ? | **Faille corrigée** (décision du PO) : le domaine email ne donne plus aucun droit. S'inscrire sans invitation crée sa propre entreprise ; rejoindre une entreprise passe par une **invitation de la RH**, qui vaut vérification d'email ; vérification d'email obligatoire pour le créateur ; création atomique entreprise + RH |
 | 3. Build ou Buy pour l'identité ? | **Garder Auth.js.** S5 : secret en environnement, vérifié au démarrage, rotation. S9 : rôle et entreprise relus en base à chaque appel, session de 8 h d'inactivité. Limite de tentatives dans `authorize()` |
 | 4. Comment le prouver ? | Tests d'isolation ajoutés à la suite E2E du projet, rouges avant et verts après correctif (ISO-04 à 09, SIGNUP-08), avec l'application sous le rôle restreint. Tests supplémentaires validés par le PO |
 
@@ -36,7 +36,7 @@ Le spike ne teste pas d'`INSERT` : le droit sur la séquence de `receipt_seq` es
 
 **Contraintes.**
 
-- Le comportement décrit dans le `README.md` d'origine fait office de spécification. Le projet est évalué par les tests E2E des correcteurs (comportement). D'éventuels tests complémentaires (sécurité, disponibilité, rapidité) restent **à confirmer auprès des intervenants**.
+- Le comportement décrit dans le `README.md` d'origine fait office de spécification, sauf les corrections décidées explicitement par une ADR (ici S7, question 2). Le projet est évalué par les tests E2E des correcteurs (comportement). D'éventuels tests complémentaires (sécurité, disponibilité, rapidité) restent **à confirmer auprès des intervenants**.
 - Données personnelles (notes de frais, reçus) : RGPD.
 - Une seule base PostgreSQL 16, un monolithe Next.js.
 
@@ -96,7 +96,7 @@ L'ADR-003 introduit trois traitements hors requête HTTP qui portent sur toutes 
 
 Impact vérifié dans le code : la RH d'un domaine voit l'annuaire (nom, email) de tous les inscrits de ce domaine, peut les rattacher, et voit et tranche les notes des managers racines ; elle ne voit pas les notes des employés. Le premier inscrit en `gmail.com` obtient ces droits sur tous les comptes Gmail suivants. Le scénario le plus grave : **préempter la RH d'une entreprise** en s'inscrivant le premier sur son domaine. Lu dans le code, non reproduit : l'unicité de l'email est sensible à la casse.
 
-Cette règle est aussi décrite dans le `README.md` d'origine comme une fonctionnalité (l. 45-47) : « le premier compte créé sur un domaine email donné fonde une nouvelle entreprise et en devient RH ; les comptes suivants sur le même domaine la rejoignent comme employés ». La décision dépendait donc de son statut, **spécification à respecter** ou **faille plantée à corriger**. **Le PO a tranché le 20/10 : spécification**, comme le recommandait l'auteur, puisque le README présente la règle comme une fonctionnalité et que la changer exposerait aux tests E2E des correcteurs. L'hypothèse « faille » est conservée plus bas comme alternative écartée.
+Cette règle est aussi décrite dans le `README.md` d'origine comme une fonctionnalité (l. 45-47) : « le premier compte créé sur un domaine email donné fonde une nouvelle entreprise et en devient RH ; les comptes suivants sur le même domaine la rejoignent comme employés ». La décision dépendait donc de son statut, **spécification à respecter** ou **faille plantée à corriger**. L'auteur recommandait l'hypothèse « spécification », pour ne pas exposer le projet aux tests E2E des correcteurs. **Le PO a tranché le 20/10 : faille à corriger**, les intervenants ayant indiqué que certaines fonctionnalités de base sont à corriger. L'hypothèse « spécification » est conservée plus bas comme alternative écartée.
 
 Vérification d'email, invitations et vérification de domaine ne sont pas des concepts du cours : elles sont jugées sur les axes de trade-offs.
 
@@ -112,23 +112,21 @@ Vérification d'email, invitations et vérification de domaine ne sont pas des c
 
 Deux options sont écartées sans tableau : l'arrivée sur un domaine soumise à l'approbation de la RH (même rupture du README que C, sans prouver l'adresse) ; une brique « buy » d'organisations et d'invitations (Keycloak, Auth0) ou un SSO d'entreprise, qui suit la décision de la question 3 et sa condition de réouverture.
 
-### Décision retenue : la règle est une spécification
+### Décision retenue : la règle est une faille, corrigée par invitations (C)
 
-On garde A et on la sécurise, avec un seul écart assumé :
+**Décision du PO du 20/10.** Les intervenants ont indiqué que certaines fonctionnalités de base de l'application sont à corriger, et c'est attendu. Un attribut non prouvé (le domaine d'une adresse déclarée) ne doit plus décider d'une autorisation. On passe à **C** : le domaine ne donne plus aucun droit par lui-même.
 
-1. **Création atomique** de l'entreprise et de sa RH dans `register_user` (question 1, point 4) : aujourd'hui quatre requêtes hors transaction peuvent laisser une entreprise sans RH (WS4, B12).
-2. **Domaines de messagerie publics : écart assumé au README** (priorité P2, réalisé seulement s'il reste du temps avant le gel du 28/10). Chaque compte sur un domaine public fonde sa propre entreprise et en devient RH ; le second compte d'un domaine public ne rejoint donc plus le premier (signalé dans la PR). Il faut une **nouvelle migration** : `companies.email_domain` n'est plus unique pour les domaines publics (index unique partiel), avec son `down` ; les entreprises existantes ne sont pas modifiées. La liste des domaines publics vit dans `src/domain/` ; elle est incomplète par nature, un domaine absent garde l'ancien comportement. Écarté : refuser ces inscriptions, ce qui casserait dès le premier compte.
-3. **Pas de vérification d'email** : bloquante, elle change le parcours (connexion immédiate après inscription, figée par SIGNUP-01 et SIGNUP-07) ; non bloquante, elle détecte sans empêcher. Proposé, à faire valider par le PO : prévenir le titulaire de l'adresse qu'un compte a été créé.
-4. **Risques acceptés par le PO** : rejoindre une entreprise comme employé avec l'adresse d'un autre (impact : l'annuaire) ; préempter la RH d'une entreprise (impact grave). Mesure compensatoire : procédure support de transfert du rôle RH.
+1. **S'inscrire sans invitation crée sa propre entreprise**, dont on devient RH ; rejoindre une entreprise passe par une **invitation de sa RH**. Le lien à usage unique, envoyé à l'adresse, vaut vérification d'email. L'envoi passe par `NotificationPort` **étendu** d'une méthode adressée à un email (le port actuel n'expose que `notifyDecision(userId…)`), via l'outbox et l'adapter SMTP de l'ADR-003 : inversion des dépendances (cours 2, étape 5). Si l'outbox n'est pas livrée à temps (abandon possible le 25/10), l'invitation est envoyée de façon synchrone par le même adapter.
+2. **Vérification d'email obligatoire** pour le créateur d'une entreprise.
+3. **Création atomique** de l'entreprise et de sa RH dans `register_user` (question 1, point 4) : aujourd'hui quatre requêtes hors transaction peuvent laisser une entreprise sans RH (WS4, B12). **Nouvelle migration** : `companies.email_domain` n'est plus unique (plusieurs entreprises peuvent partager un domaine), avec son `down` ; les entreprises existantes ne sont pas modifiées.
+4. **Changement de comportement voulu**, écrit dans la PR, tests mis à jour dans la même PR et dans un commit séparé (`CLAUDE.md`, ADR-005 §2) : SIGNUP-01, 02, 07 et FLOW-01. C'est une correction fonctionnelle de sécurité, pas une refacto.
+5. **Risque accepté** : un test des correcteurs qui inscrirait deux comptes sur le même domaine en attendant qu'ils partagent une entreprise échouera. Il est assumé, la correction étant attendue par les intervenants et justifiée ici.
 
-### Alternative écartée : la règle est une faille
+Le cas des domaines de messagerie publics (Gmail…) disparaît : le domaine ne regroupe plus personne.
 
-Non retenue par le PO. Elle reste la réponse si un client ou les intervenants contestent la règle. On passerait alors à **C** : le domaine ne donne plus aucun droit par lui-même.
+### Alternative écartée : garder la règle comme spécification (A sécurisée)
 
-1. S'inscrire sans invitation crée sa propre entreprise ; rejoindre une entreprise passe par une invitation de sa RH. Le lien, envoyé à l'adresse, vaut vérification d'email. L'envoi passe par `NotificationPort` **étendu** d'une méthode adressée à un email (le port actuel n'expose que `notifyDecision(userId…)`), via l'outbox et l'adapter SMTP de l'ADR-003 : inversion des dépendances (cours 2, étape 5).
-2. Vérification d'email obligatoire pour le créateur d'une entreprise.
-3. Création atomique et migration de `email_domain`, comme dans l'autre hypothèse.
-4. Changement de comportement voulu, écrit dans la PR, tests mis à jour dans la même PR (`CLAUDE.md`). C'est une correction fonctionnelle de sécurité, pas une refacto.
+Recommandée initialement par l'auteur, non retenue par le PO. Elle consistait à garder la règle décrite par le README, avec la création atomique, un écart sur les domaines publics (chaque compte d'un domaine public fonde sa propre entreprise) et sans vérification d'email. Elle ne changeait pas le parcours d'inscription, mais laissait deux risques graves : rejoindre une entreprise avec l'adresse d'un autre, et **préempter la RH d'une entreprise** en s'inscrivant le premier sur son domaine.
 
 **D en réouverture** (KISS, cours 2, étape 5) : si des clients demandent l'arrivée automatique de leurs salariés. Elle exige alors la vérification d'email de **chaque** arrivant : un domaine vérifié prouve que l'entreprise possède le domaine, pas que l'inscrit possède l'adresse.
 
@@ -177,7 +175,7 @@ Les tests s'ajoutent à **la suite E2E du projet** (WS5, `docs/tests/E2E.md`), f
 | ISO-07a-f | S4 | Test d'intégration de base exécuté par Playwright : (a) rôle de l'application ni superuser ni `BYPASSRLS` ; contexte inconnu → (b) 0 note, (c) 0 utilisateur ; (d) RH de B → 0 note de A ; (e) manager de B avec un lien inter-entreprises → 0 note ; (f) employé → `UPDATE` du statut de sa note = 0 ligne | Rouge | Vert |
 | ISO-08 | S4, S8 | Création de note et lecture du reçu sous `expense_app` ; préfixe `receipts/<companyId>/` vérifié par listage S3. Écart voulu : le format de clé n'était pas figé (B14) | Rouge (`receipts/<compteur>`) | Vert |
 | ISO-09 | S4 | Lien manager inter-entreprises posé en base (ce qu'un exploit de S3 a pu laisser) : le manager de B ne voit pas la note dans sa liste et ne peut pas la trancher. Preuve HTTP de l'isolation structurelle | Rouge | Vert (404) |
-| SIGNUP-08 | S7 | Spécification : deux comptes sur un domaine public → deux entreprises distinctes, aucune ne voit l'autre ; la liste des domaines publics est injectable pour que la purge `*.e2e.test` reste valable. Faille : scénarios d'invitation définis avec leur ticket | Rouge | Vert |
+| SIGNUP-08 | S7 | Deux inscriptions sans invitation sur le même domaine → deux entreprises distinctes, aucune ne voit l'autre ; invitation valide → rejoint l'entreprise de la RH ; invitation expirée, déjà utilisée ou pour une autre adresse → refusée (scénarios détaillés dans le ticket 2-496) | Rouge | Vert |
 
 ISO-07 vérifie les policies, que `E2E.md` classe aujourd'hui comme non testables en E2E : cette ligne de `E2E.md` sera mise à jour.
 
@@ -212,7 +210,7 @@ Les tests du worker et de la réconciliation (point de coordination ADR-003) rel
 - Disponibilité : une panne de base déconnecte les utilisateurs (échec fermé) ; une bascule mal ordonnée casse connexion et création de note.
 - La RLS ne protège pas d'une injection SQL : S1 reste un prérequis.
 - La part construite de l'identité grossit.
-- Question 2 : risques acceptés par le PO (règle de domaine gardée comme spécification). L'écart sur les domaines publics (P2) peut faire échouer un test des correcteurs qui inscrirait deux comptes sur un même domaine public.
+- Question 2 : changement de comportement assumé par le PO. Un test des correcteurs qui inscrirait deux comptes sur un même domaine en attendant qu'ils partagent une entreprise échouera ; la dépendance à l'envoi d'emails ajoute un point de panne à l'inscription.
 
 ## 7. Correctifs à créer en tickets
 
@@ -233,15 +231,15 @@ Ordre : correctifs indépendants de l'ADR d'abord, puis par dépendance ; la bas
 | Limite de tentatives, comparaison bcrypt constante | Hors S1-S9 | Oui | AUTH-11 |
 | Rôles `expense_worker` et de réconciliation, policy `INSERT` de l'outbox (si retenu avec WS3) | S4 | Oui | Tests d'intégration ADR-005 |
 | Création atomique de l'entreprise et de sa RH | S7 | Oui | Test d'intégration avec panne injectée ; SIGNUP-01 vert |
-| Domaines publics, migration de `email_domain` (P2) | S7 | Oui | SIGNUP-08 |
+| Invitations, extension de `NotificationPort`, vérification d'email du créateur, migration de `email_domain` | S7 | Oui | SIGNUP-08 et suivants ; SIGNUP-01/02/07 et FLOW-01 mis à jour |
 
 ### Tickets Linear (jalon J4, créés le 20/10)
 
 | Priorité | Tickets |
 |---|---|
 | P0 (vague 1, ≤ 22/10) | 2-471 S1 · 2-472 S2 · 2-473 S3 · 2-474 S5 |
-| P1 (vague 2, ≤ 26/10) | 2-478 migration RLS et création atomique · 2-479 suppression des `getPool()` · 2-480 S9 · 2-481 bascule de `DATABASE_URL` · 2-476 création de note et S8 (WS3) · 2-485 S6 (WS4, attend l'ADR-004) · 2-484 rôles du worker (WS3) |
-| P2 (si le temps le permet) | 2-491 domaines publics · 2-492 limite de tentatives |
+| P1 (vague 2, ≤ 26/10) | 2-478 migration RLS et création atomique · 2-496 S7 invitations et vérification d'email · 2-479 suppression des `getPool()` · 2-480 S9 · 2-481 bascule de `DATABASE_URL` · 2-476 création de note et S8 (WS3) · 2-485 S6 (WS4, attend l'ADR-004) · 2-484 rôles du worker (WS3) |
+| P2 (si le temps le permet) | 2-492 limite de tentatives |
 
 ## Annexe A — Spike RLS du 18/10/2026
 
@@ -298,7 +296,7 @@ Exécuté avec `docker exec -i arla-postgres-1 psql -U expense -d expense_io` su
 **Fonctions `SECURITY DEFINER`** (`auth_find_user`, `register_user`)
 
 - Propriétaire `expense_definer` ; `SET search_path = public, pg_temp` ; `REVOKE EXECUTE … FROM PUBLIC`, puis `GRANT` à `expense_app`.
-- `auth_find_user` renvoie une seule ligne par email exact ; `register_user` porte la création atomique et la règle des domaines publics (question 2).
+- `auth_find_user` renvoie une seule ligne par email exact ; `register_user` porte la création atomique de l'entreprise et de sa RH, et l'acceptation d'une invitation (question 2).
 
 **Provisionnement**
 
