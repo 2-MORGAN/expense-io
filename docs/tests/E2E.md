@@ -186,10 +186,10 @@ e2e/
 
 | ID | Scénario | Niveau |
 |---|---|---|
-| ACL-01 | Sans session : 401 sur les 8 routes employé/manager, **403** sur les 6 routes RH, corps `{"error": "Unauthorized"}` | API |
-| ACL-02 | Employé : 401 sur les routes manager, 403 sur les routes RH | API |
+| ACL-01 | Sans session : 401 sur les 14 routes employé, manager et RH, corps `{"error": "Unauthorized"}` | API |
+| ACL-02 | Employé : 403 sur les routes manager et RH | API |
 | ACL-03 | Manager : 403 sur les routes RH | API |
-| ACL-04 | RH : 401 sur les routes manager | API |
+| ACL-04 | RH : 403 sur les routes manager | API |
 | ISO-01 | La RH d'une autre entreprise ne voit ni ne modifie rien (liste, décision, reçu, annuaire, rattachement) | API |
 | ISO-02 | Un manager d'une autre entreprise ne voit ni ne tranche les notes | API |
 | ISO-03 | Un employé d'une autre entreprise ne voit ni les notes ni les reçus | API |
@@ -287,7 +287,7 @@ Quand l'un de ces points est corrigé, ajouter le test correspondant (un bug cor
 - Un test rouge signale une régression, **sauf changement de comportement voulu** : mettre alors le test à jour dans la même PR et le signaler dans la description (règle de `CLAUDE.md`).
 - Les attentes susceptibles d'évoluer sont regroupées :
   - format d'erreur `{ "error": … }` → `expectApiError` dans `e2e/support/api.ts` (par exemple pour passer à `application/problem+json`) ;
-  - codes 401/403 actuels (Q1.1) → `e2e/access-control.spec.ts` ;
+  - codes 401 (sans session) / 403 (rôle refusé), corrigés depuis Q1.1 → `e2e/access-control.spec.ts` ;
   - schéma `companies` / `users` → `e2e/support/db.ts` (à garder aligné avec `scripts/seed.mjs`).
 - Les données de test (domaines `*.e2e.test`) sont purgées au début de chaque exécution ; celles de la dernière exécution restent en base pour l'analyse d'un échec.
 

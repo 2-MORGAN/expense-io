@@ -2,11 +2,10 @@ import type { APIRequestContext } from '@playwright/test'
 import { expectApiError, statusOf } from './support/api'
 import { createOrg, expect, test } from './support/fixtures'
 
-// Contrôle d'accès tel qu'il existe aujourd'hui (dette Q1.1 de l'audit WS4) :
-// - routes « manager » : 401 pour toute session absente OU de mauvais rôle ;
-// - routes « RH » : 403 pour toute session absente OU de mauvais rôle.
-// Le corps est toujours `{ "error": "Unauthorized" }`. Si la refacto
-// harmonise 401/403, c'est ici qu'il faut mettre à jour les attentes.
+// Contrôle d'accès (Q1.1 de l'audit WS4 corrigée, règle n°5 de CLAUDE.md) :
+// - 401 sans session, sur toutes les routes ;
+// - 403 avec une session dont le rôle est refusé (routes manager et RH).
+// Le corps reste `{ "error": "Unauthorized" }` : son format relève de l'ADR-004.
 
 type Method = 'GET' | 'POST' | 'PUT'
 
@@ -115,17 +114,15 @@ test.describe('Contrôle d’accès par rôle', () => {
     expect(users.find((user) => user.id === org.employee.id)?.managerId).toBe(org.manager.id)
   })
 
-  test('[ACL-01] sans session : 401 sur les routes employé et manager, 403 sur les routes RH', async ({
+  test('[ACL-01] sans session : 401 sur les routes employé, manager et RH', async ({
     request,
   }) => {
-    await expectRefused(request, [...EMPLOYEE_ROUTES, ...MANAGER_ROUTES], ids, 401)
-    await expectRefused(request, HR_ROUTES, ids, 403)
+    await expectRefused(request, [...EMPLOYEE_ROUTES, ...MANAGER_ROUTES, ...HR_ROUTES], ids, 401)
   })
 
-  test('[ACL-02] employé : 401 sur les routes manager, 403 sur les routes RH', async ({ org, apiAs }) => {
+  test('[ACL-02] employé : 403 sur les routes manager et RH', async ({ org, apiAs }) => {
     const { request } = await apiAs(org.employee)
-    await expectRefused(request, MANAGER_ROUTES, ids, 401)
-    await expectRefused(request, HR_ROUTES, ids, 403)
+    await expectRefused(request, [...MANAGER_ROUTES, ...HR_ROUTES], ids, 403)
   })
 
   test('[ACL-03] manager : 403 sur les routes RH', async ({ org, apiAs }) => {
@@ -133,9 +130,9 @@ test.describe('Contrôle d’accès par rôle', () => {
     await expectRefused(request, HR_ROUTES, ids, 403)
   })
 
-  test('[ACL-04] RH : 401 sur les routes manager', async ({ org, apiAs }) => {
+  test('[ACL-04] RH : 403 sur les routes manager', async ({ org, apiAs }) => {
     const { request } = await apiAs(org.hr)
-    await expectRefused(request, MANAGER_ROUTES, ids, 401)
+    await expectRefused(request, MANAGER_ROUTES, ids, 403)
   })
 })
 
