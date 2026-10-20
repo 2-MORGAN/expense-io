@@ -228,7 +228,7 @@ Ordre : l'intégrité d'abord (T2 → T4), puis la charge (T1), puis les notific
 | T9 | Observabilité : `outcome` OCR, métriques d'outbox (avec WS5) | Q5 | 0,5 j | P2 | non planifié |
 | T10 | OCR asynchrone : lancement `202`, suivi, traitement par le worker, bouton en polling (décision du PO du 20/10) | A4 | — | P2 | 2-503 |
 
-L'**adaptateur SMTP + Mailpit** est livré en premier (étape 1 de 2-484, ≤ 23/10) : il sert aussi aux invitations de l'ADR-001 (S7) et n'est pas concerné par l'abandon éventuel des notifications le 25/10. T10 dépend du worker de T6 : si les notifications sont abandonnées le 25/10, le worker reste à livrer pour T10.
+L'**adaptateur SMTP + Mailpit** est livré en premier (étape 1 de 2-484, avant le 22/10) : il sert aussi aux invitations de l'ADR-001 (S7) et n'est pas concerné par l'abandon éventuel des notifications le 25/10. T10 dépend du worker de T6 : si les notifications sont abandonnées le 25/10, le worker reste à livrer pour T10.
 
 **Total ≈ 8 jours-personne**, dans la fourchette de l'audit (A5 2–4 j, A4 0,5–1 j pour les bornes, A6 2–4 j avec livraison fiable).
 
