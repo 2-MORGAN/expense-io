@@ -79,7 +79,7 @@ Le détail des droits, des policies et du provisionnement est en **annexe B**.
 6. **Suppression des 12 appels `getPool().query`** sur des données tenant (annexe B).
 7. **Ordre de bascule** : la migration crée rôles et policies **sans changer la connexion**. Le passage de `DATABASE_URL` à `expense_app` est la **dernière étape**, après la suppression des `getPool()` et l'adaptation du seed, dans une PR validée par la suite E2E complète exécutée sous ce rôle. Au démarrage, l'application vérifie que son rôle n'est ni superuser ni `BYPASSRLS` : refus en production, avertissement en développement.
 
-### Point de coordination avec l'ADR-003 (retenu ; périmètre arbitré par le PO : notifications en P1, abandonnées le 25/10 en cas de retard)
+### Point de coordination avec l'ADR-003 (retenu ; périmètre arbitré par le PO : notifications en P1, abandonnées le 24/10 en cas de retard)
 
 L'ADR-003 introduit trois traitements hors requête HTTP qui portent sur toutes les entreprises : le worker de l'outbox, la réconciliation quotidienne des objets S3 et le nettoyage des notes sans reçu. Sous RLS, ils ne verraient pas leurs données. Proposition :
 
@@ -116,7 +116,7 @@ Deux options sont écartées sans tableau : l'arrivée sur un domaine soumise à
 
 **Décision du PO du 20/10.** Les intervenants ont indiqué que certaines fonctionnalités de base de l'application sont à corriger, et c'est attendu. Un attribut non prouvé (le domaine d'une adresse déclarée) ne doit plus décider d'une autorisation. On passe à **C** : le domaine ne donne plus aucun droit par lui-même.
 
-1. **S'inscrire sans invitation crée sa propre entreprise**, dont on devient RH ; rejoindre une entreprise passe par une **invitation de sa RH**. Le lien à usage unique, envoyé à l'adresse, vaut vérification d'email. L'envoi passe par `NotificationPort` **étendu** d'une méthode adressée à un email (le port actuel n'expose que `notifyDecision(userId…)`), via l'outbox et l'adapter SMTP de l'ADR-003 : inversion des dépendances (cours 2, étape 5). Si l'outbox n'est pas livrée à temps (abandon possible le 25/10), l'invitation est envoyée de façon synchrone par le même adapter.
+1. **S'inscrire sans invitation crée sa propre entreprise**, dont on devient RH ; rejoindre une entreprise passe par une **invitation de sa RH**. Le lien à usage unique, envoyé à l'adresse, vaut vérification d'email. L'envoi passe par `NotificationPort` **étendu** d'une méthode adressée à un email (le port actuel n'expose que `notifyDecision(userId…)`), via l'outbox et l'adapter SMTP de l'ADR-003 : inversion des dépendances (cours 2, étape 5). Si l'outbox n'est pas livrée à temps (abandon possible le 24/10), l'invitation est envoyée de façon synchrone par le même adapter.
 2. **Vérification d'email obligatoire** pour le créateur d'une entreprise.
 3. **Création atomique** de l'entreprise et de sa RH dans `register_user` (question 1, point 4) : aujourd'hui quatre requêtes hors transaction peuvent laisser une entreprise sans RH (WS4, B12). **Nouvelle migration** : `companies.email_domain` n'est plus unique (plusieurs entreprises peuvent partager un domaine), avec son `down` ; les entreprises existantes ne sont pas modifiées.
 4. **Changement de comportement voulu**, écrit dans la PR, tests mis à jour dans la même PR et dans un commit séparé (`CLAUDE.md`, ADR-005 §2) : SIGNUP-01, 02, 07 et FLOW-01. C'est une correction fonctionnelle de sécurité, pas une refacto.
