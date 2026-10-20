@@ -6,13 +6,14 @@ Seules les ADR au statut **Acceptée** font foi (règle de l'ADR-005, §2). Un t
 |---|---|---|---|---|
 | [ADR-001](ADR-001-isolation-multi-tenant.md) | Stratégie d'isolation multi-tenant | Acceptée | Amalraj Soupramanien | 20/10/2026 |
 | ADR-002 | Architecture cible (monolithe modulaire hexagonal) | En cours d'amendement (ticket 2-470) | Antoine Blumenroeder | — |
-| [ADR-003](ADR-003-ocr-soumission-notifications.md) | OCR / IA, fiabilité de la soumission et notifications | Acceptée (choix d'API sous réserve de l'ADR-004) | Jacques Dai | 20/10/2026 |
-| ADR-004 | Contrat d'API, format d'erreur et versioning | À rédiger (ticket 2-391) | Amiel Fabreguettes | — |
+| [ADR-003](ADR-003-ocr-soumission-notifications.md) | OCR / IA, fiabilité de la soumission et notifications | Acceptée (choix d'API alignés sur l'ADR-004, OCR asynchrone planifié) | Jacques Dai | 20/10/2026 |
+| [ADR-004](ADR-004-contrat-api.md) | Contrat d'API, format d'erreur et versioning | Proposée (validation du PO attendue, ticket 2-391) | Amiel Fabreguettes | — |
 | [ADR-005](ADR-005-harnais-de-validation.md) | Harnais de validation : tests, CI et garde-fous | Acceptée (points ouverts listés) | Stanislas Beguin | 20/10/2026 |
 
 Décisions transverses du PO (20/10/2026) :
 
-- **401** sans session, **403** si le rôle est refusé (PR #8). À reprendre dans l'ADR-004.
+- **401** sans session, **403** si le rôle est refusé (PR #8). Repris dans l'ADR-004 §4.
+- **OCR asynchrone** : tâche à faire (2-503), sans attendre un déclencheur de l'ADR-003.
 - **S7** : la règle « le premier inscrit d'un domaine devient RH » est une **faille corrigée** : rejoindre une entreprise passe par une invitation de la RH, avec vérification d'email (ADR-001, §3 ; ticket 2-496).
 - Ordre de la refacto : correctifs de sécurité d'abord, puis helpers communs de l'ADR-002.
 

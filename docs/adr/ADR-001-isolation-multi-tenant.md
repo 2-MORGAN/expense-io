@@ -185,7 +185,7 @@ ISO-07 vérifie les policies, que `E2E.md` classe aujourd'hui comme non testable
 |---|---|---|---|
 | AUTH-10 | S9 | Manager rétrogradé en base → requête suivante sur une route manager ; variante : compte supprimé ; expiration du cookie | **403** pour le manager rétrogradé (session valide, rôle refusé : règle 401/403 appliquée par la PR #8) ; **401** pour le compte supprimé ; sans reconnexion ; cookie ≤ 8 h d'inactivité |
 | AUTH-11 | Tentatives | Échecs répétés sur un compte | Message dédié sur `/login` ; 429 sur `/api/auth/callback/credentials` ; fin du délai testée ; un autre compte se connecte normalement |
-| ERR-01 | S6 | Provoquer une erreur 500 (date de note invalide, B7) | Ni `stack` ni message interne ; identifiant de corrélation présent |
+| ERR-01 | S6 | Provoquer une erreur 500 par une panne injectée (exception forcée côté serveur en environnement de test). Une date invalide renvoie désormais 400 (ADR-004, B7) | Ni `stack` ni message interne ; identifiant de corrélation présent |
 | NDF-13 | S1 | `?sort=length(description)` | Valeur hors liste blanche ignorée, tri par défaut, 200 |
 | CONF-01 | S5 | Démarrage avec un secret absent ou égal à la valeur d'exemple | Refus en production (script ou CI) |
 | — | Atomicité | Panne injectée sur l'`INSERT` de l'utilisateur à l'inscription | Aucune entreprise sans RH (test d'intégration, ADR-005) |

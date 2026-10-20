@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Acceptée** le 20 octobre 2026 par le PO (Florent). Les choix de contrat d'API (`/v1`, `503`, format d'erreur, `Idempotency-Key`) restent à confirmer par l'ADR-004 |
+| Statut | **Acceptée** le 20 octobre 2026 par le PO (Florent). Choix de contrat d'API alignés sur l'ADR-004 le 20/10 : pas de `/v1`, `503` + `Retry-After`, format RFC 9457, `Idempotency-Key` facultatif. **OCR asynchrone planifié par le PO le 20/10** (2-503) |
 | Date | 14 octobre 2026 |
 | Auteur | Jacques Dai (WS3 Async) |
 | Issue | [2-387](https://linear.app/2-morgan/issue/2-387) |
@@ -11,14 +11,14 @@
 
 ## Décision en bref
 
-1. **OCR : on borne, on ne passe pas en asynchrone maintenant.** Plafonds sur les octets (10 Mio), les pixels (40 Mpx, réduction à 2 500 px), la concurrence (2 par instance) et la durée (15 s).
-2. **Asynchrone au premier déclencheur atteint** : arrivée de l'IA appelant une API externe, p95 OCR > 3 s, saturation > 1 % ou hébergement à durée de requête limitée. Contrat `202` + polling écrit dès maintenant, file dans PostgreSQL.
+1. **OCR : on borne d'abord** (l'asynchrone suit, point 2). Plafonds sur les octets (10 Mio), les pixels (40 Mpx, réduction à 2 500 px), la concurrence (2 par instance) et la durée (15 s).
+2. **Asynchrone : tâche planifiée** (décision du PO du 20/10, ticket 2-503), après les bornes du point 1 et le worker du point 5. Contrat `202` + polling, file dans PostgreSQL. Les déclencheurs de la section 2 restent la justification et servent à prioriser si le temps manque.
 3. **Soumission : upload d'abord, puis une seule transaction SQL.** Pas de statut intermédiaire. Nettoyage unique des notes sans reçu, réconciliation quotidienne des objets orphelins.
 4. **Doublons : en-tête `Idempotency-Key`**, généré par le formulaire, unique par utilisateur, avec empreinte de la requête.
 5. **Notifications : outbox transactionnelle + un worker.** Deux événements (note soumise → approbateur, note tranchée → soumetteur), par email via `NotificationPort`, livraison au moins une fois, DLQ après 5 essais. L'envoi a lieu après le commit et ne peut pas annuler une décision.
 6. **B11 : oui, on distingue.** « Rien trouvé » et « type non pris en charge » restent `200 {}` (figés par les E2E), une panne, un timeout ou une saturation deviennent `503` + `Retry-After`.
 
-Un seul mécanisme asynchrone pour tout le produit : la table `outbox_events` de PostgreSQL, consommée par un worker. Il sert aux notifications dès maintenant, puis à l'OCR et à l'IA quand le déclencheur du point 2 sera atteint. C'est notre réponse à « unifier les protocoles d'échanges asynchrones ».
+Un seul mécanisme asynchrone pour tout le produit : la table `outbox_events` de PostgreSQL, consommée par un worker. Il sert aux notifications, puis à l'OCR (2-503) et plus tard à l'IA. C'est notre réponse à « unifier les protocoles d'échanges asynchrones ».
 
 ## Contexte
 
@@ -73,6 +73,8 @@ Un seul mécanisme asynchrone pour tout le produit : la table `outbox_events` de
 
 ## 2. Quand passer en asynchrone, et avec quel contrat ?
 
+> **Mise à jour du 20/10 (PO)** : on n'attend pas qu'un déclencheur soit atteint, le passage à l'asynchrone est planifié (2-503), après 2-475 (bornes) et le worker de 2-484. Les bornes de la section 1 restent livrées en premier : elles protègent aussi la route synchrone conservée. Les déclencheurs ci-dessous restent la justification du choix.
+
 **Déclencheurs, le premier atteint suffit :**
 
 1. **Arrivée de l'IA** (catégorisation par une API externe type OpenAI) : asynchrone **dès le premier jour**. Latence réseau, quotas et retries ne doivent jamais tenir une requête HTTP. C'est exactement l'incident du scénario 3.
@@ -80,14 +82,14 @@ Un seul mécanisme asynchrone pour tout le produit : la table `outbox_events` de
 3. **Hébergement à durée de requête limitée** (serverless type Vercel) ou **plusieurs instances** : le sémaphore local ne borne plus rien.
 4. **OCR à la soumission** (extraction automatique sur la note envoyée, plus seulement une aide au remplissage).
 
-**Contrat à figer dès maintenant** (contract first, dans l'OpenAPI d'ADR-004) :
+**Contrat** (contract first, dans l'OpenAPI de l'ADR-004 §8.3, sans préfixe de version) :
 
 ```http
-POST /api/v1/receipt-analyses          (multipart: receipt ; en-tête Idempotency-Key)
-→ 202 Accepted   Location: /api/v1/receipt-analyses/{id}
+POST /api/receipt-analyses             (multipart: receipt ; en-tête Idempotency-Key)
+→ 202 Accepted   Location: /api/receipt-analyses/{id}
   { "id": "…", "status": "queued" }
 
-GET /api/v1/receipt-analyses/{id}
+GET /api/receipt-analyses/{id}
 → 200 { "id": "…", "status": "queued|running|succeeded|failed",
         "result": { "amount": 42.5, "expenseDate": "2026-10-11", "category": "…" },
         "error": { … problem+json … } }
@@ -97,7 +99,7 @@ GET /api/v1/receipt-analyses/{id}
 - Transport : **la table d'outbox du point 5** (`SELECT … FOR UPDATE SKIP LOCKED`), pas de broker tant que le volume ne le justifie pas. Le port `JobQueue` permet de passer à SQS ou RabbitMQ sans toucher au métier.
 - Trois essais avec backoff, puis DLQ (statut `dead`, consultable) ; par exemple une image qui n'est pas un ticket.
 - Polling plutôt que webhook : le client est un navigateur.
-- **Compatibilité E2E** : la route synchrone actuelle reste en v1. Le bouton « Pré-remplir » passe au polling sans changer de libellé ni de messages, donc OCR-05 à 08 restent verts. OCR-01 à 03 visent l'ancienne route, conservée jusqu'à une version majeure (règle de versioning d'ADR-004).
+- **Compatibilité E2E** : la route synchrone actuelle reste disponible, sans changement. Le bouton « Pré-remplir » passe au polling sans changer de libellé ni de messages, donc OCR-05 à 08 restent verts. OCR-01 à 03 visent l'ancienne route ; son retrait éventuel suit la règle de dépréciation de l'ADR-004 §7.1.
 
 ## 3. Création de note fiable
 
@@ -139,7 +141,7 @@ GET /api/v1/receipt-analyses/{id}
 - **Empreinte** = `sha256(amount | expenseDate | description | sha256(reçu))`.
 - **Portée par utilisateur** : pas de collision ni de fuite entre tenants.
 - **Rétention** : la clé vit sur la note, donc ni TTL ni table dédiée.
-- **Sans en-tête** : comportement actuel, sans déduplication. Les E2E et les clients API existants ne changent pas ; la clé deviendra obligatoire en v2 (ADR-004).
+- **Sans en-tête** : comportement actuel, sans déduplication. Les E2E et les clients API existants ne changent pas ; la clé ne devient pas obligatoire sans décision de rupture explicite (ADR-004 §8.2).
 - **Pourquoi pas une déduplication sur le contenu** : deux taxis au même prix le même jour sont légitimes. Seule une clé exprime l'intention « c'est le même envoi ».
 - **Décisions approve/reject** : idempotence naturelle par `UPDATE … WHERE status = 'pending'`. Une seconde décision ne touche aucune ligne, renvoie 409 et n'émet **aucun** événement. Cela règle aussi B8 ; à porter dans l'unification approve/reject de WS2.
 
@@ -222,9 +224,11 @@ Ordre : l'intégrité d'abord (T2 → T4), puis la charge (T1), puis les notific
 | T6 | Table `outbox_events` + worker (retries, backoff, DLQ) | A6 | 1,5 j | P1 | 2-484 |
 | T7 | Événements `submitted` / `decided`, destinataires, adaptateur SMTP + Mailpit ; décision `WHERE status = 'pending'` | A6, B8 | 1 j | P1 | 2-484 |
 
-L'**adaptateur SMTP + Mailpit** est livré en premier (étape 1 de 2-484, ≤ 23/10) : il sert aussi aux invitations de l'ADR-001 (S7) et n'est pas concerné par l'abandon éventuel des notifications le 25/10.
 | T8 | Tests : intégration avec pannes, nouveaux E2E API, retrait du harnais d'audit | Q4 | 1 j | — | dans chaque ticket |
 | T9 | Observabilité : `outcome` OCR, métriques d'outbox (avec WS5) | Q5 | 0,5 j | P2 | non planifié |
+| T10 | OCR asynchrone : lancement `202`, suivi, traitement par le worker, bouton en polling (décision du PO du 20/10) | A4 | — | P2 | 2-503 |
+
+L'**adaptateur SMTP + Mailpit** est livré en premier (étape 1 de 2-484, ≤ 23/10) : il sert aussi aux invitations de l'ADR-001 (S7) et n'est pas concerné par l'abandon éventuel des notifications le 25/10. T10 dépend du worker de T6 : si les notifications sont abandonnées le 25/10, le worker reste à livrer pour T10.
 
 **Total ≈ 8 jours-personne**, dans la fourchette de l'audit (A5 2–4 j, A4 0,5–1 j pour les bornes, A6 2–4 j avec livraison fiable).
 
@@ -242,7 +246,7 @@ L'**adaptateur SMTP + Mailpit** est livré en premier (étape 1 de 2-484, ≤ 23
   - le sémaphore OCR n'est pas global ;
   - livraison au moins une fois, donc un doublon d'email reste possible.
 - **Réexaminer cette ADR si** :
-  - un déclencheur du point 2 est atteint ;
+  - l'IA externe arrive (asynchrone obligatoire dès le premier jour) ;
   - le volume de l'outbox dépasse ce qu'un polling PostgreSQL absorbe (lag > 1 min soutenu) : passer à un broker derrière le même port ;
   - l'international impose plusieurs régions : l'outbox reste locale à la base du tenant, à revoir avec CAP.
 
