@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Proposée** — arbitrages retenus avec Amiel le 20/10/2026 ; validation de Florent attendue. Mise à jour du PO le 20/10 : voir l'encadré ci-dessous |
+| Statut | **Acceptée** le 20 octobre 2026 par le PO (Florent), avec les décisions de l'encadré ci-dessous |
 | Auteur | Amiel Fabreguettes (WS4 API) |
 | Date | 20 octobre 2026 |
 | Ticket | [2-391](https://linear.app/2-morgan/issue/2-391) |
@@ -15,6 +15,7 @@
 > - **L'OCR asynchrone devient une tâche à faire** ([2-503](https://linear.app/2-morgan/issue/2-503)), au lieu d'attendre un déclencheur de l'ADR-003. Le contrat de la section 8.3 n'est donc plus seulement prospectif : il sera ajouté à l'OpenAPI avec la livraison de ses handlers. La route synchrone reste disponible (OCR-01 à 08 inchangés).
 > - **Pas de pagination** : les quatre listes restent complètes (section 7.2). Le volume d'un tenant ne le justifie pas aujourd'hui ; aucun test ni écran ne change.
 > - **Anglais canonique confirmé** (section 3.2) : l'API répond en anglais avec des codes stables, le front traduit, pour les utilisateurs internationaux.
+> - **Génération des types confirmée** (section 5) : les types TypeScript sont produits à partir de l'OpenAPI, pas écrits à la main. Les outils sont nommés et justifiés dans 2-486 (section 5.1).
 > - Pas de nouveau ticket : la validation B7 rejoint [2-486](https://linear.app/2-morgan/issue/2-486), la traduction des erreurs par le front rejoint [2-485](https://linear.app/2-morgan/issue/2-485).
 > - Les alignements demandés en section 11 sont faits dans la même PR : ADR-003 sans `/v1` ni « v2 obligatoire », ERR-01 de l'ADR-001 déclenché par une panne injectée et non plus par une date invalide.
 
@@ -116,7 +117,7 @@ Une précision évite une contradiction avec l'ADR-001 : sur `PUT /hr/users/{id}
 
 ### 5.1 Source de vérité et consommateurs
 
-Un document **OpenAPI 3.1**, versionné à la racine sous `openapi.yaml`, décrit le contrat HTTP des 14 opérations : méthodes et chemins, paramètres et tris autorisés, authentification par session/cookie, droits requis, requêtes JSON/multipart, réponses de succès, problèmes et en-têtes. Le protocole interne d'Auth.js reste documenté par sa bibliothèque. Le choix de version mineure OpenAPI et des outils est fixé dans 2-486 selon leur compatibilité ; aucun paquet n'est ajouté par cette ADR.
+Un document **OpenAPI 3.1**, versionné à la racine sous `openapi.yaml`, décrit le contrat HTTP des 14 opérations : méthodes et chemins, paramètres et tris autorisés, authentification par session/cookie, droits requis, requêtes JSON/multipart, réponses de succès, problèmes et en-têtes. Le protocole interne d'Auth.js reste documenté par sa bibliothèque. **Génération retenue par le PO le 20/10.** Les outils sont choisis et justifiés dans la PR de 2-486 (`CLAUDE.md` : pas de dépendance sans justification), en dépendances de développement de préférence. Piste recommandée : `openapi-typescript` pour les types (aucun code à l'exécution) et `ajv` pour valider les entrées, les schémas d'OpenAPI 3.1 étant du JSON Schema. Aucun paquet n'est ajouté par cette ADR elle-même.
 
 Le premier contrat caractérise le comportement réellement déployé, sans transformer une faille en comportement garanti. Les changements de la présente ADR sont identifiés comme cibles jusqu'à leur implémentation. Ensuite, **contract-first** : toute évolution modifie d'abord le contrat examiné en revue, puis le code, les artefacts dérivés et les tests dans la même PR. La version publiée du contrat correspond toujours au code de sa livraison ; une cible ou route future ne se fait pas passer pour une opération déjà disponible.
 

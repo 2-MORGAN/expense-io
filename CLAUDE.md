@@ -72,7 +72,7 @@ Règles de placement pour tout **nouveau** code :
 
 - TypeScript strict, pas de `any`. Alias d'import `@/*` → `src/*`.
 - Le projet utilise des guillemets simples, pas de point-virgule, indentation 2 espaces (suivre le style des fichiers voisins).
-- Code et identifiants en anglais ; messages utilisateur et docs en français.
+- Code et identifiants en anglais ; messages de l'API en anglais avec un `code` stable, traduits par le front (ADR-004) ; interface et docs en français.
 - Montants : `numeric` en base, converti en `number` à la frontière. Dates : chaîne `YYYY-MM-DD` (parser `pg` OID 1082 volontairement brut, ne pas le changer).
 - Un changement = une branche + une PR, relue par un pair. Pas de push direct sur `main`. Petites PR.
 - Toute décision d'architecture structurante → une ADR courte dans `docs/adr/` (contexte, options, décision, conséquences). **Seules les ADR au statut « Acceptée » font foi** : voir l'index [`docs/adr/README.md`](docs/adr/README.md). Un test E2E ne se modifie que si une ADR acceptée décide le changement de comportement (ADR-005 §2).
