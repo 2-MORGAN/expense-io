@@ -8,7 +8,7 @@
 | Ticket | [2-391](https://linear.app/2-morgan/issue/2-391) |
 | Échéance | 21 octobre 2026, selon le commentaire du PO du 19/10 |
 | Code étudié | `main` au commit `29ad82dc1476926b92bf915b1cd016448c8b7871`, PR #8 incluse |
-| Documents de coordination | ADR-001, 003 et 005 consultées au commit `8c958e53ec8b0a43cfed15de9155ab154706a62b` de `docs/adr-001-003-005` ; ADR-002 en cours d'amendement, ticket 2-470 |
+| Documents de coordination | ADR-001, 003 et 005 consultées au commit `8c958e53ec8b0a43cfed15de9155ab154706a62b` de `docs/adr-001-003-005` ; ADR-002 amendée et acceptée le 20/10 (2-470) |
 | Livrable | Ce document dans `docs/adr/`, à déposer dans SharePoint ARLA `Rendu/W2/ADR-004-contrat-api.md` |
 
 > **Mise à jour du 20/10/2026 (décision du PO).**
@@ -279,5 +279,5 @@ Le contrat des analyses asynchrones est documenté avec WS3 ; son implémentatio
 - [ADR-001 — Isolation multi-tenant](ADR-001-isolation-multi-tenant.md).
 - [ADR-003 — OCR, soumission et notifications](ADR-003-ocr-soumission-notifications.md).
 - [ADR-005 — Harnais de validation](ADR-005-harnais-de-validation.md).
-- [ADR-002, ticket 2-383](https://linear.app/2-morgan/issue/2-383), amendement/publication [2-470](https://linear.app/2-morgan/issue/2-470).
+- [ADR-002 — Architecture cible](ADR-002-architecture-cible.md) (tickets [2-383](https://linear.app/2-morgan/issue/2-383) et [2-470](https://linear.app/2-morgan/issue/2-470)).
 - [RFC 9457 — Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457.html) ; [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.1.html).

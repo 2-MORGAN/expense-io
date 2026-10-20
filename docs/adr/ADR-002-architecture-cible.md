@@ -1,6 +1,6 @@
 # ADR-002 — Architecture cible
 
-Statut : **proposée, amendée le 20/10/2026** pour s'aligner sur les ADR-001, 003 et 004 (ticket [2-470](https://linear.app/2-morgan/issue/2-470)). Relecture d'Antoine, puis validation de Florent.
+Statut : **Acceptée** le 20/10/2026 par le PO (Florent), après amendement pour s'aligner sur les ADR-001, 003 et 004 (ticket [2-470](https://linear.app/2-morgan/issue/2-470)). Antoine relit l'amendement dans la PR #9 ; un désaccord donne lieu à un nouvel amendement.
 Date : 2026-10-14, amendée le 2026-10-20. Auteur : Antoine Blumenroeder (WS2). Périmètre : fork `expense-io`, HEAD `4fad1d3`.
 Références : `CLAUDE.md`, [`docs/audit/WS2-A1-A3.md`](../audit/WS2-A1-A3.md), [ADR-001](ADR-001-isolation-multi-tenant.md), [ADR-003](ADR-003-ocr-soumission-notifications.md), [ADR-004](ADR-004-contrat-api.md), [ADR-005](ADR-005-harnais-de-validation.md).
 
@@ -14,7 +14,7 @@ Références : `CLAUDE.md`, [`docs/audit/WS2-A1-A3.md`](../audit/WS2-A1-A3.md), 
 > | Création de note | « Transaction + compensation » | ADR-003 : upload d'abord, puis une seule transaction SQL |
 > | OCR | Appelé par la création de note via `SuggestionPort` | Aide au remplissage seulement, puis asynchrone (ADR-003, 2-503) |
 > | International | Devises et formats | Une instance par région (ADR-001) ; langue canonique de l'API (ADR-004) |
-> | Non-objectifs | Aucun schéma, aucune dépendance | Valent pour ce refacto seul ; les migrations et `sharp` sont décidés par les ADR-001 et 003 |
+> | Non-objectifs | Aucun schéma, aucune dépendance | Une seule migration propre à cette ADR (auteur et date de décision, B16) ; les autres migrations et `sharp` sont décidés par les ADR-001 et 003 |
 >
 > Ajouts : B8 et B16 dans le domaine Validation (§3.2), tickets (§6).
 
@@ -78,7 +78,7 @@ Pas de nouvelle fonctionnalité dans ce refacto : on nomme où ira quoi. Les cha
 - **Expense** (`src/domain/expense/`) : `ExpenseNote`, `Receipt`. Invariants : `amount > 0` avec 2 décimales au plus, description non vide, date `YYYY-MM-DD` valide, reçu vérifié sur son contenu (ADR-004 §6), clé S3 non devinable préfixée par tenant (ADR-001). Cas d'usage : `GET/POST /api/expense-notes` (upload d'abord puis transaction, `Idempotency-Key` : ADR-003), `.../[id]/receipt-url`, suggestion OCR.
 - **Validation** (`src/domain/validation/`) : `Decision`, `WhoCanDecide`. Invariants : seule une note `pending` se décide (`409` sinon) ; manager = ses subordonnés directs, RH = managers racines de son entreprise.
   - **B8, deux décisions simultanées** : la décision s'écrit `UPDATE … WHERE status = 'pending'` ; la seconde ne touche aucune ligne, renvoie 409 et n'émet aucun événement (ADR-003). Porté par 2-488.
-  - **B16, historique des décisions** : hors périmètre du gel. Emplacement prévu : un journal des décisions (qui, quand, quoi) en ajout seul, alimenté par l'événement `note.decided` de l'outbox de l'ADR-003, sans changer les cas d'usage.
+  - **B16, traçabilité des décisions** (décision du PO du 20/10) : chaque note garde **qui l'a tranchée et quand** (`decided_by`, `decided_at`), remplis par le cas d'usage de décision dans la même requête que le statut. Une migration avec `down`, colonnes nulles tant que la note est `pending` ; les notes déjà tranchées restent sans auteur connu. Les réponses JSON actuelles ne changent pas. L'historique complet (toutes les étapes, motif de rejet) reste pour plus tard, alimenté par l'événement `note.decided` de l'outbox de l'ADR-003. Le volet logs de B16 relève de l'ADR-004 (`requestId`) et de l'ADR-005 (T9).
   - Séparé d'Expense car acteurs, cycle de vie et évolutions (seuils, délégation, audit) diffèrent ; la facturation future s'abonne à la décision, pas à la création.
 - **Extensions par ports, sans implémentation nouvelle ici** : `OcrPort` (Tesseract aujourd'hui, appelé depuis le worker quand l'OCR passe en asynchrone, 2-503) ; `BillingPort` alimenté par l'événement `note.approved`, jamais appelé en direct par la décision.
 - **International** : c'est d'abord un sujet de déploiement et de cohérence (cours 2, étape 4, CAP). Décision de l'ADR-001 : **une instance (application + base) par région**, une entreprise a une seule région d'attache, aucune base répliquée entre régions. L'architecture B le permet sans changement : le monolithe se déploie à l'identique par région et l'outbox reste locale à sa base. Côté contrat, l'API répond en anglais avec des codes stables et le front traduit (ADR-004). Les devises demandent une décision métier distincte (ADR-004 §6) : rien n'est prévu dans le schéma ici.
@@ -121,7 +121,7 @@ worker (outbox) ───────────┴→ cas d'usage → domain/ 
 migrations/ en dessous, transverse.
 ```
 
-Exemple : `POST manager/.../[id]/approve` devient `requireRole('manager')` puis `decideExpenseNote({ id, decision: 'approved', actor })`. Le cas d'usage charge la note via le repository (404 si non visible), applique `WhoCanDecide` et la transition, écrit avec `WHERE status = 'pending'` (409 sinon) et enregistre l'événement `note.decided` dans l'outbox. La réponse suit le format et les codes de l'ADR-004.
+Exemple : `POST manager/.../[id]/approve` devient `requireRole('manager')` puis `decideExpenseNote({ id, decision: 'approved', actor })`. Le cas d'usage charge la note via le repository (404 si non visible), applique `WhoCanDecide` et la transition, écrit statut, auteur et date avec `WHERE status = 'pending'` (409 sinon) et enregistre l'événement `note.decided` dans l'outbox. La réponse suit le format et les codes de l'ADR-004.
 
 ## 5. Et la suite, sans l'implémenter
 
@@ -138,7 +138,7 @@ Ordre : **correctifs de sécurité d'abord** (2-471, décision du PO), puis les 
 | Étape | Contenu | Ticket | Dépend de |
 |---|---|---|---|
 | 1. Helpers communs | `requireRole()` (401/403), sérialiseur unique de note, décision approve/reject unique pour manager et RH ; aucun changement visible | [2-487](https://linear.app/2-morgan/issue/2-487) | 2-471, cette ADR ; types du contrat de 2-486 si disponibles |
-| 2. Hexagone sur « valider une note » | cas d'usage `decideExpenseNote`, `WhoCanDecide`, repository, B8, tests unitaires ; puis généralisation et lint interdisant SQL, `lib/storage` et `lib/ocr` dans `route.ts` | [2-488](https://linear.app/2-morgan/issue/2-488) | 2-487, Vitest et lint d'architecture (2-489) |
+| 2. Hexagone sur « valider une note » | cas d'usage `decideExpenseNote`, `WhoCanDecide`, repository, B8, B16 (auteur et date de décision), tests unitaires ; puis généralisation et lint interdisant SQL, `lib/storage` et `lib/ocr` dans `route.ts` | [2-488](https://linear.app/2-morgan/issue/2-488) | 2-487, Vitest et lint d'architecture (2-489) |
 
 Hors de ce plan, décidés ailleurs : isolation et invitations (ADR-001 : 2-471, 2-478, 2-496, 2-481), soumission fiable, OCR et notifications (ADR-003 : 2-475, 2-476, 2-484, 2-503), erreurs et contrat (ADR-004 : 2-485, 2-486).
 
@@ -147,4 +147,4 @@ Hors de ce plan, décidés ailleurs : isolation et invitations (ADR-001 : 2-471,
 - Positif : droits en un seul endroit, règles testables sans infrastructure, S3/OCR/notifications substituables, suite absorbable sans réécriture.
 - Négatif : discipline d'imports à tenir en revue et par le lint, quelques PR de migration avant le gain complet.
 - Risques : disperser la logique en multipliant les micro-domaines (on s'en tient aux 3 cœurs) ; réintroduire du SQL en route sous pression (le lint bloque) ; conflits avec les correctifs de sécurité dans les mêmes routes (d'où l'ordre du §6).
-- Non-objectifs de ce refacto : aucune fonctionnalité de facturation, d'IA ou de devise ; pas de changement de schéma propre à cette ADR.
+- Non-objectifs de ce refacto : aucune fonctionnalité de facturation, d'IA ou de devise ; un seul changement de schéma propre à cette ADR (B16).
