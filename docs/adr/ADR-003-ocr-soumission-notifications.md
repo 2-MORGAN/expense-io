@@ -57,7 +57,7 @@ Un seul mécanisme asynchrone pour tout le produit : la table `outbox_events` de
 | Borne | Valeur | Mécanisme | Réponse au-delà |
 |---|---|---|---|
 | Octets | **10 Mio** | Même constante que la création (`MAX_RECEIPT_BYTES`, à partager) | 400 « Fichier trop volumineux » (même message que NDF-10) |
-| Pixels | **40 Mpx** en entrée | `sharp(buf, { limitInputPixels: 40e6 }).metadata()` lit l'en-tête sans décoder | 400 « Image trop grande » |
+| Pixels | **40 Mpx** en entrée | `sharp(buf, { limitInputPixels: 40e6 }).metadata()` lit l'en-tête sans décoder | 400 `IMAGE_TOO_LARGE` (ADR-004) ; texte affiché par le front : « Image trop grande » |
 | Coût OCR | côté long ramené à **2 500 px** (`withoutEnlargement`) | `sharp().resize()` avant Tesseract. Une photo de téléphone de 12 Mpx passe, mais coûte comme une petite image | n/a |
 | Concurrence | **2 OCR simultanés par instance**, 8 en attente (`OCR_MAX_CONCURRENCY`) | sémaphore en mémoire | 503 + `Retry-After: 5` |
 | Durée | **15 s** attente comprise | `Promise.race` puis `worker.terminate()` | 503 + `Retry-After: 5` |

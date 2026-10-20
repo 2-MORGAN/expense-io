@@ -241,7 +241,7 @@ Tickets Linear (jalon J4, regroupés le 20/10) : T0 ✅ PR #4 · T1 ✅ PR #5 ·
 
 ## Points ouverts (à trancher par Florent)
 
-1. Hypothèse sur l'ADR-004 : contrat OpenAPI versionné et erreurs `problem+json`. Si l'ADR-004 retient autre chose, la §1 « Contrat » et le ticket T10 suivent.
+1. ~~Hypothèse sur l'ADR-004~~ : **confirmée par l'ADR-004** (proposée le 20/10) : contrat OpenAPI 3.1 versionné dans le dépôt, erreurs RFC 9457 avec le champ `error` conservé pendant la transition. La §1 « Contrat » et T10 s'appliquent tels quels.
 2. Responsables du harnais dans `CODEOWNERS` : Stanislas et Florent, l'un ou l'autre suffisant pour approuver.
 3. Permission de base de l'organisation : la passer de `admin` à `write`, en gardant deux admins, pour que le ruleset ne soit plus modifiable par tous.
 4. **Urgent.** Budget Actions de l'organisation : accepter de le relever temporairement si nos workflows se trouvaient bloqués une fois le budget épuisé, ce qui devrait arriver vers le 25 octobre, avant le gel.
