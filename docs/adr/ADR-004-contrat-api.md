@@ -13,6 +13,9 @@
 
 > **Mise à jour du 20/10/2026 (décision du PO).**
 > - **L'OCR asynchrone devient une tâche à faire** ([2-503](https://linear.app/2-morgan/issue/2-503)), au lieu d'attendre un déclencheur de l'ADR-003. Le contrat de la section 8.3 n'est donc plus seulement prospectif : il sera ajouté à l'OpenAPI avec la livraison de ses handlers. La route synchrone reste disponible (OCR-01 à 08 inchangés).
+> - **Pas de pagination** : les quatre listes restent complètes (section 7.2). Le volume d'un tenant ne le justifie pas aujourd'hui ; aucun test ni écran ne change.
+> - **Anglais canonique confirmé** (section 3.2) : l'API répond en anglais avec des codes stables, le front traduit, pour les utilisateurs internationaux.
+> - Pas de nouveau ticket : la validation B7 rejoint [2-486](https://linear.app/2-morgan/issue/2-486), la traduction des erreurs par le front rejoint [2-485](https://linear.app/2-morgan/issue/2-485).
 > - Les alignements demandés en section 11 sont faits dans la même PR : ADR-003 sans `/v1` ni « v2 obligatoire », ERR-01 de l'ADR-001 déclenché par une panne injectée et non plus par une date invalide.
 
 ## 1. Contexte et périmètre
@@ -37,7 +40,7 @@ Cette ADR décide du contrat HTTP. Les corrections de sécurité B1 à B6 et B12
 | Contrat | Documentation issue des handlers ; OpenAPI défini en premier | **Contract-first**, pour rendre les changements explicites avant implémentation et dériver les artefacts d'une référence commune |
 | Entrées | Validation locale dans chaque handler ; schémas dérivés et contrôles partagés | **Schémas dérivés du contrat**, complétés par les contrôles de calendrier et de contenu de fichier ; moins de règles indépendantes à maintenir |
 | Versioning | Ajouter `/v1` partout ; conserver les URL et formaliser la compatibilité | **URL actuelles**, tant qu'aucun besoin de contrats incompatibles simultanés ne justifie un nouveau préfixe |
-| Listes | Listes exhaustives ; pagination par décalage ; pagination par curseur | **Curseur**, avec ordre déterministe : traiter une note retire une ligne de la liste d'approbation et peut décaler les pages suivantes |
+| Listes | Listes exhaustives ; pagination par décalage ; pagination par curseur | **Listes exhaustives** (décision du PO du 20/10) : le volume par entreprise ne justifie pas une navigation paginée. Le curseur reste l'option à retenir si le besoin apparaît |
 
 ## 3. Décision : erreurs communes
 
@@ -69,7 +72,7 @@ Catalogue initial à formaliser dans le contrat :
 
 | Statut | Codes applicatifs |
 |---|---|
-| 400 | `INVALID_JSON`, `VALIDATION_ERROR`, `INVALID_CURSOR`, `RECEIPT_TOO_LARGE`, `RECEIPT_TYPE_NOT_ALLOWED`, `IMAGE_TOO_LARGE`, `INVALID_IDEMPOTENCY_KEY` |
+| 400 | `INVALID_JSON`, `VALIDATION_ERROR`, `RECEIPT_TOO_LARGE`, `RECEIPT_TYPE_NOT_ALLOWED`, `IMAGE_TOO_LARGE`, `INVALID_IDEMPOTENCY_KEY` |
 | 401 | `AUTHENTICATION_REQUIRED` |
 | 403 | `FORBIDDEN` |
 | 404 | `RESOURCE_NOT_FOUND` |
@@ -156,7 +159,7 @@ Le plafond doit aussi être appliqué sur le flux reçu, avant le buffering comp
 
 Pour l'international, la locale ne change ni les montants transmis avec point décimal ni les dates civiles ISO. Le front adapte la saisie et l'affichage. **Le modèle actuel ne possède pas de devise** : le multi-devise, les règles de change et les précisions monétaires différentes demandent une décision métier et une évolution de contrat ; ils ne sont pas considérés comme livrés par cette ADR.
 
-## 7. Décision : compatibilité, dépréciation et pagination
+## 7. Décision : compatibilité, dépréciation et listes
 
 ### 7.1 Compatibilité et versioning
 
@@ -167,24 +170,13 @@ Les URL actuelles sont conservées, **sans `/v1` ajouté maintenant**. Une nouve
 - Un élément déprécié est signalé dans OpenAPI, avec son remplacement et la livraison de retrait annoncée **au moins une livraison à l'avance**. Le retrait n'intervient qu'après migration des consommateurs connus. Si cette migration ne peut pas être simultanée, les contrats coexistent.
 - `info.version` trace le contrat avec des versions majeures pour les ruptures, mineures pour les ajouts compatibles et correctives pour les corrections documentaires sans effet HTTP. Cela n'ajoute aucun préfixe d'URL et ne se confond pas avec la version du package npm.
 
-### 7.2 Quatre listes bornées
+### 7.2 Listes : pas de pagination
 
-Les quatre listes deviennent paginées par **curseur**, avec `limit=50` par défaut et un maximum de **100**. `limit` est un entier de 1 à 100 ; une valeur invalide donne 400. Ces bornes initiales seront ajustées selon les mesures, avec analyse de compatibilité.
+**Décision du PO du 20/10 : les quatre listes restent complètes**, sans paramètre `limit` ni en-tête `Link`. Le volume d'une entreprise (quelques dizaines de notes et d'utilisateurs) ne justifie pas la migration du front et le changement de sens des listes. Aucun test E2E ne change.
 
-| Opération | Ordre déterministe |
-|---|---|
-| GET `/api/expense-notes` | Ordre actuel par défaut `created_at DESC, id DESC` ; tris explicites autorisés conservés avec `id` comme départage |
-| GET `/api/manager/expense-notes` | `created_at ASC, id ASC` |
-| GET `/api/hr/expense-notes` | `created_at ASC, id ASC` |
-| GET `/api/hr/users` | `name ASC, id ASC` |
+Le `sort` ne devient jamais un fragment SQL fourni par le client : la liste blanche est le correctif B1 de l'ADR-001. Les usages légitimes `amount ASC` et `amount DESC` de NDF-12 restent décrits dans le contrat, avec un départage par `id` pour un ordre stable.
 
-Le `sort` ne devient jamais un fragment SQL fourni par le client : la liste blanche est le correctif B1 de l'ADR-001. Les usages légitimes `amount ASC` et `amount DESC` de NDF-12 restent décrits. Le curseur encode une position et le contexte du tri/des filtres ; il ne dépend pas du fait que la dernière ligne soit encore présente. Il est opaque, validé, et n'accorde aucun droit. Un curseur malformé ou incompatible avec la requête donne 400 `INVALID_CURSOR`. Le scope utilisateur/entreprise et les permissions sont réappliqués à chaque page.
-
-Le corps reste un **tableau JSON**. L'en-tête HTTP `Link` contient l'URL complète de la page suivante avec `rel="next"`, ou est absent sur la dernière page. Il conserve les paramètres nécessaires ; aucun nombre total n'est promis par le protocole de pagination. Une liste vide reste `[]`.
-
-Le curseur évite les sauts dus au décalage de lignes lorsqu'une décision retire une note des listes pending. **Il ne fournit pas un snapshot transactionnel entre requêtes** : une modification d'une clé de tri ou l'arrivée de nouveaux éléments peut nécessiter de recharger la liste. Le front déduplique par identifiant et recharge après mutation. Les tests vérifient les garanties sur un jeu stable et la poursuite de lecture après retrait d'une note ; ils n'affirment pas une stabilité absolue sous toute modification concurrente.
-
-La limite par défaut transforme une liste exhaustive en première page : **c'est un changement incompatible de sens**, même avec le tableau conservé. Serveur et front migrent dans la même livraison. Les pages permettent de charger la suite, l'annuaire et les choix de manager peuvent accéder aux utilisateurs des pages suivantes. Les compteurs et totaux ne doivent pas présenter les seules lignes chargées comme un total exhaustif : ils doivent parcourir les pages ou indiquer explicitement leur portée. Les tests E2E et la revue valident ce point.
+**Réouverture** si une liste dépasse quelques centaines d'éléments pour un tenant ou si la charge des listes devient mesurable (B10). On retiendrait alors la pagination par curseur (un décalage fait sauter des lignes quand une décision retire une note de la liste d'approbation) ; c'est un changement incompatible, à décider par une nouvelle ADR.
 
 ## 8. Coordination ADR-003 : disponibilité, idempotence et futur asynchrone
 
@@ -241,7 +233,7 @@ Le tableau distingue le comportement d'origine audité de l'état présent et de
 | Montant/date/UUID/JSON et `managerId` | Parsing partiel, dates/UUID donnant parfois 500, JSON invalide/absent détachant avec 200 → 400 sans mutation | B7. Conserver NDF-08 et ORG-06 ; ajouter cas stricts de montant, calendrier, UUID, JSON et absence/null |
 | Reçus | MIME déclaré et fichier vide acceptés → contenu vérifié, vide refusé ; plafond création 10 Mio et code 400 conservés | B7, ADR-003. Adapter les fixtures de NDF-07 et RECU-03 : elles sont actuellement des PNG réétiquetés JPEG/WebP/PDF. Fournir de vrais formats, conserver les objectifs de succès et ajouter les cas falsifiés. Rejouer NDF-03/05/07/09/10 et RECU-01 à 07 |
 | OCR | Panne/timeout/saturation → 200 `{}` ; après → 503 et `Retry-After`. PDF valide/rien reconnu → 200 `{}` inchangé | B10/B11, ADR-003. Conserver OCR-01 à 08 ; ajouter tests taille/pixels/panne/timeout/saturation et absence d'effet de bord |
-| Quatre listes | Réponse exhaustive → 50 éléments par défaut, maximum 100, tableau et tris légitimes conservés, page suivante via `Link` | B10, borner charge et volume. Rejouer NDF-01/04/11/12, MGR-01/02/06, RH-01/02/05, ORG-01/05 et ISO-01 à 03 ; ajouter plusieurs pages, égalités de tri, curseur invalide, suppression d'une note pending et utilisateurs hors première page. Préserver l'exactitude des compteurs/totaux |
+| Quatre listes | Inchangées : réponses complètes, tris légitimes conservés (décision du PO, pas de pagination) | NDF-01/04/11/12, MGR-01/02/06, RH-01/02/05, ORG-01/05 inchangés |
 | Création avec clé | Clé ignorée, doublons possibles → rejeu identique 201/même note, contenu différent 422, sans clé inchangé | B9, ADR-003. Conserver NDF-06 et FLOW-01 ; ajouter tests d'idempotence et de concurrence |
 | OCR asynchrone (2-503) | Aucune route de suivi → contrat 202 + Location puis consultation 200 | Décision du PO du 20/10. Ajouté au contrat avec ses handlers ; OCR synchrone conservé, OCR-01 à 08 inchangés ; ajouter lancement + suivi et invisibilité d'une analyse étrangère |
 
@@ -253,24 +245,22 @@ La rédaction de cette ADR ne modifie ni l'application, ni les E2E, ni le contra
 2. **Erreurs** : tests de l'erreur attendue, de l'exception synchrone, du rejet asynchrone et du mapping d'infrastructure ; statut réel égal à `status`, absence de fuite technique, `requestId` corrélable. Valider les réponses de la suite API contre le contrat via `e2e/support/api.ts` (ADR-005).
 3. **Entrées** : bornes et précision du montant, dates invalides/bissextiles, UUID, JSON, absent/null, fichiers vides/falsifiés et limites ; aucune mutation/upload sur rejet structurel.
 4. **Permissions** : ACL/ISO sous les conditions de l'ADR-001, rôle relu en base, ressource étrangère/inconnue indistinguable ; tests de domaine indépendants des types générés.
-5. **Pagination** : respect des limites, parcours complet sans doublon sur jeu stable, continuation après retrait de la ligne précédente, tri, curseurs invalides et isolation à chaque page ; parcours UI au-delà de 50 éléments.
-6. **Disponibilité/idempotence** : pannes injectées, `Retry-After`, même note lors des replays et appels concurrents, aucune création supplémentaire ni nouvel upload/événement.
-7. **Non-régression** : suite E2E complète ; changements d'attendus uniquement après acceptation par Florent, dans la même PR que l'implémentation avec un commit de tests distinct et la revue prévue par l'ADR-005.
+5. **Disponibilité/idempotence** : pannes injectées, `Retry-After`, même note lors des replays et appels concurrents, aucune création supplémentaire ni nouvel upload/événement.
+6. **Non-régression** : suite E2E complète ; changements d'attendus uniquement après acceptation par Florent, dans la même PR que l'implémentation avec un commit de tests distinct et la revue prévue par l'ADR-005.
 
-Impacts positifs : contrat explicite et exploitable par les agents, erreurs traduisibles et diagnostiquables sans fuite, moins de duplication, charge des listes bornée. Coûts : chaîne de génération et validation à maintenir, traduction front, fixtures réelles, navigation paginée, gestion des curseurs et migration des consommateurs. La pagination ne promet pas un snapshot et la validation de format d'un fichier ne constitue pas une garantie générale d'innocuité du contenu.
+Impacts positifs : contrat explicite et exploitable par les agents, erreurs traduisibles et diagnostiquables sans fuite, moins de duplication. Coûts : chaîne de génération et validation à maintenir, traduction front, fixtures réelles. Les listes restent non bornées (risque B10 accepté, voir 7.2). La validation de format d'un fichier ne constitue pas une garantie générale d'innocuité du contenu.
 
 ## 11. Correctifs et tickets
 
-**Liste de travaux à créer ou rattacher après validation ; aucun ticket n'est créé par ce document.** Les tickets 2-392 et 2-393 sont annulés dans Linear et ne doivent pas être réactivés comme doublons des tickets regroupés.
+**Travaux rattachés aux tickets existants (aucun nouveau ticket, décision du PO du 20/10), plus 2-503 pour l'OCR asynchrone.** Les tickets 2-392 et 2-393 sont annulés dans Linear et ne doivent pas être réactivés comme doublons des tickets regroupés.
 
 | Travail / critère de fin | Ticket existant ou à créer | Coordination / ordre |
 |---|---|---|
 | Contrat des 14 opérations, schémas communs, types/validateurs dérivés, suppression des types HTTP locaux, exemples et politique de compatibilité | [2-486](https://linear.app/2-morgan/issue/2-486), périmètre à préciser avec ces artefacts | WS4 ; base avant bascule des réponses et validations |
 | Wrapper, constructeur/catalogue d'erreurs, corrélation, suppression des fuites et prise en charge des rejets asynchrones | [2-485](https://linear.app/2-morgan/issue/2-485) | WS4 + WS5 T9 (logs ADR-005) ; ne pas dupliquer le logger |
 | Garde session/rôle et sérialiseur de note uniques, sans nouvelle modification du comportement | [2-487](https://linear.app/2-morgan/issue/2-487) | WS2, après correctifs sécurité 2-471 et ADR-002 amendée 2-470 ; intégrer les types de 2-486, ne pas créer une seconde garde dans 2-485 |
-| Validation stricte B7, absence/null, reçus partagés et remplacement des fixtures falsifiées | **À créer : « WS4 — Valider strictement les entrées et les reçus (B7) »** | WS4, dépend de 2-486 et du constructeur de 2-485 ; contrôles OCR partagés avec 2-475 |
-| Lecture front des codes d'erreur, traductions et fallback localisé ; dépréciation de `error` | **À créer : « WS4 — Localiser les erreurs à partir des codes API »** | WS4/front, même livraison que la bascule vers le format commun ; documenter MGR-05 |
-| Pagination des quatre listes, curseurs/Link, parcours des pages dans le front, totaux et sélection de managers | **À créer : « WS4 — Borner les listes avec une pagination par curseur (B10) »** | WS4/front ; dépend de 2-486, livraison serveur/front coordonnée |
+| Validation stricte B7, absence/null, reçus partagés et remplacement des fixtures falsifiées | [2-486](https://linear.app/2-morgan/issue/2-486) (regroupé, décision du PO) | WS4, dépend de 2-486 et du constructeur de 2-485 ; contrôles OCR partagés avec 2-475 |
+| Lecture front des codes d'erreur, traductions et fallback localisé ; dépréciation de `error` | [2-485](https://linear.app/2-morgan/issue/2-485) (regroupé, décision du PO) | WS4/front, même livraison que la bascule vers le format commun ; documenter MGR-05 |
 | Lint OpenAPI, couverture opérations, génération à jour et conformité des réponses API en CI | ADR-005 T10, à rattacher au ticket WS5 correspondant ou créer s'il n'existe pas | WS5 + WS4 ; dépend du contrat, aucune réécriture de scénarios pour simplement suivre les schémas |
 | Bornes OCR et réponses 503/Retry-After | [2-475](https://linear.app/2-morgan/issue/2-475) | Jacques/WS3 ; réutiliser le validateur de reçu et le format commun |
 | Soumission fiable et idempotence facultative | [2-476](https://linear.app/2-morgan/issue/2-476) | Jacques/WS3 ; normalisation, concurrence, compensation et tests |

@@ -1,36 +1,36 @@
 # ADR-002 — Architecture cible
 
-Statut : **proposée — amendement en cours** (ticket [2-470](https://linear.app/2-morgan/issue/2-470), Antoine). Non validée par le PO.
+Statut : **proposée, amendée le 20/10/2026** pour s'aligner sur les ADR-001, 003 et 004 (ticket [2-470](https://linear.app/2-morgan/issue/2-470)). Relecture d'Antoine, puis validation de Florent.
+Date : 2026-10-14, amendée le 2026-10-20. Auteur : Antoine Blumenroeder (WS2). Périmètre : fork `expense-io`, HEAD `4fad1d3`.
+Références : `CLAUDE.md`, [`docs/audit/WS2-A1-A3.md`](../audit/WS2-A1-A3.md), [ADR-001](ADR-001-isolation-multi-tenant.md), [ADR-003](ADR-003-ocr-soumission-notifications.md), [ADR-004](ADR-004-contrat-api.md), [ADR-005](ADR-005-harnais-de-validation.md).
 
-> **Note du PO (20/10/2026), en attendant l'amendement.** Seules les ADR « Acceptée » font foi (ADR-005). Sur les points suivants, ce texte contredit des décisions déjà prises ; **c'est l'autre ADR qui s'applique** :
+> **Ce qui a changé le 20/10.** Cette ADR décide le **style et le découpage du code**. Elle ne redécide plus ce que tranchent les autres ADR et y renvoie :
 >
-> | Ce que dit l'ADR-002 | Ce qui s'applique |
-> |---|---|
-> | « Garder les codes actuels » (§3.3, §4) | 401 sans session, 403 rôle refusé (PR #8) ; 404 pour une ressource non visible ; format d'erreur de l'ADR-004 |
-> | Isolation par `WHERE` manuels, RLS dans un sujet dédié (§6) | ADR-001 : RLS sous un rôle applicatif restreint, en plus des filtres applicatifs (2-478, 2-481) |
-> | Invariant « premier compte d'un domaine → crée l'entreprise et devient `hr_admin` » (§3.2) | Faille S7 : inscription sans invitation = sa propre entreprise, rejoindre = invitation de la RH (ADR-001, 2-496) |
-> | Création de note par « transaction + compensation » (§2, §6) | ADR-003 : upload d'abord, puis une seule transaction SQL (2-476) |
-> | `POST expense-notes` appelle `SuggestionPort` (§5) | La création n'appelle pas l'OCR ; OCR asynchrone par `receipt-analyses` (ADR-003, ADR-004 §8.3, 2-503) |
-> | Non-objectifs : aucun changement de schéma, aucune dépendance (§7) | Valent pour le seul refacto de l'ADR-002 ; les migrations des ADR-001 et 003 et `sharp` en dépendance directe sont décidés ailleurs |
+> | Sujet | Avant l'amendement | Désormais |
+> |---|---|---|
+> | Codes HTTP | « Garder les codes actuels » | 401 sans session, 403 rôle refusé (PR #8), 404 si non visible, format de l'ADR-004 |
+> | Isolation | `WHERE` manuels, RLS dans un sujet dédié | ADR-001 : RLS effective sous un rôle restreint, `WHERE` conservés en défense en profondeur |
+> | Inscription | Invariant « premier compte d'un domaine → RH » | Faille S7 corrigée par invitations (ADR-001, 2-496) |
+> | Création de note | « Transaction + compensation » | ADR-003 : upload d'abord, puis une seule transaction SQL |
+> | OCR | Appelé par la création de note via `SuggestionPort` | Aide au remplissage seulement, puis asynchrone (ADR-003, 2-503) |
+> | International | Devises et formats | Une instance par région (ADR-001) ; langue canonique de l'API (ADR-004) |
+> | Non-objectifs | Aucun schéma, aucune dépendance | Valent pour ce refacto seul ; les migrations et `sharp` sont décidés par les ADR-001 et 003 |
 >
-> Reste à traiter dans l'amendement : l'international au sens du cours (latence, plusieurs régions, renvoi à l'ADR-001), B8 et B16 dans le domaine Validation, et les tickets (2-487, 2-488).
-Date : 2026-10-14. Périmètre : fork `expense-io`, HEAD `4fad1d3`.
-Livrable ticket : ce fichier, à exporter dans SharePoint ARLA `Rendu/W2/`.
-Références : `CLAUDE.md`, `docs/audit/WS2-A1-A3.md`, `migrations/1700000000001_init-schema.sql`.
+> Ajouts : B8 et B16 dans le domaine Validation (§3.2), tickets (§6).
 
 ## 1. Contexte
 
 Les 13 routes métier sous `src/app/api/` mélangent HTTP, droits, SQL et règles métier :
 
-- `auth()` + `401/403` dans 13/13 routes, garde rôle copiée 10 fois sans helper (`manager/...`, `hr/...`).
-- SQL inline dans 12/13 routes via `withUserScope()` / `getPool()`, règle métier inline dans 11/13 (`row.status !== 'pending'` → `409` dans 4 routes decide, `JOIN users ON manager_id` au lieu de `User.canManage()`, `WHERE role='manager' AND manager_id IS NULL` au lieu de `User.isRootManager()`).
-- `toExpenseNote` copié 3 fois, approve/reject manager vs RH à ~90 % identiques, manager approve vs reject à 1 ligne près.
-- `POST /api/expense-notes` (`src/app/api/expense-notes/route.ts:88-106`) fait INSERT (scope) puis `uploadReceipt` puis UPDATE via `getPool()` hors scope : 3 étapes, 2 connexions, 0 transaction commune.
-- Tri concaténé `ORDER BY ${sort}` (`route.ts:46`), `receipt-url` manager sans vérification de rattachement, `PUT hr/users/[id]/manager` (`route.ts:39-42`) sans `company_id` sur le manager, `AUTH_SECRET` en dur (`lib/auth.ts:8`), stacktrace au client (`lib/errors.ts:5`), OCR Tesseract synchrone sans limite de taille (`lib/ocr.ts:109-134`).
+- `auth()` et garde de rôle dans 13/13 routes, garde copiée 10 fois sans helper (`manager/...`, `hr/...`).
+- SQL inline dans 12/13 routes via `withUserScope()` / `getPool()`, règle métier inline dans 11/13 (`row.status !== 'pending'` → `409` dans 4 routes de décision, `JOIN users ON manager_id` au lieu de `User.canManage()`, `WHERE role='manager' AND manager_id IS NULL` au lieu de `User.isRootManager()`).
+- Sérialisation des notes dupliquée (7 constructions du DTO `Note`, audit WS4 Q3), approve/reject manager et RH identiques à ~90 %, manager approve et reject à une ligne près.
+- `POST /api/expense-notes` enchaîne INSERT, upload S3 et UPDATE sur 2 connexions, sans transaction commune (traité par l'ADR-003).
+- Failles relevées au passage (S1 tri concaténé, S2 reçu manager, S3 manager cross-tenant, S5 secret en dur, S6 stacktrace, OCR sans limite) : traitées par les ADR-001, 003 et 004, pas ici.
 
-Pendant ce temps `src/domain/` (74 lignes), `src/ports/` (7 lignes), `src/adapters/` (23 lignes), `src/utils/` (25 lignes) existent mais ne sont jamais importés par les routes : 8 fichiers, 129 lignes mortes, double vérité.
+Pendant ce temps `src/domain/` (74 lignes), `src/ports/` (7), `src/adapters/` (23) et `src/utils/` (25) existent mais ne sont jamais importés : 8 fichiers, 129 lignes mortes, double vérité.
 
-Contraintes absolues : ne pas casser le comportement observable (codes, JSON, parcours UI — les E2E sont rejoués par les correcteurs), petites PR, pas de refacto opportuniste, pas de nouvelle dépendance sans justification.
+Contraintes : ne pas casser le comportement observable hors décisions des ADR acceptées (les E2E sont rejoués par les correcteurs), petites PR, pas de refacto opportuniste.
 
 Question du ticket : quel style, quels domaines, où va quoi, et comment la cible absorbe la suite (IA asynchrone, facturation, international) sans l'implémenter.
 
@@ -38,64 +38,66 @@ Question du ticket : quel style, quels domaines, où va quoi, et comment la cibl
 
 ### Option A — Monolithe nettoyé (helpers + lint, sans hexagone)
 
-Extraire `requireRole()`, `toExpenseNoteRow()`, `decideExpenseNote()`, whitelister `?sort=`, corriger les `WHERE company_id` au fil de l'eau. Ne pas brancher `domain/ports/adapters`.
+Extraire `requireRole()`, `toExpenseNoteDto()`, `decideExpenseNote()`, sans brancher `domain/ports/adapters`.
 
-- Pour : le plus rapide, plus petite diff, zéro courbe d'apprentissage.
-- Contre : ne règle ni la testabilité (règles toujours couplées à PG/S3/Next), ni la substitution (S3, OCR, notif non mockables), ni la suite (file d'attente, billing, devise = nouveau copier-coller). L'hexagone reste mort.
+- Pour : le plus rapide, plus petite diff.
+- Contre : règles toujours couplées à PG/S3/Next, S3/OCR/notifications non substituables, chaque évolution (file d'attente, facturation) redevient un copier-coller. L'hexagone reste mort.
 
 ### Option B — Monolithe modulaire hexagonal léger (retenue)
 
-Garder un seul déploiement Next.js + PG + S3. Brancher l'existant : `route.ts` fine → cas d'usage → `domain/` pur → `ports/` → `adapters/` + `withUserScope()`. Pas de split de tables, pas de nouveau service.
+Un seul déploiement Next.js + PG + S3. Brancher l'existant : `route.ts` fine → cas d'usage → `domain/` pur → `ports/` → `adapters/` + `withUserScope()`. Pas de nouveau service.
 
-- Pour : KISS pour une petite équipe de cours, un seul pipeline, transactions PG conservées (atomicité insert + upload + update compensée), règles testables sans infra, ports mockables, emplacements vides pour la suite sans coder.
-- Contre : demande de la discipline d'imports (à faire respecter par lint + revue), migration en plusieurs PR.
+- Pour : simple pour une petite équipe, un seul pipeline, transactions PG conservées, règles testables sans infra, ports mockables. C'est aussi la forme retenue par l'ADR-001 pour le module de permissions (cours 2, étape 2).
+- Contre : discipline d'imports à tenir (lint + revue), migration en plusieurs PR.
 
 ### Option C — Micro-services (écartée)
 
-Découper par domaine déployable (expense-service, validation-service, identity-service, billing-service), chacun sa base, com synchrone ou events.
+Un service déployable par domaine, chacun sa base.
 
 - Pour : scaling indépendant, frontières fortes.
-- Contre : overkill ici. Distribue une transaction locale (insert + S3 + update) en saga compensée, multiplie l'infra, l'auth, l'isolation tenant (`company_id` à propager partout), la CI et l'observabilité — pour 3 tables et 13 routes. Contredit KISS et « petites PR sans casser les E2E ».
-
-Comparatif résumé :
+- Contre : disproportionné pour 3 tables et 13 routes. Transforme une transaction locale en saga distribuée, multiplie l'auth, l'isolation tenant, la CI et l'observabilité.
 
 | Critère | A nettoyé | B hexagonal léger | C micro-services |
 |---|---|---|---|
-| KISS / équipe cours | oui | oui | non |
-| Test règles sans PG/S3 | non | oui | oui, au prix fort |
-| Substitution S3/OCR/notif | non | oui (ports) | oui |
-| Atomicité multi-étapes | fragile | transaction + compensation locale | saga distribuée |
-| Coût migration E2E-safe | faible | moyen, incrémental | élevé, big-bang |
-| Absorbe IA async / billing / i18n | non | oui, en ports vides | oui |
+| Simplicité pour l'équipe | oui | oui | non |
+| Règles testables sans PG/S3 | non | oui | oui, au prix fort |
+| Substitution S3/OCR/notifications | non | oui (ports) | oui |
+| Opérations multi-étapes | fragile | transaction locale | saga distribuée |
+| Migration sans casser les E2E | facile | incrémentale | big-bang |
+| Absorbe IA async / facturation / international | non | oui, par ports | oui |
 
 ## 3. Décision
 
 ### 3.1 Style : B.
 
-### 3.2 Domaines : 3 cœurs maintenant, 2 extensions en ports vides, 1 transverse.
+### 3.2 Domaines : 3 cœurs, 2 extensions en ports, l'international en déploiement.
 
-Pas de création de tables, pas de nouvelles features. On nomme juste où ira quoi.
+Pas de nouvelle fonctionnalité dans ce refacto : on nomme où ira quoi. Les changements de schéma décidés par d'autres ADR (invitations, idempotence, outbox) se rangent dans ces domaines.
 
-- **Identity & Tenancy** (`src/domain/identity/`) : `Company`, `User`. Invariants : un user = une `company_id`, `manager_id` même entreprise et `!= self`, signup premier compte d'un domaine crée la company et devient `hr_admin`. Use cases actuels : `GET /hr/users`, `PUT /hr/users/[id]/manager`, signup/login.
-- **Expense** (`src/domain/expense/`) : `ExpenseNote`, `Money`, `Receipt`. Invariants : `amount > 0`, description non vide, date `YYYY-MM-DD`, MIME + 10 Mo, clé S3 non devinable préfixée par tenant. Use cases : `GET/POST /api/expense-notes`, `.../[id]/receipt-url` (pré-signée courte après contrôle).
-- **Validation** (`src/domain/validation/`) : `Decision`, `WhoCanDecide`. Invariants : seul `pending` décidable (`409`), manager = son équipe directe, RH = managers racines de sa company. Use cases : 4 approve/reject, 2 listes manager/RH. Séparé d'Expense car acteurs, cycle de vie et évolutions (seuils, délégation, audit) diffèrent ; la facturation future s'abonne à la décision, pas à la création.
-- **Futurs en ports vides, sans implémentation** : `SuggestionPort` (aujourd'hui Tesseract synchrone, demain même port appelé depuis une queue), `BillingPort.onNoteApproved` (event, jamais appelé en direct par decide).
-- **International transverse** : `Money{amount, currency}`, `ExpenseDate`, `format.ts`. Aujourd'hui `numeric(10,2)` sans devise ; on prévoit colonne `currency` + value objects, sans conversion.
+- **Identity & Tenancy** (`src/domain/identity/`) : `Company`, `User`, `Invitation`. Invariants : un utilisateur appartient à une seule entreprise ; `manager_id` dans la même entreprise et différent de soi ; rôle et entreprise relus en base à chaque appel (S9) ; **le domaine email ne donne aucun droit** : s'inscrire sans invitation crée sa propre entreprise, rejoindre une entreprise passe par une invitation de sa RH (ADR-001, S7). Cas d'usage : `GET /hr/users`, `PUT /hr/users/[id]/manager`, inscription, invitation, connexion.
+- **Expense** (`src/domain/expense/`) : `ExpenseNote`, `Receipt`. Invariants : `amount > 0` avec 2 décimales au plus, description non vide, date `YYYY-MM-DD` valide, reçu vérifié sur son contenu (ADR-004 §6), clé S3 non devinable préfixée par tenant (ADR-001). Cas d'usage : `GET/POST /api/expense-notes` (upload d'abord puis transaction, `Idempotency-Key` : ADR-003), `.../[id]/receipt-url`, suggestion OCR.
+- **Validation** (`src/domain/validation/`) : `Decision`, `WhoCanDecide`. Invariants : seule une note `pending` se décide (`409` sinon) ; manager = ses subordonnés directs, RH = managers racines de son entreprise.
+  - **B8, deux décisions simultanées** : la décision s'écrit `UPDATE … WHERE status = 'pending'` ; la seconde ne touche aucune ligne, renvoie 409 et n'émet aucun événement (ADR-003). Porté par 2-488.
+  - **B16, historique des décisions** : hors périmètre du gel. Emplacement prévu : un journal des décisions (qui, quand, quoi) en ajout seul, alimenté par l'événement `note.decided` de l'outbox de l'ADR-003, sans changer les cas d'usage.
+  - Séparé d'Expense car acteurs, cycle de vie et évolutions (seuils, délégation, audit) diffèrent ; la facturation future s'abonne à la décision, pas à la création.
+- **Extensions par ports, sans implémentation nouvelle ici** : `OcrPort` (Tesseract aujourd'hui, appelé depuis le worker quand l'OCR passe en asynchrone, 2-503) ; `BillingPort` alimenté par l'événement `note.approved`, jamais appelé en direct par la décision.
+- **International** : c'est d'abord un sujet de déploiement et de cohérence (cours 2, étape 4, CAP). Décision de l'ADR-001 : **une instance (application + base) par région**, une entreprise a une seule région d'attache, aucune base répliquée entre régions. L'architecture B le permet sans changement : le monolithe se déploie à l'identique par région et l'outbox reste locale à sa base. Côté contrat, l'API répond en anglais avec des codes stables et le front traduit (ADR-004). Les devises demandent une décision métier distincte (ADR-004 §6) : rien n'est prévu dans le schéma ici.
 
-Fusion Expense + Validation écartée : recréerait le god-module route pour 2 règles aujourd'hui confondues mais à évolutions disjointes.
+Fusion Expense + Validation écartée : elle recréerait le module fourre-tout des routes actuelles.
 
-### 3.3 Où va quoi — règle simple.
+### 3.3 Où va quoi
 
 | Couche | Rôle | Interdit |
 |---|---|---|
-| `route.ts` | authentifier (`auth()`), valider l'entrée (`utils/validators`), appeler un cas d'usage, formater JSON, garder codes actuels | SQL (`client.query`, `getPool`), règle métier (`pending`, `JOIN` droits), appel direct `lib/storage` / `lib/ocr` |
-| `src/application/` + `src/domain/*/` | règles pures, sans `pg/next/aws` | import infra |
-| `src/ports/` | interfaces (`ReceiptStoragePort`, `NotificationPort`, nouveau `SuggestionPort`, futur `BillingPort`) | implémentation |
-| `src/adapters/` + `src/lib/` | implémentations via `withUserScope()`, jamais `getPool()` direct pour du tenant | règle métier |
-| `migrations/` | seule vérité schéma, horodatée + `down`, jamais d'édition d'existant | DDL en route |
+| `route.ts` | authentifier, valider l'entrée selon le contrat (ADR-004), appeler un cas d'usage, formater la réponse au format de l'ADR-004 | SQL (`client.query`, `getPool`), règle métier (`pending`, `JOIN` de droits), appel direct à `lib/storage` / `lib/ocr` |
+| `src/application/` (cas d'usage) + `src/domain/*/` | orchestrer ; règles pures, sans `pg`/`next`/`aws` | import d'infrastructure dans `domain/` |
+| `src/ports/` | interfaces (`ReceiptStoragePort`, `NotificationPort`, `OcrPort`, `EventOutbox`, futur `BillingPort`) | implémentation |
+| `src/adapters/` + `src/lib/` | implémentations ; accès base via `withUserScope()`, sous le rôle restreint et la RLS de l'ADR-001 | règle métier |
+| worker (`npm run worker`) | adaptateur entrant, comme les routes : consomme l'outbox (ADR-003) | règle métier propre |
+| `migrations/` | seule vérité du schéma, horodatée, avec `down` | DDL dans le code |
 | `src/components/`, pages | UI mince | SQL, droits |
 
-Conventions reprises de `CLAUDE.md` : TS strict sans `any`, alias `@/*`, montants `numeric` → `number` à la frontière, dates `YYYY-MM-DD` brutes (parser OID 1082 inchangé), erreurs `application/problem+json` sans stacktrace (chantier dédié, pas au passage).
+Conventions de `CLAUDE.md` inchangées : TS strict sans `any`, alias `@/*`, montants `numeric` → `number` à la frontière, dates `YYYY-MM-DD` brutes (parser OID 1082 inchangé).
 
 ## 4. Schéma cible
 
@@ -103,52 +105,46 @@ Constaté :
 
 ```text
 UI → route.ts (auth + droits + SQL + métier + format)
-       ├── lib/db (withUserScope/getPool) → PG brut
+       ├── lib/db (withUserScope/getPool) → PG brut, superuser
        ├── lib/storage → S3 direct
        └── lib/ocr → Tesseract synchrone
-domain/ ports/ adapters/ utils/ = orphelins (0 import route)
+domain/ ports/ adapters/ utils/ = orphelins (0 import)
 ```
 
 Cible :
 
 ```text
-UI/pages → route.ts fine → cas d'usage → domain/ pur
-                               ├── ports/ → adapters/ (S3, suggestion, notif)
-                               └── repository via withUserScope() → PG (WHERE company_id)
-migrations/ en dessous, transverse à tous.
+UI/pages → route.ts fine ──┐
+worker (outbox) ───────────┴→ cas d'usage → domain/ pur
+                                 ├── ports/ → adapters/ (S3, OCR, notifications)
+                                 └── repositories via withUserScope() → PG (rôle restreint + RLS)
+migrations/ en dessous, transverse.
 ```
 
-Exemple POC : `POST manager/.../[id]/approve` devient `requireRole('manager')` + `decideExpenseNote({id, decision:'approved', actor})` qui charge via repository, applique `ExpenseNote.approve()` + `WhoCanDecide`, update, émet `note.approved` (sans consommateur pour l'instant), retourne le même JSON et les mêmes codes (`401/403/404/409`).
+Exemple : `POST manager/.../[id]/approve` devient `requireRole('manager')` puis `decideExpenseNote({ id, decision: 'approved', actor })`. Le cas d'usage charge la note via le repository (404 si non visible), applique `WhoCanDecide` et la transition, écrit avec `WHERE status = 'pending'` (409 sinon) et enregistre l'événement `note.decided` dans l'outbox. La réponse suit le format et les codes de l'ADR-004.
 
-## 5. Et la suite — sans l'implémenter.
+## 5. Et la suite, sans l'implémenter
 
-- **IA asynchrone** : sortir `suggestFields()` du chemin HTTP. Cible : `POST receipt-suggestion` et `POST expense-notes` appellent `SuggestionPort` ; aujourd'hui `TesseractSuggestionAdapter` synchrone ; demain même port depuis job/queue avec statut `suggestion_pending`, limite de taille et timeout. Aucun changement de `domain/expense`.
-- **Facturation** : `Validation` émet `note.approved` ; futur `BillingAdapter` s'abonne. Decide ne connaît pas la facture.
-- **International** : `Money`, `ExpenseDate`, whitelist `?sort=`, colonne `currency` future. Pas de conversion ni de TVA dans cette ADR.
+- **IA et OCR asynchrones** : le cas d'usage de suggestion ne change pas ; seul l'appelant passe de la route au worker (ADR-003, 2-503). L'IA externe sera un second adapter du même port.
+- **Facturation** : abonnée à `note.approved` ; la décision ne connaît pas la facture.
+- **International** : un déploiement par région (ADR-001), contrat en anglais avec codes (ADR-004). Réouverture si un workflow doit traverser deux régions.
 
-Chaque extension tient en un port + un adapter, sans rouvrir les routes ni le domaine.
+Chaque extension tient en un port, un adapter ou un déploiement, sans rouvrir les routes ni le domaine.
 
-## 6. Impacts par chantier et plan
+## 6. Plan et tickets
 
-Ordre repris de l'audit : A3 (quick win helpers) → A1 (extraction route par route) → A2 (POC puis branchement hexagone). Chaque PR garde codes, JSON et parcours UI ; tout écart noté dans la PR.
+Ordre : **correctifs de sécurité d'abord** (2-471, décision du PO), puis les helpers, puis le branchement de l'hexagone. Chaque PR garde le comportement observable ; tout écart passe par une ADR acceptée (ADR-005).
 
-| Chantier dette | Traitement dans cette cible | Hors périmètre ici |
-|---|---|---|
-| Injection `?sort=` | whitelist explicite dans cas d'usage liste | — |
-| IDOR `manager receipt-url`, cross-tenant `hr/.../manager` | contrôle `company_id` + rattachement dans repository / `WhoCanDecide`, 404 si non visible | — |
-| RLS contournée (superuser, policy RH sans `company_id`) | isolation par `WHERE` manuels via `withUserScope()`, RLS durcie dans sujet dédié | pas de bascule RLS-only ici |
-| `AUTH_SECRET` en dur, stacktrace (`lib/errors.ts`) | sujets dédiés, format `problem+json` | pas corrigé au passage |
-| Reçus S3 devinables (`receipts/<seq>`) | clés non devinables préfixées tenant + pré-signée courte, sujet dédié | pas de migration de clés ici |
-| Création NDF non atomique, OCR synchrone | transaction + compensation documentée, `SuggestionPort` | pas de queue ni de billing ici |
-| Tests / CI / OpenAPI / observabilité | règles pures testables, 1 test POC approve, contrats JSON gelés | pas de CI ni d'OpenAPI ici |
+| Étape | Contenu | Ticket | Dépend de |
+|---|---|---|---|
+| 1. Helpers communs | `requireRole()` (401/403), sérialiseur unique de note, décision approve/reject unique pour manager et RH ; aucun changement visible | [2-487](https://linear.app/2-morgan/issue/2-487) | 2-471, cette ADR ; types du contrat de 2-486 si disponibles |
+| 2. Hexagone sur « valider une note » | cas d'usage `decideExpenseNote`, `WhoCanDecide`, repository, B8, tests unitaires ; puis généralisation et lint interdisant SQL, `lib/storage` et `lib/ocr` dans `route.ts` | [2-488](https://linear.app/2-morgan/issue/2-488) | 2-487, Vitest et lint d'architecture (2-489) |
 
-Plan : PR1 helpers (`requireRole`, `toExpenseNoteRow`, `decideExpenseNote`) + tests ; PR2 POC `manager approve` via domaine + `S3ReceiptAdapter` sur 1 reçu + 1 validateur ; PR3 généralisation + lint interdisant `client.query/getPool/lib/storage/lib/ocr` en `route.ts`. Règle stricte comme cible, migration strangler en pratique pour ne pas casser les E2E.
+Hors de ce plan, décidés ailleurs : isolation et invitations (ADR-001 : 2-471, 2-478, 2-496, 2-481), soumission fiable, OCR et notifications (ADR-003 : 2-475, 2-476, 2-484, 2-503), erreurs et contrat (ADR-004 : 2-485, 2-486).
 
 ## 7. Conséquences
 
-- Positif : droits en un seul endroit, règles testables, S3/OCR/notif substituables, suite absorbable sans réécriture, E2E préservés.
-- Négatif : discipline d'imports à tenir en revue + lint, quelques PR de migration avant gain plein.
-- Risques : disperser la logique si on multiplie les micro-domaines — on se limite aux 3 cœurs ; réintroduire du SQL en route sous pression — le lint bloque.
-- Non-objectifs : aucune feature billing/IA/i18n, aucun changement de schéma, aucune nouvelle dépendance.
-
-Décision proposée : adopter B avec ce découpage et ce plan. En cas de désaccord, trancher par amendement ici avant code.
+- Positif : droits en un seul endroit, règles testables sans infrastructure, S3/OCR/notifications substituables, suite absorbable sans réécriture.
+- Négatif : discipline d'imports à tenir en revue et par le lint, quelques PR de migration avant le gain complet.
+- Risques : disperser la logique en multipliant les micro-domaines (on s'en tient aux 3 cœurs) ; réintroduire du SQL en route sous pression (le lint bloque) ; conflits avec les correctifs de sécurité dans les mêmes routes (d'où l'ordre du §6).
+- Non-objectifs de ce refacto : aucune fonctionnalité de facturation, d'IA ou de devise ; pas de changement de schéma propre à cette ADR.
