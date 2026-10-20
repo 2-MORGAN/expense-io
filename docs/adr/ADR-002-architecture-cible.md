@@ -133,12 +133,14 @@ Chaque extension tient en un port, un adapter ou un déploiement, sans rouvrir l
 
 ## 6. Plan et tickets
 
-Ordre : **correctifs de sécurité d'abord** (2-471, décision du PO), puis les helpers, puis le branchement de l'hexagone. Chaque PR garde le comportement observable ; tout écart passe par une ADR acceptée (ADR-005).
+Ordre : on commence par **« valider une note »**, que les correctifs de sécurité ne touchent pas ; les helpers des autres routes attendent les correctifs rapides (2-471), qui touchent les mêmes fichiers (décision du PO du 20/10). Chaque PR garde le comportement observable ; tout écart passe par une ADR acceptée (ADR-005).
 
 | Étape | Contenu | Ticket | Dépend de |
 |---|---|---|---|
-| 1. Helpers communs | `requireRole()` (401/403), sérialiseur unique de note, décision approve/reject unique pour manager et RH ; aucun changement visible | [2-487](https://linear.app/2-morgan/issue/2-487) | 2-471, cette ADR ; types du contrat de 2-486 si disponibles |
-| 2. Hexagone sur « valider une note » | cas d'usage `decideExpenseNote`, `WhoCanDecide`, repository, B8, B16 (auteur et date de décision), tests unitaires ; puis généralisation et lint interdisant SQL, `lib/storage` et `lib/ocr` dans `route.ts` | [2-488](https://linear.app/2-morgan/issue/2-488) | 2-487, Vitest et lint d'architecture (2-489) |
+| 1. Hexagone sur « valider une note » | cas d'usage `decideExpenseNote` unique pour les 4 routes manager et RH, `WhoCanDecide`, repository, B8, B16 (auteur et date de décision), tests unitaires ; bonus : généralisation | [2-488](https://linear.app/2-morgan/issue/2-488) | cette ADR ; Vitest (2-489) pour les tests unitaires |
+| 2. Helpers communs | `requireRole()` (401/403), sérialiseur unique de note ; aucun changement visible | [2-487](https://linear.app/2-morgan/issue/2-487) | 2-471 (mêmes routes), 2-488 ; types du contrat de 2-486 si disponibles |
+
+Le lint interdisant SQL, `lib/storage` et `lib/ocr` dans `route.ts` est livré par 2-489, avec des exceptions pour les routes pas encore migrées.
 
 Hors de ce plan, décidés ailleurs : isolation et invitations (ADR-001 : 2-471, 2-478, 2-496, 2-481), soumission fiable, OCR et notifications (ADR-003 : 2-475, 2-476, 2-484, 2-503), erreurs et contrat (ADR-004 : 2-485, 2-486).
 
