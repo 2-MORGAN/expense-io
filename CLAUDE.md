@@ -27,6 +27,8 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 |---|---|
 | Tout lancer (install, docker, migrations, bucket, seed, dev) | `make dev` → http://localhost:3000 |
 | Lint / types | `npm run lint` · `npm run typecheck` |
+| Tests unitaires (Vitest) | `npm run test:unit` · `npx vitest` (relance à chaque modification) — fichier `*.test.ts` à côté du code testé, exemple : `src/utils/validators.test.ts` |
+| Lint, types et tests unitaires d'un coup (ce que lance la CI avant le build) | `npm run check` |
 | Tests E2E de non-régression (Playwright) | `make test-e2e` · `npm run test:e2e` — voir `docs/tests/E2E.md` |
 | Migrations | `npm run migrate:up` · `npm run migrate:down` |
 | Seed (idempotent) / bucket | `npm run seed` · `npm run ensure-bucket` |
@@ -35,7 +37,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 
 Postgres : port **5433**. LocalStack : port **4567**. Comptes de démo (seed) : `hr@expense.io` / `hr1234`, `manager@expense.io` / `manager1234`, `demo@expense.io` / `demo1234`.
 
-**Avant de déclarer une tâche terminée** : `npm run lint && npm run typecheck` doivent passer, et les tests (quand ils existent) rester verts. Si un test ou une vérification n'a pas pu être lancé, le dire explicitement.
+**Avant de déclarer une tâche terminée** : `npm run check` (lint, types et tests unitaires) doit passer, et les tests E2E rester verts. Si un test ou une vérification n'a pas pu être lancé, le dire explicitement.
 
 ## Où placer le code
 
@@ -98,9 +100,9 @@ Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 - Inscription : l'entreprise et le rôle RH sont déduits du domaine email (S7, voir plus haut).
 - `domain/`, `ports/`, `adapters/`, `utils/` jamais importés ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes.
 - OCR Tesseract synchrone dans la requête HTTP, sans limite de taille ; création de NDF non atomique.
-- Pas de tests unitaires (seule la suite E2E de `docs/tests/E2E.md` existe, lancée par la CI sur chaque PR), aucun contrat d'API (OpenAPI), pas d'observabilité.
+- Aucun contrat d'API (OpenAPI), pas d'observabilité.
 
-Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8).
+Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI, 2-489).
 
 Ne pas « corriger au passage » un de ces points dans une PR sans rapport : ouvrir un sujet dédié. Constats détaillés : [`docs/audit/`](docs/audit/) ; décisions : [`docs/adr/`](docs/adr/) ; tickets : projet Linear ARLA, jalon J4.
 
