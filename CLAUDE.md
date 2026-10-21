@@ -70,6 +70,8 @@ Règles de placement pour tout **nouveau** code :
 - **UI** → `src/components/` ; les pages restent minces.
 - Réutiliser avant de créer : `src/domain`, `src/ports`, `src/adapters` et `src/utils` existent déjà mais sont **actuellement inutilisés** (voir dette). Les brancher plutôt que dupliquer.
 
+`npm run lint` fait respecter une partie de ces règles (`eslint.config.mjs`, ADR-005 T6) : domaine sans infrastructure ; ni SQL ni accès base dans `src/app/` et `src/components/` ; `getPool()` réservé à `src/lib/db.ts` ; pas de SQL interpolé ; pas de test `.only`, `.skip`, `.fixme` ou `.fail`. Le code existant qui enfreint une règle est listé en exception (listes `LEGACY_*`). Ces listes ne font que raccourcir : retirer un fichier dès qu'il est conforme, **ne jamais en ajouter un** pour faire passer le lint.
+
 ## Conventions
 
 - TypeScript strict, pas de `any`. Alias d'import `@/*` → `src/*`.
@@ -102,7 +104,7 @@ Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 - OCR Tesseract synchrone dans la requête HTTP, sans limite de taille ; création de NDF non atomique.
 - Aucun contrat d'API (OpenAPI), pas d'observabilité.
 
-Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI, 2-489).
+Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489).
 
 Ne pas « corriger au passage » un de ces points dans une PR sans rapport : ouvrir un sujet dédié. Constats détaillés : [`docs/audit/`](docs/audit/) ; décisions : [`docs/adr/`](docs/adr/) ; tickets : projet Linear ARLA, jalon J4.
 

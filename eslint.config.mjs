@@ -1,18 +1,175 @@
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import { defineConfig, globalIgnores } from 'eslint/config'
+import nextVitals from 'eslint-config-next/core-web-vitals'
+import nextTs from 'eslint-config-next/typescript'
+
+// Règles d'architecture de CLAUDE.md et des ADR-001 et 002, vérifiées par les
+// règles natives d'ESLint (ADR-005, T6).
+//
+// Les listes LEGACY_* recensent le code existant qui enfreint encore une
+// règle. Elles ne peuvent que raccourcir : retirer un fichier dès qu'il est
+// conforme, ne jamais en ajouter un.
+//
+// Une règle configurée dans plusieurs blocs ne garde que les options du
+// dernier bloc qui s'applique au fichier : les blocs `domain` et
+// `routes-and-ui` reprennent donc les interdits globaux qui les concernent.
+
+// Un segment dynamique de Next.js ([id]) se lirait comme une classe de
+// caractères dans un motif glob.
+const literal = (path) => path.replace(/[[\]]/g, '\\$&')
+
+// Routes et server actions qui accèdent encore à la base. Chacune sort de la
+// liste quand elle passe par un cas d'usage (2-488, ADR-002 §6).
+const LEGACY_DB_ACCESS = [
+  'src/app/actions/auth.ts',
+  'src/app/api/expense-notes/route.ts',
+  'src/app/api/expense-notes/[id]/receipt-url/route.ts',
+  'src/app/api/hr/expense-notes/route.ts',
+  'src/app/api/hr/expense-notes/[id]/approve/route.ts',
+  'src/app/api/hr/expense-notes/[id]/receipt-url/route.ts',
+  'src/app/api/hr/expense-notes/[id]/reject/route.ts',
+  'src/app/api/hr/users/route.ts',
+  'src/app/api/hr/users/[id]/manager/route.ts',
+  'src/app/api/manager/expense-notes/route.ts',
+  'src/app/api/manager/expense-notes/[id]/approve/route.ts',
+  'src/app/api/manager/expense-notes/[id]/receipt-url/route.ts',
+  'src/app/api/manager/expense-notes/[id]/reject/route.ts',
+].map(literal)
+
+// Fichiers des 12 appels à getPool() que 2-481 supprime (ADR-001, annexe B).
+const LEGACY_GET_POOL = [
+  'src/app/actions/auth.ts',
+  'src/app/api/expense-notes/route.ts',
+  'src/app/api/hr/users/route.ts',
+  'src/app/api/hr/users/[id]/manager/route.ts',
+  'src/app/api/manager/expense-notes/[id]/receipt-url/route.ts',
+  'src/lib/auth.ts',
+].map(literal)
+
+// S1 : tri concaténé dans ORDER BY, jusqu'à sa correction (WS1).
+const LEGACY_SQL_INTERPOLATION = ['src/app/api/expense-notes/route.ts']
+
+const GET_POOL_IMPORT = {
+  group: ['**/lib/db', './db'],
+  importNames: ['getPool'],
+  message:
+    'getPool() ne pose pas le contexte utilisateur dont dépend la RLS : il est réservé à src/lib/db.ts (ADR-001). Passer par withUserScope().',
+}
+
+const DB_ACCESS_IMPORT = {
+  group: ['pg', '**/lib/db'],
+  message:
+    'Pas d’accès à la base dans une route, une server action ou l’UI : appeler un cas d’usage, qui passe par un repository (ADR-002 §3.3).',
+}
+
+// Un motif sans « / » vise ce nom à n'importe quel niveau du chemin :
+// `lib` couvre `@/lib/db` comme `../../lib/db`, `next` couvre `next/server`.
+const DOMAIN_IMPORT = {
+  group: [
+    'pg',
+    'next',
+    'next-auth',
+    '@auth',
+    '@aws-sdk',
+    'tesseract.js',
+    'react',
+    'react-dom',
+    'lib',
+    'adapters',
+    'application',
+    'app',
+    'components',
+  ],
+  message:
+    'Le domaine reste pur : ni base, ni framework, ni SDK, ni couche applicative ou d’infrastructure (CLAUDE.md, ADR-002 §3.3). Passer par un port de src/ports/.',
+}
+
+// Mots-clés SQL en majuscules, comme dans tout le dépôt, et début d'une
+// requête.
+const SQL_KEYWORD = String.raw`\b(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN|ORDER\s+BY|GROUP\s+BY|VALUES|SET|RETURNING|LIMIT|OFFSET)\b`
+const SQL_STATEMENT = String.raw`^\s*(SELECT|INSERT|UPDATE|DELETE|WITH)\s`
+
+const SQL_INTERPOLATION_MESSAGE =
+  'SQL construit par interpolation ou concaténation : passer les valeurs en paramètres ($1, $2…) et choisir un tri ou une colonne dans une liste blanche (CLAUDE.md, règle 3).'
+
+const SQL_INTERPOLATION = [
+  {
+    selector: `TemplateLiteral[expressions.length>0]:has(> TemplateElement[value.raw=/${SQL_KEYWORD}/])`,
+    message: SQL_INTERPOLATION_MESSAGE,
+  },
+  {
+    selector: `BinaryExpression[operator='+'] > Literal[value=/${SQL_KEYWORD}/]`,
+    message: SQL_INTERPOLATION_MESSAGE,
+  },
+]
+
+const SQL_TEXT = [
+  {
+    selector: `:matches(Literal[value=/${SQL_STATEMENT}/], TemplateElement[value.raw=/${SQL_STATEMENT}/])`,
+    message:
+      'Pas de SQL dans une route, une server action ou l’UI : il va dans un repository, appelé par un cas d’usage (ADR-002 §3.3).',
+  },
+]
+
+const DISABLED_TEST_MESSAGE =
+  'Un test ne se désactive pas pour faire passer la CI : corriger le code, ou demander si le comportement doit changer (ADR-005 §2).'
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    name: 'expense-io/get-pool',
+    ignores: ['src/lib/db.ts', ...LEGACY_GET_POOL],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [GET_POOL_IMPORT] }],
+    },
+  },
+  {
+    name: 'expense-io/sql-interpolation',
+    ignores: LEGACY_SQL_INTERPOLATION,
+    rules: {
+      'no-restricted-syntax': ['error', ...SQL_INTERPOLATION],
+    },
+  },
+  {
+    // `lib` y interdit déjà tout src/lib/, getPool() compris.
+    name: 'expense-io/domain',
+    files: ['src/domain/**'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [DOMAIN_IMPORT] }],
+    },
+  },
+  {
+    // L'interdit de `lib/db` couvre getPool() ; l'interpolation est reprise.
+    name: 'expense-io/routes-and-ui',
+    files: ['src/app/**', 'src/components/**', 'src/proxy.ts'],
+    ignores: LEGACY_DB_ACCESS,
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [DB_ACCESS_IMPORT] }],
+      'no-restricted-syntax': ['error', ...SQL_INTERPOLATION, ...SQL_TEXT],
+    },
+  },
+  {
+    name: 'expense-io/tests',
+    files: ['e2e/**', 'src/**/*.test.ts'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        { property: 'only', message: '.only n’exécute que ce test : le retirer avant de pousser.' },
+        { property: 'skip', message: DISABLED_TEST_MESSAGE },
+        { property: 'fixme', message: DISABLED_TEST_MESSAGE },
+        { property: 'fail', message: DISABLED_TEST_MESSAGE },
+        { property: 'fails', message: DISABLED_TEST_MESSAGE },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
   ]),
-]);
+])
 
-export default eslintConfig;
+export default eslintConfig
