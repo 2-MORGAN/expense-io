@@ -1,7 +1,8 @@
 # Intégration continue d'Expense.io. Décision et justification :
 # docs/adr/ADR-005-harnais-de-validation.md (§3).
 #
-# - check : lint, types et build de production, sans infrastructure ;
+# - check : lint, types, tests unitaires et build de production, sans
+#           infrastructure ;
 # - e2e   : suite Playwright de docs/tests/E2E.md, via `make test-e2e`, avec
 #           Postgres et LocalStack lancés depuis docker-compose.yml (qui fait
 #           foi pour les images et les ports : rien n'est recopié ici).
@@ -43,7 +44,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Lint et types
+      - name: Lint, types et tests unitaires
         run: npm run check
       # Même configuration qu'un poste de dev : .env créé depuis .env.example.
       - run: make env

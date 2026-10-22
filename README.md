@@ -59,9 +59,10 @@ make build   # build de production
 make start   # build puis démarre en production
 make lint
 make typecheck
+make test-unit # tests unitaires Vitest, sans Docker
 make test-e2e  # tests E2E de non-régression (voir docs/tests/E2E.md)
-make verify    # ce que vérifie la CI : lint, types, build puis E2E (Docker requis)
-npm run check  # lint et types en quelques secondes, à lancer avant de pousser
+make verify    # ce que vérifie la CI : lint, types, tests unitaires, build puis E2E (Docker requis)
+npm run check  # lint, types et tests unitaires, à lancer avant de pousser
 make down    # arrête Postgres/LocalStack
 make clean   # arrête et supprime les données locales
 ```
