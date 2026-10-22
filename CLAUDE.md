@@ -37,7 +37,26 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 
 Postgres : port **5433**. LocalStack : port **4567**. Comptes de démo (seed) : `hr@expense.io` / `hr1234`, `manager@expense.io` / `manager1234`, `demo@expense.io` / `demo1234`.
 
-**Avant de déclarer une tâche terminée** : `npm run check` (lint, types et tests unitaires) doit passer, et les tests E2E rester verts. Si un test ou une vérification n'a pas pu être lancé, le dire explicitement.
+## Harnais de validation
+
+Décidé par l'ADR-005. Ce qui vérifie le code, et quand :
+
+| Moment | Ce qui tourne | Durée |
+|---|---|---|
+| `git commit` | hook pre-commit : ESLint avec cache | ≈ 3 s, 5 s à froid |
+| `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 15 s |
+| À la demande | E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` | ≈ 3 min pour la suite, Docker requis |
+| PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner | ≈ 1 min et 3 min 30 |
+
+Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils donnent un retour rapide ; la garantie, c'est la CI.
+
+**Après un pull ou un changement de branche, lancer `npm install`** si `package.json` ou `package-lock.json` a changé : sinon une dépendance manque (Vitest, `@playwright/test`, husky…) et `npm run check` échoue, à la main comme dans le hook.
+
+1. **Avant de déclarer une tâche terminée**, `npm run check` doit passer. Si le changement touche `src/app`, `src/lib`, `migrations/` ou `scripts/`, lancer aussi les E2E concernés (IDs dans `docs/tests/E2E.md`) ou toute la suite. Dire explicitement ce qui n'a pas été lancé.
+2. **Un bug corrigé = un test** vu en échec avant la correction, en succès après : test Vitest à côté du code pour une règle métier, scénario Playwright avec un ID dans `e2e/` pour un comportement HTTP, UI ou en base.
+3. **Un test E2E rouge est une régression** : corriger le code, pas le test. Ne jamais modifier, désactiver ni supprimer un test existant pour faire passer la CI. Si un test doit changer, s'arrêter et demander : il faut une ADR acceptée (ADR-005 §2).
+4. **Ne rien contourner** : jamais de `--no-verify`, jamais de push sur `main`, jamais de `eslint-disable` sans commentaire qui le justifie.
+5. **PR** : `gh pr create --repo 2-MORGAN/expense-io --base main`, en remplissant le modèle (`.github/pull_request_template.md`). Sans `--repo`, `gh` peut viser le dépôt parent du fork.
 
 ## Où placer le code
 
