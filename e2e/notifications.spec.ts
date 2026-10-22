@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { EmailNotificationAdapter } from '@/adapters/EmailNotificationAdapter'
 import { closePool } from '@/lib/db'
 import { createEmailSender } from '@/lib/email'
@@ -23,7 +24,7 @@ test.describe('Notifications — émission', () => {
   test('[NOTIF-01] soumission d’un employé → un événement pour son manager', async ({ org, apiAs }) => {
     const note = await (await apiAs(org.employee)).submitNote({ description: 'Taxi gare' })
     expect(await outboxEventsForNote(note.id)).toMatchObject([{
-      type: 'expense_note.submitted', companyId: org.company.id, status: 'pending',
+      type: 'expense_note.submitted', companyId: org.company.id,
       payload: { noteId: note.id, description: 'Taxi gare', submitterName: 'Emile Employe', recipientIds: [org.manager.id] },
     }])
   })
@@ -71,7 +72,8 @@ test.describe('Notifications — envoi par le worker', () => {
     expect(mail.Text).not.toMatch(/18[.,]40/)
     const [event] = await outboxEventsForNote(note.id)
     expect(mail.MessageID).toBe(`${event.id}.${org.manager.id}@expense.io`)
-    expect(event.status).toBe('sent')
+    // Un worker lancé en parallèle peut avoir envoyé l'email avant de valider « sent » : on attend.
+    await expect.poll(async () => (await outboxEvent(event.id)).status).toBe('sent')
   })
 
   test('[NOTIF-07] note approuvée → email au soumetteur', async ({ org, apiAs, request }) => {
@@ -92,21 +94,44 @@ test.describe('Notifications — envoi par le worker', () => {
     await drain(org.company.id)
     await waitForEmail(request, org.employee.email)
     expect(await countEmails(request, other.employee.email)).toBe(0)
-    expect((await outboxEvent(id)).status).toBe('sent')
+    await expect.poll(async () => (await outboxEvent(id)).status).toBe('sent')
   })
 
   test('[NOTIF-09] envoi en panne → décision acquise, email reprogrammé', async ({ org, apiAs }) => {
     const employeeApi = await apiAs(org.employee)
     const note = await employeeApi.submitNote({ description: 'Parking' })
     expect((await (await apiAs(org.manager)).managerDecide(note.id, 'approve')).status()).toBe(200)
+    expect(await statusOf(employeeApi, note.id)).toBe('approved')
+
+    // La relance se vérifie sur un événement de test d'un type unique, que seul ce test réclame :
+    // un worker lancé en parallèle ne peut pas l'enlever (ADR-003 §5 : les E2E ne dépendent pas du worker).
     const failing: NotificationPort = {
       notifySubmitted: async () => { throw new Error('SMTP indisponible') },
       notifyDecision: async () => { throw new Error('SMTP indisponible') },
     }
-    await drain(org.company.id, failing)
+    const testType = `test.notif-09.${randomUUID()}`
+    const handlers = { [testType]: notificationHandlers(failing)['expense_note.decided'] }
+    const id = await insertOutboxEvent({
+      companyId: org.company.id, type: testType,
+      payload: { noteId: note.id, description: 'Parking', decision: 'approved', recipientIds: [org.employee.id] },
+    })
+    expect(await processNextEvent(handlers, { companyId: org.company.id })).toBe(true)
 
-    expect(await statusOf(employeeApi, note.id)).toBe('approved')
-    const decided = (await outboxEventsForNote(note.id)).find((event) => event.type === 'expense_note.decided')
-    expect(decided).toMatchObject({ status: 'pending', attempts: 1, lastError: 'SMTP indisponible' })
+    expect(await outboxEvent(id)).toMatchObject({ status: 'pending', attempts: 1, lastError: 'SMTP indisponible' })
+  })
+})
+
+test.describe('Notifications — concurrence', () => {
+  test('[NOTIF-10] deux décisions simultanées → une seule réussit, un seul événement', async ({ org, apiAs }) => {
+    const note = await (await apiAs(org.employee)).submitNote({ description: 'Péage' })
+    const managerApi = await apiAs(org.manager)
+    const responses = await Promise.all([
+      managerApi.managerDecide(note.id, 'approve'),
+      managerApi.managerDecide(note.id, 'reject'),
+    ])
+    expect(responses.map((response) => response.status()).sort()).toEqual([200, 409])
+
+    const decided = (await outboxEventsForNote(note.id)).filter((event) => event.type === 'expense_note.decided')
+    expect(decided).toHaveLength(1)
   })
 })

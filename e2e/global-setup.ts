@@ -4,6 +4,7 @@ import { signInWithCredentials, UNKNOWN_ID } from './support/api'
 import { closeDb, db, purgeE2eData } from './support/db'
 import { BASE_URL, S3_BUCKET, S3_CONFIG } from './support/env'
 import { createOrg } from './support/fixtures'
+import { MAILPIT_URL } from './support/mailpit'
 
 // Routes appelées une fois avant les tests : `next dev` compile chaque route
 // à la première requête, ce qui rendrait les premiers tests lents.
@@ -53,6 +54,18 @@ async function checkBucket(): Promise<void> {
   }
 }
 
+async function checkMailpit(): Promise<void> {
+  try {
+    const response = await fetch(`${MAILPIT_URL}/api/v1/info`, { signal: AbortSignal.timeout(5_000) })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  } catch (error) {
+    throw new Error(
+      `[e2e] Mailpit inaccessible (${String(error)}). ` +
+        'Lancer `make up` (ou `docker compose up -d`).'
+    )
+  }
+}
+
 async function warmUp(baseURL: string): Promise<void> {
   const anonymous = await request.newContext({ baseURL })
   for (const [method, path] of ANONYMOUS_WARMUP) {
@@ -78,6 +91,7 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   try {
     await checkDatabase()
     await checkBucket()
+    await checkMailpit()
 
     try {
       const purged = await purgeE2eData()
