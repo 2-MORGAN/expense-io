@@ -14,23 +14,24 @@ install: ## Installe les dépendances npm
 env: ## Crée .env depuis .env.example si absent, génère AUTH_SECRET si besoin
 	@if [ ! -f .env ]; then cp .env.example .env; echo ".env créé depuis .env.example"; fi
 
-up: env ## Démarre Postgres + LocalStack (Docker) et attend qu'ils soient prêts
+up: env ## Démarre Postgres + LocalStack + Mailpit (Docker) et attend qu'ils soient prêts
 	$(COMPOSE) up -d
-	@echo "En attente que Postgres et LocalStack soient opérationnels..."
+	@echo "En attente que Postgres, LocalStack et Mailpit soient opérationnels..."
 	@for i in $$(seq 1 30); do \
 		pg_ok=$$($(COMPOSE) ps postgres 2>/dev/null | grep -c "healthy"); \
 		localstack_ok=$$($(COMPOSE) ps localstack 2>/dev/null | grep -c "healthy"); \
-		if [ "$$pg_ok" -ge 1 ] && [ "$$localstack_ok" -ge 1 ]; then echo "Postgres + LocalStack prêts."; exit 0; fi; \
+		mailpit_ok=$$($(COMPOSE) ps mailpit 2>/dev/null | grep -c "healthy"); \
+		if [ "$$pg_ok" -ge 1 ] && [ "$$localstack_ok" -ge 1 ] && [ "$$mailpit_ok" -ge 1 ]; then echo "Postgres, LocalStack et Mailpit prêts."; exit 0; fi; \
 		sleep 2; \
 	done; \
-	echo "Timeout en attendant Postgres/LocalStack — vérifie 'docker compose ps' et 'make logs'." >&2; exit 1
+	echo "Timeout en attendant Postgres/LocalStack/Mailpit — vérifie 'docker compose ps' et 'make logs'." >&2; exit 1
 
-down: ## Arrête Postgres + LocalStack (conserve les données)
+down: ## Arrête Postgres + LocalStack + Mailpit (conserve les données)
 	$(COMPOSE) down
 
-restart: down up ## Redémarre Postgres + LocalStack
+restart: down up ## Redémarre Postgres + LocalStack + Mailpit
 
-logs: ## Suit les logs de Postgres + LocalStack
+logs: ## Suit les logs de Postgres + LocalStack + Mailpit
 	$(COMPOSE) logs -f
 
 migrate: ## Applique les migrations SQL (idempotent)
@@ -68,5 +69,5 @@ verify: env ## Ce que vérifie la CI : lint, types, tests unitaires, build de pr
 	npm run build
 	$(MAKE) test-e2e
 
-clean: ## Arrête Docker et supprime les volumes — efface les données locales (Postgres/LocalStack)
+clean: ## Arrête Docker et supprime les volumes — efface les données locales (Postgres/LocalStack/Mailpit)
 	$(COMPOSE) down -v

@@ -35,7 +35,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 | Build prod | `npm run build` |
 | Reset des données locales | `make clean` |
 
-Postgres : port **5433**. LocalStack : port **4567**. Comptes de démo (seed) : `hr@expense.io` / `hr1234`, `manager@expense.io` / `manager1234`, `demo@expense.io` / `demo1234`.
+Postgres : port **5433**. LocalStack : port **4567**. Mailpit : SMTP **1025**, interface **http://localhost:8025** (tous les emails de dev y arrivent, aucun ne sort). Comptes de démo (seed) : `hr@expense.io` / `hr1234`, `manager@expense.io` / `manager1234`, `demo@expense.io` / `demo1234`.
 
 **Avant de déclarer une tâche terminée** : `npm run check` (lint, types et tests unitaires) doit passer, et les tests E2E rester verts. Si un test ou une vérification n'a pas pu être lancé, le dire explicitement.
 

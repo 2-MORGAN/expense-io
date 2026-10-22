@@ -35,6 +35,20 @@ services:
       timeout: 5s
       retries: 10
 
+  mailpit:
+    # Faux serveur SMTP de dev (ADR-003 §5) : capte tous les emails, aucun ne
+    # sort. Interface et API : http://localhost:8025.
+    image: axllent/mailpit:v1.31.6
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres-data:
   localstack-data:
