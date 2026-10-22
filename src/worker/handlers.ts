@@ -1,13 +1,17 @@
-import type { Env } from '@/lib/email'
+import { EmailNotificationAdapter } from '@/adapters/EmailNotificationAdapter'
+import { getEmailSender, type Env } from '@/lib/email'
+import { notificationHandlers } from '@/worker/notificationHandlers'
 import type { OutboxHandlers } from '@/worker/processNextEvent'
+
+const DEFAULT_APP_URL = 'http://localhost:3000'
 
 /**
  * Registre unique des traitements asynchrones : un type d'événement de
  * l'outbox = un handler. Le worker ne réclame que les types déclarés ici ;
- * les autres restent `pending` (ADR-003). Vide tant qu'aucun traitement n'est
- * branché : les notifications (2-484) et l'analyse des reçus (2-475) s'y ajoutent.
+ * les autres restent `pending` (ADR-003). Les notifications (2-484) y sont
+ * branchées ; l'analyse des reçus (2-475) s'y ajoutera.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- `env` servira aux handlers qui s'y ajoutent (SMTP, S3…)
 export function buildHandlers(env: Env): OutboxHandlers {
-  return {}
+  const notifier = new EmailNotificationAdapter(getEmailSender(), env.APP_URL || DEFAULT_APP_URL)
+  return { ...notificationHandlers(notifier) }
 }

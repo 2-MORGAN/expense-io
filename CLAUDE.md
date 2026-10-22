@@ -107,7 +107,7 @@ Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 - OCR Tesseract synchrone dans la requête HTTP, sans limite de taille ; création de NDF non atomique.
 - Aucun contrat d'API (OpenAPI), pas d'observabilité.
 
-Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489).
+Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489) ; notifications de soumission et de décision par email via l'outbox (A6, 2-484).
 
 Ne pas « corriger au passage » un de ces points dans une PR sans rapport : ouvrir un sujet dédié. Constats détaillés : [`docs/audit/`](docs/audit/) ; décisions : [`docs/adr/`](docs/adr/) ; tickets : projet Linear ARLA, jalon J4.
 

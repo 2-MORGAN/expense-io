@@ -74,7 +74,7 @@ e2e/
 
 ## Scénarios couverts
 
-**98 tests** (86 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 12 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
+**107 tests** (95 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 13 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
 
 ### Inscription — `e2e/signup.spec.ts`
 
@@ -227,6 +227,22 @@ Les tests appellent directement `withUserScope`, `PgEventOutbox` et `processNext
 | OUTBOX-06 | Événement pas encore dû : ignoré | Intégration |
 | OUTBOX-07 | Deux workers simultanés : l'événement est traité une seule fois | Intégration |
 | OUTBOX-08 | Type sans handler : laissé « pending » pour le worker qui le connaît | Intégration |
+
+### Notifications — `e2e/notifications.spec.ts`
+
+NOTIF-01 à 05 appellent l'API puis lisent `outbox_events` en connexion d'administration : ce que la soumission et la décision écrivent dans la même transaction. NOTIF-06 à 09 font tourner `processNextEvent` avec les handlers de notification (`notificationHandlers`) sur la vraie base, limité à l'entreprise du test, et lisent les emails arrivés dans Mailpit ; NOTIF-09 remplace l'envoi par un `NotificationPort` en panne.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| NOTIF-01 | Soumission d'un employé : un événement `expense_note.submitted` pour son manager (description, nom du soumetteur) | API |
+| NOTIF-02 | Soumission d'un manager racine : toutes les RH de l'entreprise sont destinataires | API |
+| NOTIF-03 | Soumetteur sans approbateur : note créée, aucun événement | API |
+| NOTIF-04 | Décision du manager : un seul événement `expense_note.decided`, même après des décisions répétées (409) | API |
+| NOTIF-05 | Rejet par la RH d'une note de manager racine : événement pour le manager | API |
+| NOTIF-06 | Note soumise : email au manager, avec lien, sans montant ; Message-ID stable ; événement « sent » | Intégration |
+| NOTIF-07 | Note approuvée : email au soumetteur, avec lien vers ses notes | Intégration |
+| NOTIF-08 | Payload désignant un utilisateur d'une autre entreprise : aucun email pour lui, événement « sent » | Intégration |
+| NOTIF-09 | Envoi en panne : la décision reste acquise, l'événement repasse « pending » avec 1 essai et l'erreur | Intégration |
 
 ## Résultat de la dernière exécution
 

@@ -1,9 +1,23 @@
+import { EmailNotificationAdapter } from '@/adapters/EmailNotificationAdapter'
 import { closePool } from '@/lib/db'
-import { expectApiError } from './support/api'
-import { addUser, expect, test } from './support/fixtures'
-import { outboxEventsForNote } from './support/outbox'
+import { createEmailSender } from '@/lib/email'
+import type { NotificationPort } from '@/ports/NotificationPort'
+import { notificationHandlers } from '@/worker/notificationHandlers'
+import { processNextEvent } from '@/worker/processNextEvent'
+import { expectApiError, statusOf, UNKNOWN_ID } from './support/api'
+import { addUser, createOrg, expect, test } from './support/fixtures'
+import { countEmails, waitForEmail } from './support/mailpit'
+import { insertOutboxEvent, outboxEvent, outboxEventsForNote } from './support/outbox'
 
 test.afterAll(closePool)
+
+const realNotifier = () => new EmailNotificationAdapter(createEmailSender(process.env), 'http://localhost:3000')
+
+// Traite les événements de l'entreprise (et d'elle seule : les tests tournent en parallèle).
+async function drain(companyId: string, notifier: NotificationPort = realNotifier()) {
+  const handlers = notificationHandlers(notifier)
+  while (await processNextEvent(handlers, { companyId })) { /* jusqu’à épuisement */ }
+}
 
 test.describe('Notifications — émission', () => {
   test('[NOTIF-01] soumission d’un employé → un événement pour son manager', async ({ org, apiAs }) => {
@@ -43,5 +57,56 @@ test.describe('Notifications — émission', () => {
     expect((await (await apiAs(org.hr)).hrDecide(note.id, 'reject')).status()).toBe(200)
     const decided = (await outboxEventsForNote(note.id)).filter((event) => event.type === 'expense_note.decided')
     expect(decided).toMatchObject([{ payload: { decision: 'rejected', recipientIds: [org.manager.id] } }])
+  })
+})
+
+test.describe('Notifications — envoi par le worker', () => {
+  test('[NOTIF-06] note soumise → email au manager, sans montant', async ({ org, apiAs, request }) => {
+    const note = await (await apiAs(org.employee)).submitNote({ description: 'Taxi gare', amount: '18.40' })
+    await drain(org.company.id)
+    const mail = await waitForEmail(request, org.manager.email)
+    expect(mail.Subject).toBe('Nouvelle note de frais à valider')
+    expect(mail.Text).toContain('« Taxi gare »')
+    expect(mail.Text).toContain('http://localhost:3000/manager')
+    expect(mail.Text).not.toMatch(/18[.,]40/)
+    const [event] = await outboxEventsForNote(note.id)
+    expect(mail.MessageID).toBe(`${event.id}.${org.manager.id}@expense.io`)
+    expect(event.status).toBe('sent')
+  })
+
+  test('[NOTIF-07] note approuvée → email au soumetteur', async ({ org, apiAs, request }) => {
+    const note = await (await apiAs(org.employee)).submitNote({ description: 'Train' })
+    await (await apiAs(org.manager)).managerDecide(note.id, 'approve')
+    await drain(org.company.id)
+    const mail = await waitForEmail(request, org.employee.email)
+    expect(mail.Subject).toBe('Votre note de frais a été approuvée')
+    expect(mail.Text).toContain('http://localhost:3000/expenses')
+  })
+
+  test('[NOTIF-08] destinataire d’une autre entreprise dans le payload → écarté', async ({ org, request }) => {
+    const other = await createOrg('autre-entreprise')
+    const id = await insertOutboxEvent({
+      companyId: org.company.id, type: 'expense_note.decided',
+      payload: { noteId: UNKNOWN_ID, description: 'Forgée', decision: 'approved', recipientIds: [org.employee.id, other.employee.id] },
+    })
+    await drain(org.company.id)
+    await waitForEmail(request, org.employee.email)
+    expect(await countEmails(request, other.employee.email)).toBe(0)
+    expect((await outboxEvent(id)).status).toBe('sent')
+  })
+
+  test('[NOTIF-09] envoi en panne → décision acquise, email reprogrammé', async ({ org, apiAs }) => {
+    const employeeApi = await apiAs(org.employee)
+    const note = await employeeApi.submitNote({ description: 'Parking' })
+    expect((await (await apiAs(org.manager)).managerDecide(note.id, 'approve')).status()).toBe(200)
+    const failing: NotificationPort = {
+      notifySubmitted: async () => { throw new Error('SMTP indisponible') },
+      notifyDecision: async () => { throw new Error('SMTP indisponible') },
+    }
+    await drain(org.company.id, failing)
+
+    expect(await statusOf(employeeApi, note.id)).toBe('approved')
+    const decided = (await outboxEventsForNote(note.id)).find((event) => event.type === 'expense_note.decided')
+    expect(decided).toMatchObject({ status: 'pending', attempts: 1, lastError: 'SMTP indisponible' })
   })
 })

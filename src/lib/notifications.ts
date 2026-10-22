@@ -7,6 +7,7 @@ import {
   type NoteDecision,
 } from '@/domain/Notification'
 import type { UserRole } from '@/domain/User'
+import type { Recipient } from '@/ports/NotificationPort'
 
 type NoteRef = { id: string; description: string; userId: string }
 
@@ -53,4 +54,22 @@ export async function enqueueDecided(
   decision: NoteDecision
 ): Promise<void> {
   await new PgEventOutbox(client).enqueue(expenseNoteDecided(note, decision))
+}
+
+/**
+ * Destinataires réellement présents dans `companyId`, parmi `ids` (lus dans le
+ * payload d'un événement). Un identifiant inconnu ou d'une autre entreprise
+ * est simplement absent du résultat : c'est le filtre qui garantit qu'aucun
+ * email ne part vers un autre tenant.
+ */
+export async function findCompanyRecipients(
+  client: PoolClient,
+  companyId: string,
+  ids: string[]
+): Promise<Recipient[]> {
+  const result = await client.query<Recipient>(
+    'SELECT id, email, name, role FROM users WHERE company_id = $1 AND id = ANY($2::uuid[])',
+    [companyId, ids]
+  )
+  return result.rows
 }
