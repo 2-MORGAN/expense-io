@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
+import { enqueueDecided } from '@/lib/notifications'
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -29,10 +30,18 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       }
 
       const updated = await client.query(
-        `UPDATE expense_notes SET status = 'approved' WHERE id = $1 RETURNING *`,
+        `UPDATE expense_notes SET status = 'approved' WHERE id = $1 AND status = 'pending' RETURNING *`,
         [id]
       )
       const note = updated.rows[0]
+      if (!note) {
+        return Response.json({ error: 'Already decided' }, { status: 409 })
+      }
+      await enqueueDecided(
+        client,
+        { id: note.id, description: note.description, userId: note.user_id },
+        'approved'
+      )
       return Response.json({
         id: note.id,
         userId: note.user_id,
