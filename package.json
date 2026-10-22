@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck && npm run test:unit",
+    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run check:ocr-api",
     "prepare": "husky",
     "migrate:up": "node-pg-migrate up --envPath .env",
     "migrate:down": "node-pg-migrate down --envPath .env",
@@ -16,7 +16,9 @@
     "seed": "node scripts/seed.mjs",
     "worker": "tsx src/worker/main.ts",
     "test:unit": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "generate:ocr-api": "openapi-typescript docs/api/ocr.openapi.yaml -o src/types/ocr-api.d.ts",
+    "check:ocr-api": "npm run generate:ocr-api -- --check"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",
@@ -29,7 +31,9 @@
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "tesseract.js": "^7.0.0"
+    "sharp": "^0.35.5",
+    "tesseract.js": "^7.0.0",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
@@ -43,8 +47,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "husky": "^9.1.7",
+    "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4.3.3",
-    "tsx": "4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.3"
   },

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { analyzeReceipt } from '@/components/receiptAnalysisClient'
 
 interface ExpenseNote {
   id: string
@@ -53,6 +54,9 @@ export default function ExpensesPage() {
   const [amount, setAmount] = useState('')
   const [expenseDate, setExpenseDate] = useState('')
   const receiptInputRef = useRef<HTMLInputElement>(null)
+  const analysisController = useRef<AbortController | null>(null)
+
+  useEffect(() => () => analysisController.current?.abort(), [])
 
   const loadNotes = useCallback(async () => {
     const response = await fetch('/api/expense-notes')
@@ -110,35 +114,31 @@ export default function ExpensesPage() {
     setError(null)
     setSuggestionNotice(null)
 
-    const formData = new FormData()
-    formData.set('receipt', receipt)
-    const response = await fetch('/api/expense-notes/receipt-suggestion', {
-      method: 'POST',
-      body: formData,
-    })
-    setExtracting(false)
-
-    if (!response.ok) {
-      setError('Impossible d’analyser ce reçu.')
-      return
-    }
-    // Une réponse vide est valide (rien à suggérer) : sans ce message, ça
-    // ne se distinguerait pas visuellement d'un bouton qui n'a rien fait.
-    const suggestion = (await response.json()) as { amount?: number; expenseDate?: string }
-    const foundAmount = typeof suggestion.amount === 'number'
-    const foundDate = typeof suggestion.expenseDate === 'string'
-    if (foundAmount) {
-      setAmount(String(suggestion.amount))
-    }
-    if (foundDate) {
-      setExpenseDate(suggestion.expenseDate as string)
-    }
-    if (!foundAmount && !foundDate) {
-      setSuggestionNotice('Aucune information reconnue sur ce reçu — saisis les champs manuellement.')
-    } else if (!foundAmount || !foundDate) {
-      setSuggestionNotice(
-        `${foundAmount ? 'Date' : 'Montant'} non reconnu(e) sur ce reçu — vérifie ce champ.`
-      )
+    analysisController.current?.abort()
+    const controller = new AbortController()
+    analysisController.current = controller
+    try {
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(75_000)])
+      const suggestion = await analyzeReceipt(receipt, signal)
+      const foundAmount = typeof suggestion.amount === 'number'
+      const foundDate = typeof suggestion.expenseDate === 'string'
+      if (foundAmount) {
+        setAmount(String(suggestion.amount))
+      }
+      if (foundDate) {
+        setExpenseDate(suggestion.expenseDate as string)
+      }
+      if (!foundAmount && !foundDate) {
+        setSuggestionNotice('Aucune information reconnue sur ce reçu — saisis les champs manuellement.')
+      } else if (!foundAmount || !foundDate) {
+        setSuggestionNotice(
+          `${foundAmount ? 'Date' : 'Montant'} non reconnu(e) sur ce reçu — vérifie ce champ.`
+        )
+      }
+    } catch {
+      if (!controller.signal.aborted) setError('Impossible d’analyser ce reçu.')
+    } finally {
+      if (!controller.signal.aborted) setExtracting(false)
     }
   }
 

@@ -4,9 +4,9 @@ import { auth } from '@/lib/auth'
 import { getPool, withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
 import { receiptKeyFor, uploadReceipt } from '@/lib/storage'
+import { MAX_RECEIPT_BYTES } from '@/domain/receipt/limits'
 
 const ALLOWED_RECEIPT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
-const MAX_RECEIPT_BYTES = 10 * 1024 * 1024
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   'image/png': '.png',

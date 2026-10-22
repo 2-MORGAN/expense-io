@@ -70,10 +70,13 @@ src/
 │   ├── actions/auth.ts      # server actions signup/login/logout
 │   └── {expenses,manager,hr,login,signup}/page.tsx
 ├── components/              # composants React (AdminConsole, PendingApprovalsPanel, NavItem)
-├── lib/                     # auth.ts, db.ts, storage.ts, ocr.ts, errors.ts
+├── application/             # cas d'usage OCR synchrones et asynchrones
+├── composition/             # branchement des ports et adaptateurs OCR
+├── http/                    # transport et problèmes HTTP du module OCR
+├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, workerDb.ts
 ├── domain/                  # ExpenseNote.ts, User.ts   (entités métier)
-├── ports/                   # NotificationPort, ReceiptStoragePort (interfaces)
-├── adapters/                # ConsoleNotificationAdapter, S3ReceiptAdapter
+├── ports/                   # stockage, OCR, analyses, exécution et outbox
+├── adapters/                # S3, Tesseract isolé et persistance PostgreSQL
 ├── utils/                   # validators.ts, format.ts
 ├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), processNextEvent.ts
 └── proxy.ts                 # garde de navigation (ne couvre PAS /api)
@@ -90,7 +93,7 @@ Règles de placement pour tout **nouveau** code :
 - **Accès base** → via `withUserScope()` de `src/lib/db.ts`, jamais `getPool().query` direct pour des données tenant.
 - **Schéma** → nouvelle migration dans `migrations/` (horodatée, jamais d'édition d'une migration existante), avec `down`.
 - **UI** → `src/components/` ; les pages restent minces.
-- Réutiliser avant de créer : `src/domain`, `src/ports`, `src/adapters` et `src/utils` existent déjà mais sont **actuellement inutilisés** (voir dette). Les brancher plutôt que dupliquer.
+- Réutiliser avant de créer : le module OCR branche déjà ses cas d'usage, ports et adaptateurs. Les classes historiques `ExpenseNote`, `User` et plusieurs utilitaires restent à brancher (voir dette).
 
 `npm run lint` fait respecter une partie de ces règles (`eslint.config.mjs`, ADR-005 T6) : domaine sans infrastructure ; ni SQL ni accès base dans `src/app/` et `src/components/` ; `getPool()` réservé à `src/lib/db.ts` ; pas de SQL interpolé ; pas de test `.only`, `.skip`, `.fixme` ou `.fail`. Le code existant qui enfreint une règle est listé en exception (listes `LEGACY_*`). Ces listes ne font que raccourcir : retirer un fichier dès qu'il est conforme, **ne jamais en ajouter un** pour faire passer le lint.
 
@@ -122,8 +125,8 @@ Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 - RLS probablement contournée (connexion en superuser, policy RH sans `company_id`) : l'isolation repose en pratique sur les `WHERE` manuels.
 - `AUTH_SECRET` codé en dur dans `lib/auth.ts` ; `lib/errors.ts` renvoie la stacktrace au client.
 - Inscription : l'entreprise et le rôle RH sont déduits du domaine email (S7, voir plus haut).
-- `domain/`, `ports/`, `adapters/`, `utils/` jamais importés ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes.
-- OCR Tesseract synchrone dans la requête HTTP, sans limite de taille ; création de NDF non atomique.
+- Classes métier historiques encore inutilisées ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes. Le module OCR utilise désormais domaine, cas d'usage, ports et adaptateurs.
+- Création de NDF non atomique. Les bornes OCR, sa route asynchrone, son worker et le contrat d'outbox sont décrits dans `docs/ocr.md` ; 2-484 doit brancher les notifications sur ce socle commun.
 - Aucun contrat d'API (OpenAPI), pas d'observabilité.
 
 Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489).
