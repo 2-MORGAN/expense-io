@@ -51,12 +51,12 @@ src/
 │   ├── actions/auth.ts      # server actions signup/login/logout
 │   └── {expenses,manager,hr,login,signup}/page.tsx
 ├── components/              # composants React (AdminConsole, PendingApprovalsPanel, NavItem)
-├── lib/                     # auth.ts, db.ts, storage.ts, ocr.ts, errors.ts
-├── domain/                  # ExpenseNote.ts, User.ts   (entités métier)
-├── ports/                   # NotificationPort, ReceiptStoragePort (interfaces)
-├── adapters/                # ConsoleNotificationAdapter, S3ReceiptAdapter
+├── lib/                     # auth.ts, db.ts, storage.ts, ocr.ts, errors.ts, email.ts, outbox.ts, notifications.ts
+├── domain/                  # ExpenseNote.ts, User.ts (entités métier), Notification.ts (événements et payloads des notifications)
+├── ports/                   # NotificationPort, EmailPort, EventOutbox, ReceiptStoragePort (interfaces)
+├── adapters/                # SmtpEmailAdapter, PgEventOutbox, EmailNotificationAdapter, ConsoleNotificationAdapter, S3ReceiptAdapter
 ├── utils/                   # validators.ts, format.ts
-├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), processNextEvent.ts
+├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), runWorker.ts, processNextEvent.ts, notificationHandlers.ts, retry.ts, log.ts
 └── proxy.ts                 # garde de navigation (ne couvre PAS /api)
 migrations/                  # SQL versionné — seule source de vérité du schéma
 scripts/                     # seed.mjs, ensure-bucket.mjs
@@ -71,7 +71,7 @@ Règles de placement pour tout **nouveau** code :
 - **Accès base** → via `withUserScope()` de `src/lib/db.ts`, jamais `getPool().query` direct pour des données tenant.
 - **Schéma** → nouvelle migration dans `migrations/` (horodatée, jamais d'édition d'une migration existante), avec `down`.
 - **UI** → `src/components/` ; les pages restent minces.
-- Réutiliser avant de créer : `src/domain`, `src/ports`, `src/adapters` et `src/utils` existent déjà mais sont **actuellement inutilisés** (voir dette). Les brancher plutôt que dupliquer.
+- Réutiliser avant de créer : `src/domain`, `src/ports` et `src/adapters` servent déjà aux notifications (`Notification.ts` ; `EmailPort`, `EventOutbox`, `NotificationPort` ; `SmtpEmailAdapter`, `PgEventOutbox`, `EmailNotificationAdapter`) : suivre ce modèle. `src/utils`, `domain/ExpenseNote.ts`, `ReceiptStoragePort` / `S3ReceiptAdapter` et `ConsoleNotificationAdapter` existent mais ne sont **encore importés nulle part** (voir dette). Les brancher plutôt que dupliquer.
 
 `npm run lint` fait respecter une partie de ces règles (`eslint.config.mjs`, ADR-005 T6) : domaine sans infrastructure ; ni SQL ni accès base dans `src/app/` et `src/components/` ; `getPool()` réservé à `src/lib/db.ts` ; pas de SQL interpolé ; pas de test `.only`, `.skip`, `.fixme` ou `.fail`. Le code existant qui enfreint une règle est listé en exception (listes `LEGACY_*`). Ces listes ne font que raccourcir : retirer un fichier dès qu'il est conforme, **ne jamais en ajouter un** pour faire passer le lint.
 
@@ -103,7 +103,7 @@ Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 - RLS probablement contournée (connexion en superuser, policy RH sans `company_id`) : l'isolation repose en pratique sur les `WHERE` manuels.
 - `AUTH_SECRET` codé en dur dans `lib/auth.ts` ; `lib/errors.ts` renvoie la stacktrace au client.
 - Inscription : l'entreprise et le rôle RH sont déduits du domaine email (S7, voir plus haut).
-- `domain/`, `ports/`, `adapters/`, `utils/` jamais importés ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes.
+- `domain/ExpenseNote.ts`, `utils/`, `ReceiptStoragePort` / `S3ReceiptAdapter` et `ConsoleNotificationAdapter` ne sont jamais importés ; `toExpenseNote()` copié dans 3 routes et les contrôles de rôle dupliqués dans ~10 routes.
 - OCR Tesseract synchrone dans la requête HTTP, sans limite de taille ; création de NDF non atomique.
 - Aucun contrat d'API (OpenAPI), pas d'observabilité.
 
