@@ -46,8 +46,12 @@ test.describe('Outbox — traitement par le worker', () => {
     const company = await createCompany('outbox-04')
     const type = `test.${randomUUID()}`
     const id = await insertOutboxEvent({ companyId: company.id, type, payload: { original: true } })
+    // Horloge de la base : le délai de relance se mesure depuis l'échec, pas depuis le début de la transaction.
+    let failedAt = 0
     const handlers = only(type, async (event, client) => {
       await client.query(`UPDATE outbox_events SET payload = '{"touched": true}' WHERE id = $1`, [event.id])
+      const { rows } = await client.query<{ at: Date }>('SELECT clock_timestamp() AS at')
+      failedAt = rows[0].at.getTime()
       throw new Error('SMTP indisponible pour jane@acme.test')
     })
     const before = Date.now()
@@ -59,6 +63,7 @@ test.describe('Outbox — traitement par le worker', () => {
     })
     expect(row.nextAttemptAt.getTime() - before).toBeGreaterThan(50_000)
     expect(row.nextAttemptAt.getTime() - before).toBeLessThan(70_000)
+    expect(row.nextAttemptAt.getTime() - failedAt).toBeGreaterThanOrEqual(60_000)
     expect(await processNextEvent(handlers, { companyId: company.id })).toBe(false)
   })
 

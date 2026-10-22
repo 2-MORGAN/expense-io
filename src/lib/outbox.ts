@@ -63,7 +63,12 @@ export async function markSent(client: PoolClient, id: string): Promise<void> {
   )
 }
 
-/** Compte l'essai raté, garde la dernière erreur (déjà masquée) et planifie la relance ou clôt l'événement. */
+/**
+ * Compte l'essai raté, garde la dernière erreur (déjà masquée) et planifie la
+ * relance ou clôt l'événement. `clock_timestamp()` et non `now()` : `now()` est
+ * l'heure du `BEGIN`, le délai serait compté depuis la réclamation et un
+ * handler lent le raccourcirait.
+ */
 export async function recordFailure(
   client: PoolClient,
   id: string,
@@ -76,7 +81,7 @@ export async function recordFailure(
      SET attempts = attempts + 1,
          status = $2,
          last_error = $3,
-         next_attempt_at = now() + make_interval(secs => $4::double precision)
+         next_attempt_at = clock_timestamp() + make_interval(secs => $4::double precision)
      WHERE id = $1`,
     [id, update.status, lastError, delaySeconds]
   )
