@@ -12,8 +12,10 @@
 name: CI
 
 on:
-  # Toutes les PR, y compris celles empilées sur une autre branche que main.
+  # Seulement les PR qui visent main : une PR empilée sur une autre branche
+  # n'est vérifiée qu'une fois rebasée sur main.
   pull_request:
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
