@@ -19,7 +19,7 @@ const literal = (path) => path.replace(/[[\]]/g, '\\$&')
 
 // Routes et server actions qui accèdent encore à la base. Chacune sort de la
 // liste quand elle passe par un cas d'usage (2-488, ADR-002 §6).
-const LEGACY_DB_ACCESS = [
+export const LEGACY_DB_ACCESS = [
   'src/app/actions/auth.ts',
   'src/app/api/expense-notes/route.ts',
   'src/app/api/expense-notes/[id]/receipt-url/route.ts',
@@ -36,7 +36,7 @@ const LEGACY_DB_ACCESS = [
 ].map(literal)
 
 // Fichiers des 12 appels à getPool() que 2-481 supprime (ADR-001, annexe B).
-const LEGACY_GET_POOL = [
+export const LEGACY_GET_POOL = [
   'src/app/actions/auth.ts',
   'src/app/api/expense-notes/route.ts',
   'src/app/api/hr/users/route.ts',
@@ -46,7 +46,7 @@ const LEGACY_GET_POOL = [
 ].map(literal)
 
 // S1 : tri concaténé dans ORDER BY, jusqu'à sa correction (WS1).
-const LEGACY_SQL_INTERPOLATION = ['src/app/api/expense-notes/route.ts']
+export const LEGACY_SQL_INTERPOLATION = ['src/app/api/expense-notes/route.ts']
 
 const GET_POOL_IMPORT = {
   group: ['**/lib/db', './db'],
@@ -91,13 +91,27 @@ const SQL_STATEMENT = String.raw`^\s*(SELECT|INSERT|UPDATE|DELETE|WITH)\s`
 const SQL_INTERPOLATION_MESSAGE =
   'SQL construit par interpolation ou concaténation : passer les valeurs en paramètres ($1, $2…) et choisir un tri ou une colonne dans une liste blanche (CLAUDE.md, règle 3).'
 
+// Même détection sans tenir compte de la casse, mais seulement pour des
+// formes d'une requête SQL (« select … from », « order by »…) : un mot isolé
+// (« from », « set », « where ») est trop courant dans un message ou une
+// classe CSS.
+const SQL_PHRASE = String.raw`(\bselect\s[\s\S]*\sfrom\s|\binsert\s+into\s|\bdelete\s+from\s|\bupdate\s+\S+\s+set\s|\border\s+by\s|\bgroup\s+by\s)`
+
 const SQL_INTERPOLATION = [
   {
     selector: `TemplateLiteral[expressions.length>0]:has(> TemplateElement[value.raw=/${SQL_KEYWORD}/])`,
     message: SQL_INTERPOLATION_MESSAGE,
   },
   {
+    selector: `TemplateLiteral[expressions.length>0]:has(> TemplateElement[value.raw=/${SQL_PHRASE}/i])`,
+    message: SQL_INTERPOLATION_MESSAGE,
+  },
+  {
     selector: `BinaryExpression[operator='+'] > Literal[value=/${SQL_KEYWORD}/]`,
+    message: SQL_INTERPOLATION_MESSAGE,
+  },
+  {
+    selector: `BinaryExpression[operator='+'] > Literal[value=/${SQL_PHRASE}/i]`,
     message: SQL_INTERPOLATION_MESSAGE,
   },
 ]
