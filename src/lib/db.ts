@@ -53,6 +53,23 @@ export async function withSystemTransaction<T>(
 }
 
 /**
+ * Exécute `fn` dans un point de sauvegarde de la transaction du `client` : si
+ * elle échoue, ses écritures sont annulées, l'erreur est relancée et la
+ * transaction reste utilisable (le worker y enregistre l'échec de l'événement).
+ */
+export async function withSavepoint<T>(client: PoolClient, fn: () => Promise<T>): Promise<T> {
+  await client.query('SAVEPOINT outbox_handler')
+  try {
+    const result = await fn()
+    await client.query('RELEASE SAVEPOINT outbox_handler')
+    return result
+  } catch (error) {
+    await client.query('ROLLBACK TO SAVEPOINT outbox_handler')
+    throw error
+  }
+}
+
+/**
  * Pose le contexte utilisateur pour la durée de la transaction — l'isolation
  * entre utilisateurs et entre entreprises est garantie par PostgreSQL (Row
  * Level Security, voir migrations/), ce helper ne fait qu'exposer l'id
