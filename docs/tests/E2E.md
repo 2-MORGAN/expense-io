@@ -33,11 +33,13 @@ Sans `make`, par exemple dans PowerShell (le Makefile exige `make` et `bash`) :
 
 ```bash
 cp .env.example .env    # une seule fois, si .env n'existe pas encore
-docker compose up -d
+docker compose up -d --wait   # attend que Postgres et LocalStack soient prêts, comme `make up`
 npm run migrate:up
 npm run ensure-bucket
 npm run test:e2e
 ```
+
+Si `npm run migrate:up` échoue sur une erreur d'authentification de l'utilisateur `expense` (code `28P01`), un PostgreSQL installé sur le poste occupe sans doute déjà le port 5433 (`netstat -ano | findstr :5433` sous Windows). Arrêter ce service le temps des tests, ou exposer le Postgres de Docker sur un autre port et y faire pointer `DATABASE_URL`.
 
 ### Options utiles
 
@@ -204,15 +206,15 @@ Pour ACL-01 à ACL-04, chaque refus est vérifié **sans effet de bord** (notes 
 
 ## Résultat de la dernière exécution
 
-**89 / 89 tests verts (100 %)**, 0 échec, 0 flaky, sans nouvel essai.
+**89 / 89 tests verts (100 %)** sur un poste Windows de l'équipe, 0 échec, 0 flaky, sans nouvel essai.
 
 | | |
 |---|---|
-| Date | 11 octobre 2026 |
-| Code testé | `main` @ `4fad1d3`, sans modification de `src/` |
-| Commande | `npm run test:e2e` (Playwright démarre lui-même `next dev`, base de dev déjà peuplée par le seed) |
-| Durée | 2,4 min avec 1 worker, démarrage à froid de `next dev` et préchauffage des routes compris |
-| Environnement | Linux, Node 24.21.0, PostgreSQL 16.15, LocalStack 3.8.1 (S3), Playwright 1.63.0, Chromium 141 (`E2E_CHROMIUM_PATH`) |
+| Date | 22 octobre 2026 |
+| Code testé | `main` @ `e7239b6` |
+| Commande | équivalent de `make test-e2e` sans `make` (voir [Lancer les tests](#lancer-les-tests)) : `docker compose up -d --wait`, `npm run migrate:up`, `npm run ensure-bucket`, puis `npm run test:e2e`, qui démarre lui-même `next dev` |
+| Durée | 2,6 min avec 4 workers, démarrage à froid de `next dev` et préchauffage des routes compris |
+| Environnement | Windows 11, Node 24.16.0, Docker Desktop 29.1.2, PostgreSQL 16.15, LocalStack 3.8.1 (S3), Playwright 1.63.0, Chromium 153 (fourni par Playwright) |
 
 | Fichier | Tests | Résultat |
 |---|---:|---|
@@ -229,13 +231,30 @@ Pour ACL-01 à ACL-04, chaque refus est vérifié **sans effet de bord** (notes 
 | **Total** | **89** | **✅ 89/89** |
 
 ```
-Running 89 tests using 1 worker
-  ✓  1 [chromium] › e2e/access-control.spec.ts:118:7 › Contrôle d’accès par rôle › [ACL-01] …
+Running 89 tests using 4 workers
+  ok  1 [chromium] › e2e\access-control.spec.ts:117:7 › Contrôle d’accès par rôle › [ACL-01] …
   …
-  ✓ 89 [chromium] › e2e/signup.spec.ts:148:7 › Inscription › [SIGNUP-07] …
+  ok 89 [chromium] › e2e\signup.spec.ts:148:7 › Inscription › [SIGNUP-07] …
 
-  89 passed (2.4m)
+  89 passed (2.6m)
 ```
+
+Un PostgreSQL 17 natif occupait déjà le port 5433 de ce poste : le Postgres de Docker a été exposé sur 5434 le temps de l'exécution, avec `DATABASE_URL` surchargée dans l'environnement (`.env` inchangé).
+
+### Toutes les exécutions
+
+| Où | Date | Code | Résultat |
+|---|---|---|---|
+| Windows 11, poste de Stanislas | 22/10/2026 | `main` @ `e7239b6` | ✅ 89/89 en 2,6 min, 4 workers |
+| macOS, poste de Florent, `make test-e2e` | 20/10/2026 | `main` | ✅ vert |
+| CI GitHub Actions, `ubuntu-latest`, `make test-e2e` | à chaque PR et push sur `main`, ici le 22/10/2026 | `main` @ `e7239b6` | ✅ 89/89 en 1,1 min, 2 workers (job `e2e` : 3 min 34 s) |
+| Linux isolé, sans Docker (campagne initiale) | 11/10/2026 | `main` @ `4fad1d3` | ✅ 89/89 en 2,4 min, 1 worker |
+
+macOS : résultat rapporté par Florent dans la mise à jour du 20 octobre de l'ADR-005 ; le commit et la durée n'ont pas été consignés.
+
+### Campagne initiale (11 octobre 2026)
+
+Environnement Linux isolé, **sans Docker** (registre inaccessible) : PostgreSQL 16.15 et LocalStack 3.8.1 (mêmes versions que `docker-compose.yml`) y tournaient en natif, avec Node 24.21.0, Playwright 1.63.0 et un Chromium 141 (`E2E_CHROMIUM_PATH`) plus ancien que celui fourni par Playwright (153). Google Fonts était inaccessible : police de repli, sans effet sur les tests, et polices simulées localement pour le build de prod. Commande : `npm run test:e2e`, 1 worker, sur une base de dev déjà peuplée par le seed.
 
 Vérifications complémentaires, sur le même code :
 
@@ -243,8 +262,6 @@ Vérifications complémentaires, sur le même code :
 - **Build de production** (`next build` puis `next start`, via `E2E_BASE_URL`) → 89/89 en 57 s.
 - **Sensibilité de la suite** : 16 régressions injectées une à une dans `src/` (puis annulées) ont toutes fait échouer au moins un test : décision manager inversée, filtre entreprise retiré de la liste RH, premier inscrit non RH, type MIME du reçu perdu, contrôle `pending` supprimé côté RH, contrôle d'entreprise retiré du rattachement, tri par défaut inversé, notes tranchées laissées dans la liste manager, liste non rechargée après décision, libellé « approuvée » modifié, URL pré-signée d'1 h, contrôle du propriétaire retiré du reçu, `/hr` non protégé, date OCR ignorée, limite de 10 Mio relevée, 401 → 403 sur les routes manager.
 - `npm run lint` et `npm run typecheck` passent (fichiers de test inclus).
-
-Limites de cette exécution : elle a eu lieu dans un environnement Linux isolé, **sans Docker** (registre inaccessible). PostgreSQL 16 et LocalStack 3.8.1 (mêmes versions que `docker-compose.yml`) y tournaient en natif, et Google Fonts était inaccessible (police de repli, sans effet sur les tests ; polices simulées localement pour le build de prod). Le Chromium utilisé (141) est plus ancien que celui fourni par Playwright 1.63 (153). **À rejouer sur un poste de l'équipe avec `make test-e2e`, puis mettre à jour cette section.**
 
 ## Cas non couverts
 
