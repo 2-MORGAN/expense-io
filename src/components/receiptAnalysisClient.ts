@@ -1,4 +1,4 @@
-import type { components } from '@/types/ocr-api'
+import type { components } from '@/types/api'
 
 export type ReceiptSuggestion = components['schemas']['ReceiptSuggestion']
 
@@ -18,7 +18,7 @@ export async function analyzeReceipt(receipt: File, signal: AbortSignal): Promis
     method: 'POST', body: formData, headers: { 'Idempotency-Key': crypto.randomUUID() }, signal,
   })
   if (started.status !== 202) throw new Error('Receipt analysis launch failed')
-  const accepted = await started.json() as { id?: unknown }
+  const accepted = await started.json() as components['schemas']['AnalysisAccepted']
   if (typeof accepted.id !== 'string' || !/^[0-9a-f-]{36}$/i.test(accepted.id)) throw new Error('Invalid analysis response')
   while (true) {
     signal.throwIfAborted()

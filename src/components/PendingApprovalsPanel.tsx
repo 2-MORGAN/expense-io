@@ -1,15 +1,7 @@
 'use client'
 
+import type { ExpenseNote } from '@/http/dto'
 import { useCallback, useEffect, useState } from 'react'
-
-interface ExpenseNote {
-  id: string
-  userId: string
-  amount: number
-  expenseDate: string
-  description: string
-  createdAt: string
-}
 
 const currencyFormatter = new Intl.NumberFormat('fr-FR', {
   style: 'currency',

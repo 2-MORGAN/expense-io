@@ -1,6 +1,8 @@
-export const MAX_RECEIPT_BYTES = 10 * 1024 * 1024
-export const MAX_IMAGE_PIXELS = 40_000_000
-export const MAX_IMAGE_SIDE = 2500
+import policy from '@/generated/receipt-policy.json'
+
+export const MAX_RECEIPT_BYTES = policy.maxBytes
+export const MAX_IMAGE_PIXELS = policy.ocrMaxPixels
+export const MAX_IMAGE_SIDE = policy.ocrMaxSide
 export const OCR_CONCURRENCY = 2
 export const OCR_WAITING = 8
 export const OCR_TIMEOUT_MS = 15_000

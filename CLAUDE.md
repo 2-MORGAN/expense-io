@@ -107,6 +107,13 @@ Règles de placement pour tout **nouveau** code :
 - Toute décision d'architecture structurante → une ADR courte dans `docs/adr/` (contexte, options, décision, conséquences). **Seules les ADR au statut « Acceptée » font foi** : voir l'index [`docs/adr/README.md`](docs/adr/README.md). Un test E2E ne se modifie que si une ADR acceptée décide le changement de comportement (ADR-005 §2).
 - Pas de nouvelle dépendance npm sans justification dans la PR.
 
+## Contrat HTTP
+
+- Lire `openapi.yaml` et `docs/api/README.md` avant de modifier une opération métier. Modifier le contrat en premier, puis `npm run generate:api`.
+- Importer les types HTTP depuis `src/types/api.d.ts` (alias possibles dans `src/http/dto.ts`) ; ne pas recréer de DTO locaux ni modifier les fichiers générés.
+- Les validateurs utilisent les schémas du contrat, sans coercition/default destructif. Vérifier toute entrée avant écriture/upload, après session/rôle ; le domaine reste indépendant des DTO HTTP.
+- `npm run check:api` est inclus dans `npm run check` : lint OpenAPI, artefacts à jour et couverture méthode/chemin, réexports compris. Les réponses API E2E sont contrôlées contre le contrat.
+
 ## Règles non négociables (sécurité & multi-tenant)
 
 1. **Isolation par entreprise** : toute requête sur des données tenant doit être bornée par `company_id` / par le scope utilisateur. Ne jamais faire confiance à un id venant du client sans vérifier qu'il appartient au tenant de l'appelant.
@@ -127,7 +134,7 @@ Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 - Inscription : l'entreprise et le rôle RH sont déduits du domaine email (S7, voir plus haut).
 - Classes métier historiques encore inutilisées ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes. Le module OCR utilise désormais domaine, cas d'usage, ports et adaptateurs.
 - Création de NDF non atomique (2-476). Les bornes OCR et son parcours asynchrone, branché sur le socle commun de l'outbox (2-484), sont décrits dans `docs/ocr.md`.
-- Aucun contrat d'API (OpenAPI), pas d'observabilité.
+- Contrat global dans `openapi.yaml`, types et JSON de validation générés (2-486). L’unification des erreurs et l’observabilité HTTP restent 2-485/2-490.
 
 Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489) ; OCR : montant lu sur la dernière ligne de total chiffrée, « TTC » en priorité, et description suggérée (nom du commerçant), règles pures dans `src/domain/receipt/parseReceiptText.ts` (PR #17).
 

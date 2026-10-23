@@ -1,3 +1,4 @@
+import policy from '@/generated/receipt-policy.json'
 import { OcrError } from './OcrError'
 import { MAX_RECEIPT_BYTES } from './limits'
 
@@ -6,9 +7,14 @@ export interface Receipt {
   mimeType: string
 }
 
-export function validateReceipt(receipt: Receipt): void {
+export function isSupportedReceiptType(mimeType: string): boolean {
+  return policy.mediaTypes.includes(mimeType)
+}
+
+export function validateReceipt(receipt: Receipt, options: { allowUnsupported?: boolean } = {}): void {
   if (receipt.data.length === 0) throw new OcrError('VALIDATION_ERROR')
   if (receipt.data.length > MAX_RECEIPT_BYTES) throw new OcrError('RECEIPT_TOO_LARGE')
+  if (options.allowUnsupported && !isSupportedReceiptType(receipt.mimeType)) return
   const data = receipt.data
   const matches = receipt.mimeType === 'image/png'
     ? data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))

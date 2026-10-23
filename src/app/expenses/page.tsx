@@ -1,16 +1,8 @@
 'use client'
 
+import type { ExpenseNote } from '@/http/dto'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { analyzeReceipt } from '@/components/receiptAnalysisClient'
-
-interface ExpenseNote {
-  id: string
-  amount: number
-  expenseDate: string
-  description: string
-  status: string
-  createdAt: string
-}
 
 const inputClass =
   'w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-brand-900'

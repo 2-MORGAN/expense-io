@@ -66,6 +66,14 @@ L'ancienne route synchrone reste disponible. Les protections, le contrat
 de la file commune avec les notifications et les choix de reprise sont
 décrits dans [docs/ocr.md](docs/ocr.md).
 
+## Contrat API
+
+Les 16 opérations métier sont décrites dans [openapi.yaml](openapi.yaml).
+Les types serveur/front sont générés par `npm run generate:api` ;
+`npm run check` contrôle le contrat, les artefacts et la couverture des routes.
+Validation des entrées, outils, compatibilité et transition des erreurs :
+[docs/api/README.md](docs/api/README.md).
+
 ## Autres commandes
 
 ```bash
@@ -76,7 +84,7 @@ make typecheck
 make test-unit # tests unitaires Vitest, sans Docker
 make test-e2e  # tests E2E de non-régression (voir docs/tests/E2E.md)
 make verify    # ce que vérifie la CI : lint, types, tests unitaires, build puis E2E (Docker requis)
-npm run check  # lint, types et tests unitaires, lancé aussi par le hook git pre-push
+npm run check  # lint, types, tests unitaires et contrat API, lancé aussi par le hook git pre-push
 make down    # arrête Postgres/LocalStack
 make clean   # arrête et supprime les données locales
 ```
