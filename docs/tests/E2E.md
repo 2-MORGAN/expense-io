@@ -119,7 +119,8 @@ e2e/
 | NDF-09 | Type de reçu non autorisé → 400 « Type de fichier non autorisé pour le reçu » | API |
 | NDF-10 | Reçu > 10 Mio → 400 « Fichier trop volumineux » | API |
 | NDF-11 | `GET /api/expense-notes` : uniquement ses propres notes, plus récentes d'abord | API |
-| NDF-12 | `?sort=amount ASC` / `amount DESC` trie la liste (usage légitime seulement) | API |
+| NDF-12 | `?sort=amount ASC` / `amount DESC` trie la liste | API |
+| NDF-13 | `?sort=` hors liste blanche (colonne inconnue, clause ajoutée, direction invalide) → 200, tri par défaut (faille S1 corrigée) | API |
 
 ### Pré-remplissage depuis le reçu (OCR) — `e2e/ocr-suggestion.spec.ts`
 
@@ -301,7 +302,6 @@ Les références renvoient à `CLAUDE.md` (« Dette connue ») et à l'audit API
 
 | Comportement actuel | Réf. |
 |---|---|
-| Injection SQL via `?sort=` (seul un tri légitime est testé, NDF-12) | B1 |
 | Un manager obtient le reçu d'une note hors de son équipe (IDOR) | B2 |
 | Une RH peut rattacher un employé à un manager d'une autre entreprise | B3 |
 | Message interne et stacktrace renvoyés dans les erreurs 500 ; certaines erreurs SQL échappent au `catch` | B4, Q1.3 |
