@@ -68,14 +68,15 @@ e2e/
 │   ├── fixtures.ts           fixtures Playwright : org, apiAs, pageAs, openPage
 │   ├── api.ts                client HTTP et contrat actuel (DTO, expectApiError, expectPresignedUrl…)
 │   ├── files.ts              reçus de test (PNG uniques, PDF, texte, fichier > 10 Mio)
-│   └── mailpit.ts            lecture des emails captés par Mailpit (waitForEmail, countEmails)
+│   ├── mailpit.ts            lecture des emails captés par Mailpit (waitForEmail, countEmails)
+│   └── outbox.ts             préparation et lecture de outbox_events, en connexion d'administration (insertOutboxEvent, outboxEvent)
 ├── fixtures/recu-ocr-*.png   tickets de caisse pour l'OCR (images versionnées : résultat déterministe)
 └── *.spec.ts                 scénarios, un fichier par domaine
 ```
 
 ## Scénarios couverts
 
-**90 tests** (78 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 11 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
+**98 tests** (86 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 12 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
 
 ### Inscription — `e2e/signup.spec.ts`
 
@@ -213,6 +214,21 @@ Les emails de dev sont captés par Mailpit (`docker compose`, interface sur http
 | ID | Scénario | Niveau |
 |---|---|---|
 | MAIL-01 | Un email envoyé par l'adaptateur SMTP arrive dans Mailpit (sujet, texte, expéditeur, Message-ID) | Intégration |
+
+### Outbox et worker — `e2e/outbox-worker.spec.ts`
+
+Les tests appellent directement `withUserScope`, `PgEventOutbox` et `processNextEvent` avec des handlers de test, sur la vraie base (types d'événement uniques et entreprises dédiées, pour ne pas toucher aux événements des autres tests). Ils ne lancent pas le processus `npm run worker` : sa boucle (enchaînement, attente, erreurs, arrêt) est couverte par les tests unitaires de `src/worker/runWorker.test.ts`.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| OUTBOX-01 | `enqueue` dans `withUserScope` : événement « pending » dans l'entreprise de l'utilisateur | Intégration |
+| OUTBOX-02 | `enqueue` hors contexte utilisateur : refusé, rien n'est écrit | Intégration |
+| OUTBOX-03 | Succès → « sent », 1 essai, traité une seule fois | Intégration |
+| OUTBOX-04 | Échec → relance dans 1 min, écritures du handler annulées, email masqué dans l'erreur | Intégration |
+| OUTBOX-05 | Échec après 5 relances → « dead » | Intégration |
+| OUTBOX-06 | Événement pas encore dû : ignoré | Intégration |
+| OUTBOX-07 | Deux workers simultanés : l'événement est traité une seule fois | Intégration |
+| OUTBOX-08 | Type sans handler : laissé « pending » pour le worker qui le connaît | Intégration |
 
 ## Résultat de la dernière exécution
 
