@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { PgEventOutbox } from '@/adapters/PgEventOutbox'
 import { closePool, withSystemTransaction, withUserScope } from '@/lib/db'
+import { LEASE_SECONDS, leaseNextDueEvent } from '@/lib/outbox'
 import { processNextEvent, type OutboxHandler } from '@/worker/processNextEvent'
-import { createCompany } from './support/db'
+import { createCompany, db } from './support/db'
 import { expect, test } from './support/fixtures'
 import { insertOutboxEvent, outboxEvent } from './support/outbox'
 
@@ -106,5 +107,35 @@ test.describe('Outbox — traitement par le worker', () => {
     const id = await insertOutboxEvent({ companyId: company.id, type: `test.unhandled.${randomUUID()}` })
     expect(await processNextEvent(only(`test.${randomUUID()}`, async () => {}), { companyId: company.id })).toBe(false)
     expect(await outboxEvent(id)).toMatchObject({ status: 'pending', attempts: 0 })
+  })
+})
+
+test.describe('Outbox — arrêt du worker', () => {
+  test('[OUTBOX-09] worker arrêté pendant le traitement : l’essai compte, puis l’événement finit en dead', async () => {
+    const company = await createCompany('outbox-09')
+
+    // (a) Prise en charge seule (phase 1), sans phase 2 : un worker tué juste après.
+    const leasedType = `test.${randomUUID()}`
+    const leasedId = await insertOutboxEvent({ companyId: company.id, type: leasedType })
+    const leased = await leaseNextDueEvent([leasedType], company.id)
+    expect(leased).toMatchObject({ id: leasedId, attempts: 1 })
+    const row = await outboxEvent(leasedId)
+    expect(row).toMatchObject({ status: 'pending', attempts: 1 })
+    // Horloge de la base, comme OUTBOX-04.
+    const { rows } = await db().query<{ lease: number }>(
+      'SELECT extract(epoch FROM $1::timestamptz - clock_timestamp())::float8 AS lease', [row.nextAttemptAt])
+    expect(LEASE_SECONDS).toBe(300)
+    expect(rows[0].lease).toBeGreaterThan(290)
+    expect(rows[0].lease).toBeLessThan(310)
+
+    // (b) Six essais déjà faits (1 + 5 relances) dont le dernier n'a jamais fini : mort sans handler.
+    const deadType = `test.${randomUUID()}`
+    const deadId = await insertOutboxEvent({
+      companyId: company.id, type: deadType, attempts: 6, nextAttemptAt: new Date(Date.now() - 1000),
+    })
+    let calls = 0
+    expect(await processNextEvent(only(deadType, async () => { calls += 1 }), { companyId: company.id })).toBe(true)
+    expect(calls).toBe(0)
+    expect(await outboxEvent(deadId)).toMatchObject({ status: 'dead', attempts: 7, lastError: expect.stringMatching(/did not finish/) })
   })
 })
