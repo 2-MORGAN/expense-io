@@ -190,6 +190,7 @@ e2e/
 | ORG-06 | `PUT /api/hr/users/:id/manager` → 200 + utilisateur à jour (la visibilité des notes suit) ; `managerId: null` → détachement | API |
 | ORG-07 | Manager invalide (soi-même, employé, RH, inconnu) → 409 « Invalid manager », rien ne change | API |
 | ORG-08 | Cible RH, d'une autre entreprise ou inconnue → 404 « Not found » | API |
+| ORG-09 | `PUT /api/hr/users/:id/manager` vers un manager d'une autre entreprise → 409 « Invalid manager », rattachement inchangé (faille S3 corrigée) | API |
 
 ### Contrôle d'accès et isolation — `e2e/access-control.spec.ts`
 
@@ -303,7 +304,6 @@ Les références renvoient à `CLAUDE.md` (« Dette connue ») et à l'audit API
 
 | Comportement actuel | Réf. |
 |---|---|
-| Une RH peut rattacher un employé à un manager d'une autre entreprise | B3 |
 | Message interne et stacktrace renvoyés dans les erreurs 500 ; certaines erreurs SQL échappent au `catch` | B4, Q1.3 |
 | Corps JSON invalide ou sans `managerId` sur `PUT …/manager` = détachement silencieux (200) | B7 |
 | Validation laxiste : `12abc` accepté comme 12, date invalide → 500, fichier vide accepté, type MIME déclaratif non vérifié | B7 |
@@ -320,7 +320,7 @@ Quand l'un de ces points est corrigé, ajouter le test correspondant (un bug cor
 - Atomicité de la création note + upload S3 (panne S3 ou base en cours de route), idempotence des réessais (B9) : demande une injection de pannes.
 - Charge et limites de l'OCR : gros fichiers, durée, concurrence (B10). La distinction entre panne de l'OCR et « rien trouvé » n'existe pas (les deux donnent `{}`, B11) ; seul le cas « type non pris en charge → `{}` » est figé.
 - Messages d'erreur de l'UI qui n'apparaissent qu'en cas de panne serveur : « Impossible de charger les notes de frais. », « Impossible de récupérer le reçu. », « Impossible d’analyser ce reçu. », « Échec de l'assignation. ».
-- Policies RLS de PostgreSQL : contournées dans la configuration actuelle (connexion superuser). L'isolation est vérifiée au niveau HTTP (ISO-*, MGR-09, RH-08, ORG-08, RECU-02/07/08), pas au niveau des policies.
+- Policies RLS de PostgreSQL : contournées dans la configuration actuelle (connexion superuser). L'isolation est vérifiée au niveau HTTP (ISO-*, MGR-09, RH-08, ORG-08/09, RECU-02/07/08), pas au niveau des policies.
 
 ### Hors périmètre de cette suite
 
