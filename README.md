@@ -62,7 +62,7 @@ make typecheck
 make test-unit # tests unitaires Vitest, sans Docker
 make test-e2e  # tests E2E de non-régression (voir docs/tests/E2E.md)
 make verify    # ce que vérifie la CI : lint, types, tests unitaires, build puis E2E (Docker requis)
-npm run check  # lint, types et tests unitaires, à lancer avant de pousser
+npm run check  # lint, types et tests unitaires, lancé aussi par le hook git pre-push
 make down    # arrête Postgres/LocalStack
 make clean   # arrête et supprime les données locales
 ```
