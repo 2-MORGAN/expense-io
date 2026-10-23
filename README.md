@@ -59,6 +59,9 @@ lancer `npm run start` et `npm run worker` comme deux processus supervisés.
 Les migrations et le bucket doivent être prêts avant leur démarrage.
 
 Le bouton de préremplissage lance une analyse puis consulte son résultat.
+Il propose le montant (ligne « TTC » ou « à payer » en priorité), la date et
+une description : le nom du commerçant lu en tête du reçu, placé seulement si
+le champ est vide. Les PDF ne sont pas analysés.
 L'ancienne route synchrone reste disponible. Les protections, le contrat
 de la file commune avec les notifications et les choix de reprise sont
 décrits dans [docs/ocr.md](docs/ocr.md).

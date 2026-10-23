@@ -291,6 +291,8 @@ Vérifications complémentaires, sur le même code :
 - **Sensibilité de la suite** : 16 régressions injectées une à une dans `src/` (puis annulées) ont toutes fait échouer au moins un test : décision manager inversée, filtre entreprise retiré de la liste RH, premier inscrit non RH, type MIME du reçu perdu, contrôle `pending` supprimé côté RH, contrôle d'entreprise retiré du rattachement, tri par défaut inversé, notes tranchées laissées dans la liste manager, liste non rechargée après décision, libellé « approuvée » modifié, URL pré-signée d'1 h, contrôle du propriétaire retiré du reçu, `/hr` non protégé, date OCR ignorée, limite de 10 Mio relevée, 401 → 403 sur les routes manager.
 - `npm run lint` et `npm run typecheck` passent (fichiers de test inclus).
 
+**Exécution du 23 octobre 2026, branche de la PR #17** (`feat/2-475-ocr-description`, empilée sur la PR #13 rebasée sur le socle commun de l'outbox) : **115 / 115**, 0 échec, soit les 113 tests de la PR #13 plus OCR-22 et OCR-23. Aucun test existant modifié. Environnement sans Docker : PostgreSQL 16 natif, S3 local (s3rver) à la place de LocalStack, Mailpit 1.31.6 natif, Chromium 153 de Playwright ; Google Fonts inaccessible, donc le build de production n'a pas été vérifié ici (la CI le fait).
+
 ## Cas non couverts
 
 ### Comportements actuels volontairement non figés (failles ou dette à corriger)
