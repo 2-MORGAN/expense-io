@@ -4,8 +4,8 @@ import { fixtureImage, pdfReceipt } from './support/files'
 
 // Pré-remplissage depuis le reçu (OCR Tesseract, langue fra). Les images de
 // `e2e/fixtures/` sont versionnées : le résultat de l'OCR est déterministe.
-//   recu-ocr-complet.png      « Date : 11/10/2026 » + « TOTAL TTC : 42,50 EUR »
-//   recu-ocr-montant-seul.png « TOTAL TTC : 12,30 EUR » (pas de date)
+//   recu-ocr-complet.png      « RESTAURANT LE TEST » + « Date : 11/10/2026 » + « TOTAL TTC : 42,50 EUR »
+//   recu-ocr-montant-seul.png « BOULANGERIE DU COIN » + « TOTAL TTC : 12,30 EUR » (pas de date)
 
 test.describe('Pré-remplissage OCR — API', () => {
   test('[OCR-01] ticket lisible → montant et date suggérés', async ({ org, apiAs }) => {
@@ -109,5 +109,32 @@ test.describe('Pré-remplissage OCR — interface', () => {
     await page.getByRole('button', { name: 'Pré-remplir depuis le reçu' }).click()
 
     await expect(page.getByRole('main').getByRole('alert')).toHaveText('Sélectionne d’abord un reçu.')
+  })
+})
+
+test.describe('Pré-remplissage OCR — description', () => {
+  test('[OCR-22] ticket lisible → le nom du commerçant est suggéré comme description', async ({
+    org,
+    apiAs,
+  }) => {
+    const response = await (await apiAs(org.employee)).suggest(fixtureImage('recu-ocr-complet.png'))
+    expect(response.status()).toBe(200)
+    expect(await response.json()).toMatchObject({ description: 'Restaurant le Test' })
+  })
+
+  test('[OCR-23] « Pré-remplir » remplit une description vide mais garde celle déjà saisie', async ({
+    page,
+    org,
+  }) => {
+    await signIn(page, org.employee)
+    await page.goto('/expenses')
+    await page.getByLabel('Reçu (image ou PDF)').setInputFiles(fixtureImage('recu-ocr-complet.png'))
+    await page.getByRole('button', { name: 'Pré-remplir depuis le reçu' }).click()
+    await expect(page.getByLabel('Description')).toHaveValue('Restaurant le Test')
+
+    await page.getByLabel('Description').fill('Déjeuner client')
+    await page.getByRole('button', { name: 'Pré-remplir depuis le reçu' }).click()
+    await expect(page.getByLabel('Montant (€)')).toHaveValue('42.5')
+    await expect(page.getByLabel('Description')).toHaveValue('Déjeuner client')
   })
 })

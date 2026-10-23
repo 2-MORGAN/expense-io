@@ -133,6 +133,8 @@ e2e/
 | OCR-06 | Seul le montant est reconnu → « Date non reconnu(e) sur ce reçu — vérifie ce champ. » | UI |
 | OCR-07 | Rien de reconnu → « Aucune information reconnue sur ce reçu — saisis les champs manuellement. » | UI |
 | OCR-08 | Sans reçu sélectionné → « Sélectionne d’abord un reçu. » | UI |
+| OCR-22 | Ticket lisible → `description: "Restaurant le Test"` (nom du commerçant) | API |
+| OCR-23 | « Pré-remplir » remplit une description vide, mais ne remplace pas une description déjà saisie | UI |
 
 ### Consultation des reçus — `e2e/receipts.spec.ts`
 

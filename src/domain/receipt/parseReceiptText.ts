@@ -35,6 +35,61 @@ function stripAccents(value: string): string {
 export interface ExpenseNoteSuggestion {
   amount?: number
   expenseDate?: string
+  description?: string
+}
+
+// Le nom du commerçant figure en tête de ticket : au-delà, ce sont des articles.
+const MERCHANT_SEARCH_LINES = 6
+const MAX_DESCRIPTION_LENGTH = 60
+// Mentions de document ou de contexte : le nom s'arrête avant elles, et une
+// ligne qui commence par l'une d'elles n'est pas un nom (« FACTURE », « Date : »).
+// Mots entiers, bornés par des lettres Unicode : `\b` ne connaît que l'ASCII et
+// verrait « tel » dans « Hôtel ».
+const DOCUMENT_WORD_PATTERN =
+  /(?<!\p{L})(?:facture|ticket|re[cç]u|note|date|table|caisse|commande|exemple|fictif|n[°o]\s*:)(?!\p{L})/iu
+// Lignes qui ne sont jamais un nom : identifiants légaux, contacts, montants.
+const NON_MERCHANT_PATTERN =
+  /(?<!\p{L})(?:siret|siren|tva|t[ée]l|total|montant|ttc|net à|à payer)(?!\p{L})|www\.|@/iu
+const LOWERCASE_PARTICLES = new Set(['le', 'la', 'les', 'du', 'de', 'des', 'et', 'au', 'aux', 'à'])
+
+function capitalize(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1)
+}
+
+// « BISTRO CENTRAL » → « Bistro Central », « RESTAURANT LE TEST » → « Restaurant le Test ».
+function toTitleCase(name: string): string {
+  return name
+    .toLowerCase()
+    .split(' ')
+    .map((word, index) => (index > 0 && LOWERCASE_PARTICLES.has(word) ? word : capitalize(word)))
+    .join(' ')
+}
+
+/**
+ * Suggère une description : le nom du commerçant, lu sur l'une des premières
+ * lignes. Une ligne avec des chiffres (adresse, numéro) ou une mention légale
+ * est écartée. Heuristique volontairement prudente : rien plutôt qu'un nom
+ * douteux, l'utilisateur garde la main sur le champ.
+ */
+export function parseDescription(text: string): string | undefined {
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .slice(0, MERCHANT_SEARCH_LINES)
+
+  for (const line of lines) {
+    const documentWord = line.search(DOCUMENT_WORD_PATTERN)
+    const candidate = (documentWord === -1 ? line : line.slice(0, documentWord))
+      .replace(/[\s\-–:|,.]+$/, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (/\d/.test(candidate) || NON_MERCHANT_PATTERN.test(candidate)) continue
+    if ((candidate.match(/\p{L}/gu) ?? []).length < 3) continue
+    if (candidate.length > MAX_DESCRIPTION_LENGTH) continue
+    return candidate === candidate.toUpperCase() ? toTitleCase(candidate) : candidate
+  }
+  return undefined
 }
 
 export function parseAmount(text: string): number | undefined {

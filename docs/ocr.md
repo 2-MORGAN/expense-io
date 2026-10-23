@@ -13,6 +13,14 @@ utilisent des ports. La composition concrète est dans `src/composition/ocr.ts`.
 L'extraction montant/date est pure et conserve les 16 cas de caractérisation
 écrits et exécutés sur l'ancienne implémentation avant son déplacement.
 
+La suggestion propose aussi une **description** : le nom du commerçant, lu
+sur les six premières lignes du texte (`parseDescription`). Les lignes avec
+des chiffres (adresse, numéro), les mentions légales et les montants sont
+écartées, et le nom s'arrête avant les mots de document (« Facture », « Date »).
+L'heuristique préfère ne rien proposer qu'un nom douteux. Le formulaire ne
+remplit le champ que s'il est vide. Ajout compatible du contrat (1.1.0) : les
+deux routes renvoient le même `ReceiptSuggestion`.
+
 `TesseractOcrAdapter` lance `scripts/ocr-engine.mjs` dans un processus enfant
 jetable. La reconnaissance reste une requête synchrone sur l'ancienne route ;
 le nouveau parcours persiste le travail dans l'outbox avant de répondre 202.

@@ -1,6 +1,6 @@
 import type { Receipt } from '@/domain/receipt/Receipt'
 import { validateReceipt } from '@/domain/receipt/Receipt'
-import { parseAmount, parseExpenseDate, type ExpenseNoteSuggestion } from '@/domain/receipt/parseReceiptText'
+import { parseAmount, parseDescription, parseExpenseDate, type ExpenseNoteSuggestion } from '@/domain/receipt/parseReceiptText'
 import type { OcrPort } from '@/ports/OcrPort'
 
 export class SuggestReceiptFields {
@@ -12,6 +12,6 @@ export class SuggestReceiptFields {
     if (receipt.mimeType === 'application/pdf') return {}
     const text = await this.ocr.recognize(receipt, signal)
     signal.throwIfAborted()
-    return { amount: parseAmount(text), expenseDate: parseExpenseDate(text) }
+    return { amount: parseAmount(text), expenseDate: parseExpenseDate(text), description: parseDescription(text) }
   }
 }

@@ -1,5 +1,49 @@
 import { describe, expect, it } from 'vitest'
-import { parseAmount, parseExpenseDate } from './parseReceiptText'
+import { parseAmount, parseDescription, parseExpenseDate } from './parseReceiptText'
+
+// Textes réellement rendus par le moteur OCR (Tesseract, `fra`) : les deux reçus
+// de `e2e/fixtures/` et une facture de restaurant réaliste rendue en image.
+const OCR_RECU_COMPLET = 'RESTAURANT LE TEST\nDate : 11/10/2026\nTOTAL TTC : 42,50 EUR\n'
+const OCR_RECU_MONTANT_SEUL = 'BOULANGERIE DU COIN\nTOTAL TTC : 12,30 EUR\n'
+const OCR_FACTURE_RESTAURANT = [
+  'FACTURE EXEMPLE FICTIF',
+  '',
+  'BISTRO CENTRAL Facture n° : 2026-1005',
+  '',
+  '12 rue Exemple, 75000 Paris Date : 05/10/2026',
+  '',
+  'SIRET : 123 456 789 00010 Table : 08',
+  '',
+  'TVA : FR12 123456789',
+  '',
+  'Article Qté Prix Total',
+  '',
+  'Menu du jour 1 22.00€ 22.00€',
+  'TOTAL TTC 28.50 €',
+].join('\n')
+
+describe('receipt description suggestion (merchant name)', () => {
+  it.each([
+    ['receipt fixture with date', OCR_RECU_COMPLET, 'Restaurant le Test'],
+    ['receipt fixture without date', OCR_RECU_MONTANT_SEUL, 'Boulangerie du Coin'],
+    ['realistic invoice: document title skipped, name cut before "Facture"', OCR_FACTURE_RESTAURANT, 'Bistro Central'],
+    ['mixed case kept as printed', 'Café de Flore\nTotal : 8,40 €', 'Café de Flore'],
+    ['"Hôtel" is not taken for a phone label', 'HÔTEL DU NORD\nTél : 01 23 45 67 89', 'Hôtel du Nord'],
+    ['trailing separators removed', 'TAXI PARISIEN -\nTOTAL 35,00 EUR', 'Taxi Parisien'],
+  ])('%s', (_case, text, expected) => {
+    expect(parseDescription(text)).toBe(expected)
+  })
+
+  it.each([
+    ['address or numbers only', '12 rue Exemple\n75000 Paris'],
+    ['only amounts and legal mentions', 'TOTAL TTC : 42,50 EUR\nSIRET : 123 456 789'],
+    ['too few letters', 'AB\n-- 12 --'],
+    ['empty text', ''],
+    ['name beyond the first lines', 'Date : 11/10/2026\n1\n2\n3\n4\n5\nRESTAURANT TARDIF'],
+  ])('nothing suggested: %s', (_case, text) => {
+    expect(parseDescription(text)).toBeUndefined()
+  })
+})
 
 // Caractérisation du parseur d'origine, avant déplacement derrière le cas d'usage.
 describe('receipt field extraction — existing behaviour', () => {

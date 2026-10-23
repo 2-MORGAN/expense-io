@@ -53,6 +53,7 @@ export default function ExpensesPage() {
   const [suggestionNotice, setSuggestionNotice] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
   const [expenseDate, setExpenseDate] = useState('')
+  const [description, setDescription] = useState('')
   const receiptInputRef = useRef<HTMLInputElement>(null)
   const analysisController = useRef<AbortController | null>(null)
 
@@ -92,6 +93,7 @@ export default function ExpensesPage() {
       form.reset()
       setAmount('')
       setExpenseDate('')
+      setDescription('')
       setSuggestionNotice(null)
       await loadNotes()
     } else {
@@ -127,6 +129,12 @@ export default function ExpensesPage() {
       }
       if (foundDate) {
         setExpenseDate(suggestion.expenseDate as string)
+      }
+      // Proposée seulement si le champ est vide : on n'écrase jamais une saisie.
+      // Les messages ne portent que sur le montant et la date (comportement figé).
+      const suggestedDescription = suggestion.description
+      if (typeof suggestedDescription === 'string') {
+        setDescription((current) => (current.trim() === '' ? suggestedDescription : current))
       }
       if (!foundAmount && !foundDate) {
         setSuggestionNotice('Aucune information reconnue sur ce reçu — saisis les champs manuellement.')
@@ -210,6 +218,8 @@ export default function ExpensesPage() {
               type="text"
               placeholder="Ex. Taxi aéroport, repas client…"
               required
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
               className={inputClass}
             />
           </div>
