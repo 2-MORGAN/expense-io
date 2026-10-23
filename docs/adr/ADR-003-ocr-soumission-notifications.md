@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Acceptée** le 20 octobre 2026 par le PO (Florent). Choix de contrat d'API alignés sur l'ADR-004 le 20/10 : pas de `/v1`, `503` + `Retry-After`, format RFC 9457, `Idempotency-Key` facultatif. **OCR asynchrone planifié par le PO le 20/10** (2-503) |
+| Statut | **Acceptée** le 20 octobre 2026 par le PO (Florent). Choix de contrat d'API alignés sur l'ADR-004 le 20/10 : pas de `/v1`, `503` + `Retry-After`, format RFC 9457, `Idempotency-Key` facultatif. **OCR asynchrone planifié par le PO le 20/10** (2-503). **Amendée le 23/10 par le PO** : écarts de mise en œuvre acceptés, socle asynchrone unique, ordre des notifications (voir « Amendement du 23 octobre ») |
 | Date | 14 octobre 2026 |
 | Auteur | Jacques Dai (WS3 Async) |
 | Issue | [2-387](https://linear.app/2-morgan/issue/2-387) |
@@ -15,10 +15,41 @@
 2. **Asynchrone : tâche planifiée** (décision du PO du 20/10, ticket 2-503), après les bornes du point 1 et le worker du point 5. Contrat `202` + polling, file dans PostgreSQL. Les déclencheurs de la section 2 restent la justification et servent à prioriser si le temps manque.
 3. **Soumission : upload d'abord, puis une seule transaction SQL.** Pas de statut intermédiaire. Nettoyage unique des notes sans reçu, réconciliation quotidienne des objets orphelins.
 4. **Doublons : en-tête `Idempotency-Key`**, généré par le formulaire, unique par utilisateur, avec empreinte de la requête.
-5. **Notifications : outbox transactionnelle + un worker.** Deux événements (note soumise → approbateur, note tranchée → soumetteur), par email via `NotificationPort`, livraison au moins une fois, DLQ après 5 essais. L'envoi a lieu après le commit et ne peut pas annuler une décision.
+5. **Notifications : outbox transactionnelle + un worker.** Deux événements (note soumise → approbateur, note tranchée → soumetteur), par email via `NotificationPort`, livraison au moins une fois, DLQ après 5 relances, soit 6 essais (précisé le 23/10). L'envoi a lieu après le commit et ne peut pas annuler une décision.
 6. **B11 : oui, on distingue.** « Rien trouvé » et « type non pris en charge » restent `200 {}` (figés par les E2E), une panne, un timeout ou une saturation deviennent `503` + `Retry-After`.
 
 Un seul mécanisme asynchrone pour tout le produit : la table `outbox_events` de PostgreSQL, consommée par un worker. Il sert aux notifications, puis à l'OCR (2-503) et plus tard à l'IA. C'est notre réponse à « unifier les protocoles d'échanges asynchrones ».
+
+## Amendement du 23 octobre 2026
+
+Décidé par le PO (Florent) après la revue des PR #13, #14, #15 et #16. Les sections ci-dessous restent la référence ; cet amendement les précise.
+
+### 1. Écarts de mise en œuvre acceptés (PR #14 à #16, 2-484)
+
+| Écart | Décision | Raison |
+|---|---|---|
+| `EmailPort` (envoi d'un email à une adresse) placé sous `NotificationPort` | Accepté | Les invitations de l'ADR-001 (S7) ont besoin d'un envoi adressé à un email ; c'est l'inversion des dépendances de l'ADR-002 |
+| Un événement d'outbox **par destinataire**, au lieu d'un événement avec la liste | Accepté | Un échec d'envoi ne relance que ce destinataire : les autres ne reçoivent pas de doublon |
+| L'essai est compté **dès la prise en charge**, avec un bail de 5 min | Accepté | Un worker arrêté en plein traitement ne rejoue plus un événement sans fin : il finit en `dead` |
+| Le worker ne prend que les **types qu'il connaît** | Accepté | Un type ajouté plus tard (OCR, IA) n'est jamais acquitté par erreur |
+| DLQ = 1 essai + 5 relances | Accepté | Cohérent avec les 5 délais de backoff du §5, dont la formulation est corrigée |
+| `tsx` et `dotenv` en dépendances d'exécution | Accepté | Le worker est un second point d'entrée TypeScript, lancé en production |
+
+### 2. Un seul socle asynchrone : celui de 2-484
+
+Les PR #13 (OCR asynchrone, 2-475) et #15 (worker, 2-484) ont chacune créé une table `outbox_events` et un worker. Conformément à « un seul mécanisme asynchrone pour tout le produit » :
+
+- **le socle unique est celui de la PR #15** : table `outbox_events` avec sa policy d'insertion (ADR-001), `EventOutbox` / `PgEventOutbox`, registre `buildHandlers()` et worker `src/worker/` ;
+- la PR #13 est **rebasée sur ce socle** : elle retire sa table, son worker (`src/worker.ts`), `OutboxPort`, `PostgresOutboxAdapter` et `workerDb.ts`, déclare `receipt.analysis.requested` dans `buildHandlers()` (3 essais, §2) et publie par `PgEventOutbox` ;
+- **un traitement long ne garde pas la transaction ouverte.** Le worker exécute aujourd'hui chaque handler dans la transaction de l'événement : c'est sans conséquence pour un email, mais un OCR peut durer jusqu'à 60 s. Le socle doit permettre à un handler de travailler hors transaction, puis d'enregistrer son résultat dans une transaction courte, comme le fait la PR #13 (`start` / `finish`). La forme exacte est arrêtée par Jacques et Amiel pendant le rebase, avec un test.
+
+### 3. Ordre de livraison des notifications
+
+L'ordre de la section « Correctifs » est maintenu : **la PR #16 (notifications) est fusionnée après 2-476** (upload du reçu d'abord, §3). Avant 2-476, l'événement « note soumise » est écrit avant l'upload, donc un échec d'upload enverrait un email pour une note sans reçu. L'étape 1 (emails, PR #14) et le worker (PR #15) ne dépendent pas de 2-476.
+
+### 4. Ordre de fusion
+
+#11 → #14 → #15 → 2-476 → #16 → #13 (rebasée) → #17 (rebasée avec #13).
 
 ## Contexte
 
@@ -169,7 +200,7 @@ outbox_events(id uuid PK, company_id uuid, type text, payload jsonb,
 - Un **worker** (`npm run worker`, même codebase, second point d'entrée) prend les lignes `pending` dues (`FOR UPDATE SKIP LOCKED`) et appelle `NotificationPort` :
   - succès : `sent` ;
   - échec : backoff 1 min, 5 min, 30 min, 2 h, 12 h ;
-  - après 5 essais : `dead` (DLQ), compté et journalisé.
+  - après 5 relances (6 essais au total, précisé le 23/10) : `dead` (DLQ), compté et journalisé.
 - **Garantie : au moins une fois.** L'`id` de l'événement sert de clé de déduplication chez le fournisseur (`Message-ID`). Un doublon d'email n'est possible que si le worker tombe entre l'envoi et le marquage : accepté.
 - **Un échec d'envoi n'annule jamais une décision** : l'envoi a lieu après le commit, dans un autre processus. Le seul couplage est un `INSERT` local dans la même base que l'`UPDATE`.
 - **Canal : email** via le port.

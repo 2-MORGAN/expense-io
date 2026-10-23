@@ -4,9 +4,9 @@ Seules les ADR au statut **Acceptée** font foi (règle de l'ADR-005, §2). Un t
 
 | ADR | Titre | Statut | Auteur | Date |
 |---|---|---|---|---|
-| [ADR-001](ADR-001-isolation-multi-tenant.md) | Stratégie d'isolation multi-tenant | Acceptée | Amalraj Soupramanien | 20/10/2026 |
+| [ADR-001](ADR-001-isolation-multi-tenant.md) | Stratégie d'isolation multi-tenant | Acceptée (précisée le 23/10 : worker et bascule 2-481) | Amalraj Soupramanien | 20/10/2026 |
 | [ADR-002](ADR-002-architecture-cible.md) | Architecture cible (monolithe modulaire hexagonal) | Acceptée (amendée le 20/10, relecture d'Antoine dans la PR #9) | Antoine Blumenroeder | 20/10/2026 |
-| [ADR-003](ADR-003-ocr-soumission-notifications.md) | OCR / IA, fiabilité de la soumission et notifications | Acceptée (choix d'API alignés sur l'ADR-004, OCR asynchrone planifié) | Jacques Dai | 20/10/2026 |
+| [ADR-003](ADR-003-ocr-soumission-notifications.md) | OCR / IA, fiabilité de la soumission et notifications | Acceptée (choix d'API alignés sur l'ADR-004, OCR asynchrone planifié ; amendée le 23/10 : socle asynchrone unique) | Jacques Dai | 20/10/2026 |
 | [ADR-004](ADR-004-contrat-api.md) | Contrat d'API, format d'erreur et versioning | Acceptée (pas de pagination, API en anglais, types générés) | Amiel Fabreguettes | 20/10/2026 |
 | [ADR-005](ADR-005-harnais-de-validation.md) | Harnais de validation : tests, CI et garde-fous | Acceptée (points ouverts listés) | Stanislas Beguin | 20/10/2026 |
 
@@ -18,5 +18,12 @@ Décisions transverses du PO (20/10/2026) :
 - **S7** : la règle « le premier inscrit d'un domaine devient RH » est une **faille corrigée** : rejoindre une entreprise passe par une invitation de la RH, avec vérification d'email (ADR-001, §3 ; ticket 2-496).
 - **B16** : chaque note garde qui l'a tranchée et quand (ADR-002, 2-488).
 - Ordre de la refacto : correctifs de sécurité d'abord, puis helpers communs de l'ADR-002.
+
+Décisions du PO (23/10/2026) :
+
+- **Un seul socle asynchrone**, celui de 2-484 (PR #15) ; l'OCR asynchrone (PR #13) se branche dessus (ADR-003, amendement).
+- **Écarts de 2-484 acceptés** : un événement par destinataire, bail de 5 min, DLQ = 1 essai + 5 relances, `EmailPort` sous `NotificationPort` (ADR-003, amendement).
+- **Notifications (PR #16) après 2-476** ; ordre de fusion : #11 → #14 → #15 → 2-476 → #16 → #13 → #17.
+- **2-481** livre aussi le rôle du worker et ses garde-fous (ADR-001, point de coordination).
 
 Constats d'audit référencés par les ADR : [`docs/audit/`](../audit/).
