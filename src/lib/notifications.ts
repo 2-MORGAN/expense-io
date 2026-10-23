@@ -14,7 +14,8 @@ type NoteRef = { id: string; description: string; userId: string }
 /**
  * Publie « note soumise » dans la transaction du `client` (celle de
  * `withUserScope`). Le soumetteur sans approbateur (employé sans manager, RH)
- * n'a personne à prévenir : la note existe, aucun événement n'est écrit.
+ * n'a personne à prévenir : la note existe, aucun événement n'est écrit. Un
+ * événement par approbateur (plusieurs RH pour un manager racine).
  */
 export async function enqueueSubmitted(client: PoolClient, note: NoteRef): Promise<void> {
   const submitter = await client.query<{
@@ -40,7 +41,12 @@ export async function enqueueSubmitted(client: PoolClient, note: NoteRef): Promi
   const recipientIds = approverIds({ role: row.role, managerId: row.manager_id }, hrAdminIds)
   if (recipientIds.length === 0) return
 
-  await new PgEventOutbox(client).enqueue(expenseNoteSubmitted(note, row.name, recipientIds))
+  // Un événement par approbateur : si l'envoi échoue pour une adresse, seul son
+  // événement est relancé et les autres destinataires ne reçoivent pas l'email deux fois.
+  const outbox = new PgEventOutbox(client)
+  for (const recipientId of recipientIds) {
+    await outbox.enqueue(expenseNoteSubmitted(note, row.name, [recipientId]))
+  }
 }
 
 /**

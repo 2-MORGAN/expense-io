@@ -8,8 +8,10 @@ const DECISION_LABEL: Record<NoteDecision, string> = {
 }
 
 // Un email par destinataire, envoyé l'un après l'autre : le premier échec
-// interrompt et remonte, le worker relance l'événement. Le Message-ID dérivé de
-// (événement, destinataire) laisse le serveur écarter un doublon éventuel.
+// interrompt et remonte, le worker relance l'événement. Le Message-ID est stable
+// pour un (événement, destinataire) : il identifie l'email mais les serveurs SMTP
+// ne dédoublonnent pas dessus. C'est pourquoi l'outbox écrit un événement par
+// destinataire : l'échec d'une adresse ne renvoie pas l'email aux autres.
 export class EmailNotificationAdapter implements NotificationPort {
   private readonly appUrl: string
 

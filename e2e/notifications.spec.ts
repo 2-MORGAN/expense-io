@@ -29,11 +29,14 @@ test.describe('Notifications — émission', () => {
     }])
   })
 
-  test('[NOTIF-02] soumission d’un manager racine → toutes les RH de l’entreprise', async ({ org, apiAs }) => {
+  test('[NOTIF-02] soumission d’un manager racine → un événement par RH de l’entreprise', async ({ org, apiAs }) => {
     const hr2 = await addUser(org, { name: 'Helene Rh', role: 'hr_admin' })
     const note = await (await apiAs(org.manager)).submitNote({ description: 'Hôtel' })
-    const [event] = await outboxEventsForNote(note.id)
-    expect((event.payload.recipientIds as string[]).sort()).toEqual([org.hr.id, hr2.id].sort())
+    const events = await outboxEventsForNote(note.id)
+    // Un événement par RH, chacun avec un seul destinataire.
+    expect(events.map((event) => event.type)).toEqual(['expense_note.submitted', 'expense_note.submitted'])
+    expect(events.map((event) => (event.payload.recipientIds as string[]).length)).toEqual([1, 1])
+    expect(new Set(events.flatMap((event) => event.payload.recipientIds as string[]))).toEqual(new Set([org.hr.id, hr2.id]))
   })
 
   test('[NOTIF-03] soumetteur sans approbateur → note créée, aucun événement', async ({ org, apiAs }) => {
@@ -118,6 +121,29 @@ test.describe('Notifications — envoi par le worker', () => {
     expect(await processNextEvent(handlers, { companyId: org.company.id })).toBe(true)
 
     expect(await outboxEvent(id)).toMatchObject({ status: 'pending', attempts: 1, lastError: 'SMTP indisponible' })
+  })
+})
+
+test.describe('Notifications — pannes partielles', () => {
+  test('[NOTIF-11] une adresse RH en échec ne renvoie pas l’email aux autres RH', async ({ org, apiAs, request }) => {
+    const hr2 = await addUser(org, { name: 'Helene Rh', role: 'hr_admin' })
+    const note = await (await apiAs(org.manager)).submitNote({ description: 'Séminaire' })
+    const real = realNotifier()
+    const flaky: NotificationPort = {
+      notifySubmitted: async (recipients, ...rest) => {
+        if (recipients.some((recipient) => recipient.id === hr2.id)) throw new Error('SMTP refuse cette adresse')
+        await real.notifySubmitted(recipients, ...rest)
+      },
+      notifyDecision: (...args) => real.notifyDecision(...args),
+    }
+    await drain(org.company.id, flaky)
+
+    await waitForEmail(request, org.hr.email)
+    expect(await countEmails(request, org.hr.email)).toBe(1)
+    const events = await outboxEventsForNote(note.id)
+    const forRecipient = (id: string) => events.find((event) => (event.payload.recipientIds as string[]).includes(id))
+    expect(forRecipient(hr2.id)).toMatchObject({ status: 'pending', attempts: 1 })
+    expect(forRecipient(org.hr.id)?.status).toBe('sent')
   })
 })
 
