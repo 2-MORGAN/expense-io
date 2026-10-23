@@ -221,4 +221,22 @@ test.describe('Rattachement d’un manager — API', () => {
       otherCompany.manager.id
     )
   })
+
+  test('[ORG-09] manager d’une autre entreprise → 409 « Invalid manager », rien ne change', async ({
+    org,
+    apiAs,
+  }) => {
+    // Faille S3 (audit WS1) : le manager choisi doit appartenir à l'entreprise
+    // de la RH ; sinon même réponse qu'un manager inconnu.
+    const otherCompany = await createOrg('org-09-autre')
+    const hrApi = await apiAs(org.hr)
+
+    await expectApiError(
+      await hrApi.setManager(org.employee.id, otherCompany.manager.id),
+      409,
+      'Invalid manager'
+    )
+    const users = await hrApi.hrUsers()
+    expect(users.find((user) => user.id === org.employee.id)?.managerId).toBe(org.manager.id)
+  })
 })

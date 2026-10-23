@@ -35,13 +35,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       if (managerId === id) {
         return Response.json({ error: 'Invalid manager' }, { status: 409 })
       }
-      // Le manager choisi doit avoir le rôle manager — l'appartenance à la
-      // même entreprise que la cible est déjà garantie par l'annuaire
-      // (GET /api/hr/users), qui ne liste que des managers de l'entreprise
-      // de l'appelant.
+      // Le manager choisi doit avoir le rôle manager et appartenir à
+      // l'entreprise de la RH (donc de la cible) : un manager d'une autre
+      // entreprise est refusé comme un id inconnu.
       const managerResult = await getPool().query(
-        `SELECT id FROM users WHERE id = $1 AND role = 'manager'`,
-        [managerId]
+        `SELECT id FROM users WHERE id = $1 AND role = 'manager' AND company_id = $2`,
+        [managerId, companyId]
       )
       if (!managerResult.rows[0]) {
         return Response.json({ error: 'Invalid manager' }, { status: 409 })
