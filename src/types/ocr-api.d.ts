@@ -63,6 +63,8 @@ export interface components {
             amount?: number;
             /** Format: date */
             expenseDate?: string;
+            /** @description Nom du commerçant lu en tête du reçu, proposé comme description (ajout compatible, 1.1.0). */
+            description?: string;
         };
         AnalysisAccepted: {
             /** Format: uuid */

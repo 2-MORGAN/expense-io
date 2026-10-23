@@ -12,6 +12,19 @@ valide le multipart borné et appelle `OcrRequests`. Les cas d'usage
 utilisent des ports. La composition concrète est dans `src/composition/ocr.ts`.
 L'extraction montant/date est pure et conserve les 16 cas de caractérisation
 écrits et exécutés sur l'ancienne implémentation avant son déplacement.
+Correctif (PR #17) : sur un vrai ticket, la première ligne « total » était
+souvent l'en-tête du tableau, sans montant, et le repli sur les entiers
+renvoyait des centimes (91 au lieu de 28,50 sur une facture de restaurant).
+Le montant vient désormais de la dernière ligne de total chiffrée, en
+préférant « TTC » ou « à payer » ; le repli ne découpe plus les décimaux.
+
+La suggestion propose aussi une **description** : le nom du commerçant, lu
+sur les six premières lignes du texte (`parseDescription`). Les lignes avec
+des chiffres (adresse, numéro), les mentions légales et les montants sont
+écartées, et le nom s'arrête avant les mots de document (« Facture », « Date »).
+L'heuristique préfère ne rien proposer qu'un nom douteux. Le formulaire ne
+remplit le champ que s'il est vide. Ajout compatible du contrat (1.1.0) : les
+deux routes renvoient le même `ReceiptSuggestion`.
 
 `TesseractOcrAdapter` lance `scripts/ocr-engine.mjs` dans un processus enfant
 jetable. La reconnaissance reste une requête synchrone sur l'ancienne route ;

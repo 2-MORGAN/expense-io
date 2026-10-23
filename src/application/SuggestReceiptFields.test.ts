@@ -10,6 +10,12 @@ describe('receipt suggestion use case', () => {
     expect(await new SuggestReceiptFields({ recognize, inspect: vi.fn() }).execute({ data: file.buffer, mimeType: file.mimeType }, signal))
       .toEqual({ amount: 42.5, expenseDate: '2026-10-11' })
   })
+  it('suggests the merchant name as description', async () => {
+    const recognize = vi.fn(async () => 'RESTAURANT LE TEST\nDate : 11/10/2026\nTOTAL TTC : 42,50 EUR')
+    const file = pngReceipt('test')
+    expect(await new SuggestReceiptFields({ recognize, inspect: vi.fn() }).execute({ data: file.buffer, mimeType: file.mimeType }, signal))
+      .toEqual({ amount: 42.5, expenseDate: '2026-10-11', description: 'Restaurant le Test' })
+  })
   it('preserves empty success for PDF and never invokes the engine', async () => {
     const recognize = vi.fn()
     const file = pdfReceipt('test')

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Expense.io — OCR
-  version: 1.0.0
+  version: 1.1.0
   description: Contrat du module OCR (ADR-004 §8.3), à intégrer au contrat global de 2-486.
 security:
   - session: []
@@ -152,6 +152,11 @@ components:
         expenseDate:
           type: string
           format: date
+        description:
+          type: string
+          minLength: 1
+          maxLength: 60
+          description: Nom du commerçant lu en tête du reçu, proposé comme description (ajout compatible, 1.1.0).
     AnalysisAccepted:
       type: object
       required: [id, status]
