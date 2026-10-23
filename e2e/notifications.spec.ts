@@ -125,25 +125,31 @@ test.describe('Notifications — envoi par le worker', () => {
 })
 
 test.describe('Notifications — pannes partielles', () => {
-  test('[NOTIF-11] une adresse RH en échec ne renvoie pas l’email aux autres RH', async ({ org, apiAs, request }) => {
+  test('[NOTIF-11] une adresse RH en échec ne renvoie pas l’email aux autres RH', async ({ org, request }) => {
     const hr2 = await addUser(org, { name: 'Helene Rh', role: 'hr_admin' })
-    const note = await (await apiAs(org.manager)).submitNote({ description: 'Séminaire' })
     const real = realNotifier()
-    const flaky: NotificationPort = {
+    const partial: NotificationPort = {
       notifySubmitted: async (recipients, ...rest) => {
         if (recipients.some((recipient) => recipient.id === hr2.id)) throw new Error('SMTP refuse cette adresse')
         await real.notifySubmitted(recipients, ...rest)
       },
       notifyDecision: (...args) => real.notifyDecision(...args),
     }
-    await drain(org.company.id, flaky)
+    // Deux événements (un par RH, comme NOTIF-02) d'un type unique que seul ce test réclame :
+    // un worker lancé en parallèle ne peut pas les traiter avant lui.
+    const testType = `test.notif-11.${randomUUID()}`
+    const payload = (recipientId: string) => ({
+      noteId: UNKNOWN_ID, description: 'Séminaire', submitterName: 'Manon Manager', recipientIds: [recipientId],
+    })
+    const hrEventId = await insertOutboxEvent({ companyId: org.company.id, type: testType, payload: payload(org.hr.id) })
+    const hr2EventId = await insertOutboxEvent({ companyId: org.company.id, type: testType, payload: payload(hr2.id) })
+    const handlers = { [testType]: notificationHandlers(partial)['expense_note.submitted'] }
+    while (await processNextEvent(handlers, { companyId: org.company.id })) { /* jusqu’à épuisement */ }
 
     await waitForEmail(request, org.hr.email)
     expect(await countEmails(request, org.hr.email)).toBe(1)
-    const events = await outboxEventsForNote(note.id)
-    const forRecipient = (id: string) => events.find((event) => (event.payload.recipientIds as string[]).includes(id))
-    expect(forRecipient(hr2.id)).toMatchObject({ status: 'pending', attempts: 1 })
-    expect(forRecipient(org.hr.id)?.status).toBe('sent')
+    expect(await outboxEvent(hrEventId)).toMatchObject({ status: 'sent' })
+    expect(await outboxEvent(hr2EventId)).toMatchObject({ status: 'pending', attempts: 1 })
   })
 })
 

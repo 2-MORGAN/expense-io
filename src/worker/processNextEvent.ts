@@ -57,9 +57,19 @@ export async function processNextEvent(
   const leased = await leaseNextDueEvent(types, filter?.companyId)
   if (!leased) return false
 
-  return withSystemTransaction(async (client) => {
-    const event = await lockPendingEvent(client, leased.id)
-    if (!event) return true
+  await handleLeasedEvent(handlers, leased)
+  return true
+}
+
+/**
+ * Phase 2 : traite l'événement pris en charge. N'agit que sur sa propre prise
+ * en charge (même numéro d'essai) : si le bail a expiré et qu'un autre worker
+ * a repris l'événement, ou s'il est déjà terminé, il n'y a rien à faire.
+ */
+export async function handleLeasedEvent(handlers: OutboxHandlers, leased: OutboxEvent): Promise<void> {
+  await withSystemTransaction(async (client) => {
+    const event = await lockPendingEvent(client, leased.id, leased.attempts)
+    if (!event) return
 
     await scopeToCompany(client, event.companyId)
     const handler = handlers[event.type]
@@ -68,7 +78,7 @@ export async function processNextEvent(
     if (attempts > handler.maxRetries + 1) {
       await recordFailure(client, event.id, { status: 'dead' }, UNFINISHED_ERROR)
       log('error', 'outbox.dead', { eventId: event.id, type: event.type, attempts, error: UNFINISHED_ERROR })
-      return true
+      return
     }
 
     const outcome = await runHandler(handler, event, client)
@@ -76,7 +86,7 @@ export async function processNextEvent(
     if (outcome.ok) {
       await markSent(client, event.id)
       log('info', 'outbox.sent', { eventId: event.id, type: event.type, attempts })
-      return true
+      return
     }
 
     const error = describeError(outcome.error)
@@ -89,6 +99,6 @@ export async function processNextEvent(
     } else {
       log('error', 'outbox.dead', { eventId: event.id, type: event.type, attempts, error })
     }
-    return true
+    return
   })
 }

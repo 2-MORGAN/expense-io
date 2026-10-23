@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { PgEventOutbox } from '@/adapters/PgEventOutbox'
 import { closePool, withSystemTransaction, withUserScope } from '@/lib/db'
 import { LEASE_SECONDS, leaseNextDueEvent } from '@/lib/outbox'
-import { processNextEvent, type OutboxHandler } from '@/worker/processNextEvent'
+import { handleLeasedEvent, processNextEvent, type OutboxHandler } from '@/worker/processNextEvent'
 import { createCompany, db } from './support/db'
 import { expect, test } from './support/fixtures'
 import { insertOutboxEvent, outboxEvent } from './support/outbox'
@@ -137,5 +137,21 @@ test.describe('Outbox — arrêt du worker', () => {
     expect(await processNextEvent(only(deadType, async () => { calls += 1 }), { companyId: company.id })).toBe(true)
     expect(calls).toBe(0)
     expect(await outboxEvent(deadId)).toMatchObject({ status: 'dead', attempts: 7, lastError: expect.stringMatching(/did not finish/) })
+  })
+
+  test('[OUTBOX-10] prise en charge périmée : un autre worker a repris l’événement, la phase 2 n’agit pas', async () => {
+    const company = await createCompany('outbox-10')
+    const type = `test.${randomUUID()}`
+    const id = await insertOutboxEvent({ companyId: company.id, type })
+    const stale = await leaseNextDueEvent([type], company.id)
+    expect(stale).toMatchObject({ id, attempts: 1 })
+    // Un autre worker a repris l'événement après l'expiration du bail.
+    await db().query('UPDATE outbox_events SET attempts = 2 WHERE id = $1', [id])
+    const before = await outboxEvent(id)
+
+    let calls = 0
+    await handleLeasedEvent(only(type, async () => { calls += 1 }), stale!)
+    expect(calls).toBe(0)
+    expect(await outboxEvent(id)).toEqual(before)
   })
 })

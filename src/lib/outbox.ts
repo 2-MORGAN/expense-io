@@ -74,15 +74,21 @@ export async function leaseNextDueEvent(
  * Phase 2 : reverrouille l'événement pris en charge pour la durée de la
  * transaction du `client`. Un worker encore en train de traiter garde ce
  * verrou, donc un autre ne le reprend pas même si le bail a expiré. Rend
- * `null` si l'événement n'est plus `pending` (terminé entre-temps).
+ * `null` si l'événement n'est plus `pending` (terminé entre-temps) ou si
+ * `attempts` a changé : le bail a expiré et un autre worker a repris
+ * l'événement, la phase 2 ne doit agir que sur sa propre prise en charge.
  */
-export async function lockPendingEvent(client: PoolClient, id: string): Promise<OutboxEvent | null> {
+export async function lockPendingEvent(
+  client: PoolClient,
+  id: string,
+  attempts: number
+): Promise<OutboxEvent | null> {
   const result = await client.query<OutboxRow>(
     `SELECT id, company_id, type, payload, attempts
      FROM outbox_events
-     WHERE id = $1 AND status = 'pending'
+     WHERE id = $1 AND status = 'pending' AND attempts = $2
      FOR UPDATE`,
-    [id]
+    [id, attempts]
   )
   const row = result.rows[0]
   return row ? toEvent(row) : null
