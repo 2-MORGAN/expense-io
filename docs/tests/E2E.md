@@ -51,6 +51,7 @@ Si `npm run migrate:up` échoue sur une erreur d'authentification de l'utilisate
 | Cibler un serveur déjà démarré (ex. build de prod) | `npm run build`, `AUTH_TRUST_HOST=true npx next start -p 3100`, puis `E2E_BASE_URL=http://localhost:3100 npm run test:e2e` |
 | Base d'administration distincte pour les fixtures | `E2E_DATABASE_URL=postgres://…` (par défaut : `DATABASE_URL` de `.env`) |
 | Chromium déjà installé (CI sans téléchargement) | `E2E_CHROMIUM_PATH=/chemin/vers/chrome` |
+| Mailpit ailleurs que sur `http://localhost:8025` | `MAILPIT_URL=http://hôte:8025` |
 | Intégration continue | `.github/workflows/ci.yml` lance `make test-e2e` sur chaque PR. `CI=1` : pas de `test.only`, 1 nouvel essai, 2 workers, serveur toujours démarré par Playwright |
 
 Sous PowerShell, une variable se définit ainsi : `$env:E2E_BASE_URL="http://localhost:3100"; npm run test:e2e`.
@@ -66,14 +67,15 @@ e2e/
 │   ├── db.ts                 création d'entreprises et de comptes (seule dépendance au schéma)
 │   ├── fixtures.ts           fixtures Playwright : org, apiAs, pageAs, openPage
 │   ├── api.ts                client HTTP et contrat actuel (DTO, expectApiError, expectPresignedUrl…)
-│   └── files.ts              reçus de test (PNG uniques, PDF, texte, fichier > 10 Mio)
+│   ├── files.ts              reçus de test (PNG uniques, PDF, texte, fichier > 10 Mio)
+│   └── mailpit.ts            lecture des emails captés par Mailpit (waitForEmail, countEmails)
 ├── fixtures/recu-ocr-*.png   tickets de caisse pour l'OCR (images versionnées : résultat déterministe)
 └── *.spec.ts                 scénarios, un fichier par domaine
 ```
 
 ## Scénarios couverts
 
-**89 tests** (77 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 10 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
+**90 tests** (78 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 11 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
 
 ### Inscription — `e2e/signup.spec.ts`
 
@@ -203,6 +205,14 @@ Pour ACL-01 à ACL-04, chaque refus est vérifié **sans effet de bord** (notes 
 | ID | Scénario | Niveau |
 |---|---|---|
 | FLOW-01 | Inscriptions (RH puis deux comptes), promotion manager en base, rattachement par la RH, note de l'employée consultée puis approuvée par le manager, note du manager rejetée par la RH | UI |
+
+### Emails — `e2e/email.spec.ts`
+
+Les emails de dev sont captés par Mailpit (`docker compose`, interface sur http://localhost:8025) : aucun ne sort. Les tests les lisent par son API HTTP (`e2e/support/mailpit.ts`).
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| MAIL-01 | Un email envoyé par l'adaptateur SMTP arrive dans Mailpit (sujet, texte, expéditeur, Message-ID) | Intégration |
 
 ## Résultat de la dernière exécution
 
