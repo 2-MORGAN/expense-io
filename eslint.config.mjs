@@ -182,6 +182,9 @@ const eslintConfig = defineConfig([
     '.next/**',
     'out/**',
     'build/**',
+    // Rapports générés par les vérifications E2E locales.
+    'playwright-report/**',
+    'test-results/**',
     'next-env.d.ts',
   ]),
 ])

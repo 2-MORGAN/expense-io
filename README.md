@@ -52,6 +52,17 @@ seulement via le script de seed ou directement en base.
 
 Voir `.env.example`.
 
+## OCR et worker
+
+`npm run dev` démarre Next.js et le worker d'outbox ensemble. En production,
+lancer `npm run start` et `npm run worker` comme deux processus supervisés.
+Les migrations et le bucket doivent être prêts avant leur démarrage.
+
+Le bouton de préremplissage lance une analyse puis consulte son résultat.
+L'ancienne route synchrone reste disponible. Les protections, le contrat
+de la file commune avec les notifications et les choix de reprise sont
+décrits dans [docs/ocr.md](docs/ocr.md).
+
 ## Autres commandes
 
 ```bash
