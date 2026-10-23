@@ -9,7 +9,7 @@ export function describeError(error: unknown): string {
   return message.replace(/[^\s<>@]+@[^\s<>@]+/g, '[email]').slice(0, MAX_ERROR_LENGTH)
 }
 
-/** Une ligne JSON par message, lisible par un collecteur de logs. */
+/** Une ligne JSON par message (horodatée en UTC, ISO 8601), lisible par un collecteur de logs. */
 export function log(level: 'info' | 'warn' | 'error', msg: string, fields: Record<string, unknown> = {}): void {
-  console[level](JSON.stringify({ level, msg, ...fields }))
+  console[level](JSON.stringify({ time: new Date().toISOString(), level, msg, ...fields }))
 }
