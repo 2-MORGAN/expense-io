@@ -1,3 +1,5 @@
+import type { ExpenseNote } from '@/http/dto'
+import { validateId } from '@/http/validation'
 import { auth } from '@/lib/auth'
 import { withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
@@ -12,6 +14,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       return Response.json({ error: 'Unauthorized' }, { status: 403 })
     }
     const { id } = await params
+    validateId(id)
 
     return withUserScope(session.user.id, async (client) => {
       const existing = await client.query(
@@ -43,7 +46,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         receiptKey: note.receipt_key,
         status: note.status,
         createdAt: new Date(note.created_at).toISOString(),
-      })
+      } satisfies ExpenseNote)
     })
   } catch (error) {
     return respondError(error)

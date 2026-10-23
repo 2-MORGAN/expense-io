@@ -1,3 +1,4 @@
+import { InputError, inputProblem } from './validation'
 import { randomUUID } from 'node:crypto'
 import { OcrError, type OcrErrorCode } from '@/domain/receipt/OcrError'
 
@@ -17,6 +18,7 @@ const catalogue: Record<OcrErrorCode, [number, string, string?]> = {
 }
 
 export function ocrProblem(error: unknown) {
+  if (error instanceof InputError) return inputProblem(error)
   const code = error instanceof OcrError ? error.code : 'INTERNAL_ERROR'
   const [status, detail, legacy] = catalogue[code]
   const requestId = randomUUID()

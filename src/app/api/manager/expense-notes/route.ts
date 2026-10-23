@@ -1,8 +1,9 @@
+import type { ExpenseNote, ExpenseNoteRow } from '@/http/dto'
 import { auth } from '@/lib/auth'
 import { withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
 
-function toExpenseNote(row: Record<string, unknown>) {
+function toExpenseNote(row: ExpenseNoteRow): ExpenseNote {
   return {
     id: row.id,
     userId: row.user_id,

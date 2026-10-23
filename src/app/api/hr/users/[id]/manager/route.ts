@@ -1,3 +1,5 @@
+import type { CompanyUser } from '@/http/dto'
+import { validateId, readManagerInput } from '@/http/validation'
 import { auth } from '@/lib/auth'
 import { getPool } from '@/lib/db'
 import { respondError } from '@/lib/errors'
@@ -12,8 +14,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return Response.json({ error: 'Unauthorized' }, { status: 403 })
     }
     const { id } = await params
-    const body = (await request.json().catch(() => null)) as { managerId?: string | null } | null
-    const managerId = body?.managerId ?? null
+    validateId(id)
+    const { managerId } = await readManagerInput(request)
 
     const hrAdminResult = await getPool().query('SELECT company_id FROM users WHERE id = $1', [
       session.user.id,
@@ -60,7 +62,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       email: user.email,
       role: user.role,
       managerId: user.manager_id,
-    })
+    } satisfies CompanyUser)
   } catch (error) {
     return respondError(error)
   }

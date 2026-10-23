@@ -1,3 +1,4 @@
+import { validateId } from '@/http/validation'
 import { auth } from '@/lib/auth'
 import { getPool } from '@/lib/db'
 import { respondError } from '@/lib/errors'
@@ -13,6 +14,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       return Response.json({ error: 'Unauthorized' }, { status: 403 })
     }
     const { id } = await params
+    validateId(id)
 
     // La note existe forcément dans la liste des notes en attente du
     // manager avant qu'il n'en consulte le reçu — pas besoin de revérifier
