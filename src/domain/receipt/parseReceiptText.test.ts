@@ -21,6 +21,51 @@ const OCR_FACTURE_RESTAURANT = [
   'Menu du jour 1 22.00€ 22.00€',
   'TOTAL TTC 28.50 €',
 ].join('\n')
+// La même facture, texte OCR complet (tableau d'articles et trois lignes de total).
+const OCR_FACTURE_RESTAURANT_COMPLETE = [
+  'FACTURE EXEMPLE FICTIF',
+  '',
+  'BISTRO CENTRAL Facture n° : 2026-1005',
+  '',
+  '12 rue Exemple, 75000 Paris Date : 05/10/2026',
+  '',
+  'SIRET : 123 456 789 00010 Table : 08',
+  '',
+  'TVA : FR12 123456789',
+  '',
+  'Article Qté Prix Total',
+  '',
+  'Menu du jour 1 22.00€ 22.00€',
+  '',
+  'Eau minérale 1 4.00€ 4.00€',
+  '',
+  'Café 1 2.50€ 2.50€',
+  'Total HT 25.91 €',
+  'TVA 10% 2.59€',
+  'TOTAL TTC 28.50 €',
+  '',
+  'Paiement : Carte bancaire',
+  '',
+  'Merci de votre visite.',
+].join('\n')
+
+// Correctif : la première ligne « total » était retenue même sans montant
+// (en-tête de tableau), puis le repli sur les entiers gardait le plus grand
+// nombre du ticket, souvent des centimes (91 dans 25.91).
+describe('receipt amount on a realistic ticket (several total lines)', () => {
+  it('reads the TTC total of a restaurant invoice, not a number from the table header', () => {
+    expect(parseAmount(OCR_FACTURE_RESTAURANT_COMPLETE)).toBe(28.5)
+  })
+
+  it.each([
+    ['TTC preferred over an earlier HT total', 'Total HT 25,91 €\nTVA 10 % 2,59 €\nTotal TTC 28,50 €', 28.5],
+    ['amount payable preferred over a subtotal', 'Sous-total 20,00\nNet à payer 18,00', 18],
+    ['last total wins when none is TTC', 'Sous-total 20,00\nRemise 2,00\nTotal 18,00', 18],
+    ['a total line without amount is skipped', 'Article Qté Prix Total\nCafé 1 2,50 2,50\nTotal 2,50', 2.5],
+  ])('%s', (_case, text, expected) => {
+    expect(parseAmount(text)).toBe(expected)
+  })
+})
 
 describe('receipt description suggestion (merchant name)', () => {
   it.each([

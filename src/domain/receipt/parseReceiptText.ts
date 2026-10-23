@@ -1,4 +1,6 @@
 const AMOUNT_KEYWORD_PATTERN = /total|montant|ttc|à payer|net à/i
+// Lignes du montant réellement dû, préférées à un sous-total ou à un total HT.
+const PAYABLE_KEYWORD_PATTERN = /ttc|à payer|net à/i
 const CURRENCY_HINT_PATTERN = /€|eur\b/i
 const DECIMAL_AMOUNT_PATTERN = /\b\d{1,3}(?:[ .]\d{3})*[.,]\d{2}/g
 const INTEGER_AMOUNT_PATTERN = /\b\d{1,5}\b/g
@@ -92,24 +94,43 @@ export function parseDescription(text: string): string | undefined {
   return undefined
 }
 
+function decimalAmountsIn(line: string): number[] {
+  const amounts: number[] = []
+  for (const match of line.matchAll(DECIMAL_AMOUNT_PATTERN)) {
+    const value = Number.parseFloat(match[0].replace(/[ .](?=\d{3})/g, '').replace(',', '.'))
+    if (Number.isFinite(value) && value > 0) amounts.push(value)
+  }
+  return amounts
+}
+
+/**
+ * Montant à payer. Parmi les lignes de total qui portent un montant, on
+ * préfère la dernière ligne « TTC » ou « à payer », sinon la dernière ligne de
+ * total : un ticket réel affiche un en-tête « Total » sans montant, puis HT,
+ * TVA et TTC, et le total final vient en dernier. Sans ligne de total chiffrée,
+ * comportement d'origine.
+ */
 export function parseAmount(text: string): number | undefined {
   const lines = text.split('\n')
+
+  const totalLines = lines.filter(
+    (line) => AMOUNT_KEYWORD_PATTERN.test(line) && decimalAmountsIn(line).length > 0
+  )
+  const payableLines = totalLines.filter((line) => PAYABLE_KEYWORD_PATTERN.test(line))
+  const totalLine = payableLines.at(-1) ?? totalLines.at(-1)
+  if (totalLine) return Math.max(...decimalAmountsIn(totalLine))
+
   const keywordLine = lines.find((line) => AMOUNT_KEYWORD_PATTERN.test(line))
   const candidateLines = keywordLine ? [keywordLine] : lines
 
-  const decimalAmounts: number[] = []
-  for (const line of candidateLines) {
-    for (const match of line.matchAll(DECIMAL_AMOUNT_PATTERN)) {
-      const value = Number.parseFloat(match[0].replace(/[ .](?=\d{3})/g, '').replace(',', '.'))
-      if (Number.isFinite(value) && value > 0) decimalAmounts.push(value)
-    }
-  }
+  const decimalAmounts = candidateLines.flatMap(decimalAmountsIn)
   if (decimalAmounts.length > 0) return Math.max(...decimalAmounts)
 
   const integerAmounts: number[] = []
   for (const line of lines) {
     if (!AMOUNT_KEYWORD_PATTERN.test(line) && !CURRENCY_HINT_PATTERN.test(line)) continue
-    for (const match of line.matchAll(INTEGER_AMOUNT_PATTERN)) {
+    // Les entiers d'un montant décimal (« 25.91 » → 25 et 91) ne sont pas des montants.
+    for (const match of line.replace(DECIMAL_AMOUNT_PATTERN, ' ').matchAll(INTEGER_AMOUNT_PATTERN)) {
       const value = Number.parseInt(match[0], 10)
       if (Number.isFinite(value) && value > 0) integerAmounts.push(value)
     }
