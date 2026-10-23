@@ -32,7 +32,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 | Tests E2E de non-régression (Playwright) | `make test-e2e` · `npm run test:e2e` — voir `docs/tests/E2E.md` |
 | Migrations | `npm run migrate:up` · `npm run migrate:down` |
 | Seed (idempotent) / bucket | `npm run seed` · `npm run ensure-bucket` |
-| Worker (outbox : emails, puis OCR) | `make worker` · `npm run worker` (second terminal) |
+| Worker (outbox : analyse OCR, puis emails) | lancé par `npm run dev` / `make dev` ; seul : `make worker` · `npm run worker` |
 | Build prod | `npm run build` |
 | Reset des données locales | `make clean` |
 
@@ -73,7 +73,7 @@ src/
 ├── application/             # cas d'usage OCR synchrones et asynchrones
 ├── composition/             # branchement des ports et adaptateurs OCR
 ├── http/                    # transport et problèmes HTTP du module OCR
-├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, workerDb.ts
+├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts
 ├── domain/                  # ExpenseNote.ts, User.ts   (entités métier)
 ├── ports/                   # stockage, OCR, analyses, exécution et outbox
 ├── adapters/                # S3, Tesseract isolé et persistance PostgreSQL
@@ -89,7 +89,7 @@ Règles de placement pour tout **nouveau** code :
 - **Règle métier** (statuts, qui peut valider quoi, calculs) → `src/domain/`. Pas d'import de `pg`, `next`, `aws-sdk`, `auth`. Testable sans infrastructure.
 - **Dépendance externe** (S3, notifications, OCR, queue) → interface dans `src/ports/`, implémentation dans `src/adapters/`. Le domaine et les cas d'usage ne dépendent que du port.
 - **Route handler** (`route.ts`) → fine couche HTTP : authentifier, valider l'entrée, appeler le domaine/cas d'usage, formater la réponse. **Pas de SQL ni de règle métier dans un route handler.**
-- **Traitement asynchrone** (email, OCR…) → un type d'événement dans l'outbox et un handler déclaré dans `src/worker/handlers.ts` ; le worker (`npm run worker`) ne traite que les types déclarés.
+- **Traitement asynchrone** (email, OCR…) → un type d'événement dans l'outbox et un handler déclaré dans `src/worker/handlers.ts` ; le worker (`npm run worker`) ne traite que les types déclarés. Traitement court : `handle(event, client)`, dans la transaction de l'événement ; traitement long (OCR, IA) : `run(event, signal)`, hors transaction, idempotent (exemple : `src/worker/receiptAnalysis.ts`).
 - **Accès base** → via `withUserScope()` de `src/lib/db.ts`, jamais `getPool().query` direct pour des données tenant.
 - **Schéma** → nouvelle migration dans `migrations/` (horodatée, jamais d'édition d'une migration existante), avec `down`.
 - **UI** → `src/components/` ; les pages restent minces.
@@ -126,7 +126,7 @@ Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 - `AUTH_SECRET` codé en dur dans `lib/auth.ts` ; `lib/errors.ts` renvoie la stacktrace au client.
 - Inscription : l'entreprise et le rôle RH sont déduits du domaine email (S7, voir plus haut).
 - Classes métier historiques encore inutilisées ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes. Le module OCR utilise désormais domaine, cas d'usage, ports et adaptateurs.
-- Création de NDF non atomique. Les bornes OCR, sa route asynchrone, son worker et le contrat d'outbox sont décrits dans `docs/ocr.md` ; 2-484 doit brancher les notifications sur ce socle commun.
+- Création de NDF non atomique (2-476). Les bornes OCR et son parcours asynchrone, branché sur le socle commun de l'outbox (2-484), sont décrits dans `docs/ocr.md`.
 - Aucun contrat d'API (OpenAPI), pas d'observabilité.
 
 Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489).

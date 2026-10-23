@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 // Même cycle de vie en développement et en E2E : le bouton utilise le vrai worker.
 const children = [
   spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev'], { stdio: 'inherit' }),
-  spawn(process.execPath, ['--env-file-if-exists=.env', '--import', 'tsx', 'src/worker.ts'], { stdio: 'inherit' }),
+  spawn(process.execPath, ['--import', 'tsx', 'src/worker/main.ts'], { stdio: 'inherit' }),
 ]
 let closing = false
 function close(code = 0) {

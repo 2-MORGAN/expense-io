@@ -64,14 +64,21 @@ Le worker réutilise le même cas d'usage de suggestion.
    Le quota et les replays concurrents sont arbitrés sous le verrou d'admission
    `247500`. Maximum **10 analyses persistées non terminées par base**, même si
    le worker est arrêté. Les lignes d'outbox ne contiennent jamais les octets.
-3. Le worker réclame les événements via `FOR UPDATE SKIP LOCKED`. Le bail de
-   30 s et son UUID empêchent un ancien consommateur d'écraser le résultat d'un
-   nouveau. Un crash rend le travail de nouveau disponible après expiration.
+3. Le worker commun (`src/worker/`, 2-484) prend l'événement en charge via
+   `FOR UPDATE SKIP LOCKED` : l'essai est compté et un bail de 5 min posé.
+   L'analyse est un **traitement détaché** : elle s'exécute hors transaction,
+   puis le worker enregistre l'issue dans une transaction courte. Chaque écriture
+   de l'analyse vérifie que l'événement est toujours au même essai : un ancien
+   consommateur, dont le bail a expiré, n'écrit rien. Un crash rend le travail
+   de nouveau disponible après expiration du bail.
 4. Une tentative dispose de 15 s, lecture S3 et attente du slot incluses.
    Au maximum 3 tentatives pour les pannes temporaires, avec 1 s puis 5 s de
-   backoff. Les refus de contenu ne sont pas rejoués. Après épuisement : analyse
-   `failed`, événement `dead`. Les états/résultat et l'outbox sont mis à jour dans
-   la même transaction. Un arrêt demandé du worker laisse le bail expirer pour reprise.
+   backoff (délais propres à ce type d'événement). Les refus de contenu ne sont pas
+   rejoués. Après épuisement : analyse `failed`, événement `dead`. C'est le cas
+   d'usage `ProcessReceiptAnalysis` qui décide de la relance : il remet l'analyse
+   en attente et lève une erreur (le worker relance), ou la clôt et lève
+   `NonRetryableError` (l'événement passe `dead`). Un arrêt demandé du worker
+   compte comme une panne passagère : l'analyse est remise en attente.
 5. **Précision pour la file durable** : le travail entier a un budget de 60 s depuis
    son acceptation, attente et reprises comprises. Chaque tentative est plafonnée
    au minimum de 15 s et du budget restant. La règle historique de 15 s d'attente
@@ -99,23 +106,22 @@ Retry-After: 5. Un GET d'une analyse failed reste 200 et contient son problème.
 
 ## Intégration avec 2-484
 
-Le worker de Jacques n'était pas disponible dans main ni sur une branche publiée
-au début de cette implémentation. Le socle commun est donc fourni ici, sans SMTP
-ni émission de notifications : `outbox_events`, `PostgresOutboxAdapter.claim()`
-et le registre de handlers de `src/worker.ts`. **Ne pas créer une deuxième table
-ou une deuxième boucle concurrente pour les notifications.** Leur gestionnaire
-se branche dans ce registre en conservant les politiques de retry propres à son
-type. Les types inconnus restent intacts et ne sont jamais acquittés par l'OCR.
+L'analyse s'appuie sur le **socle asynchrone unique** de 2-484 (ADR-003,
+amendement du 23/10) : la table `outbox_events` et sa policy d'insertion,
+`PgEventOutbox` pour publier, le registre `buildHandlers()` et le worker de
+`src/worker/`. Le handler de `receipt.analysis.requested` est déclaré dans
+`src/worker/receiptAnalysis.ts`, avec ses propres règles de relance (3 essais,
+1 s puis 5 s). Les types inconnus restent intacts et ne sont jamais acquittés.
+
+Le worker distingue deux sortes de traitement : **en transaction** (un email,
+court) et **détaché** (`run(event, signal)`, l'OCR, jusqu'à 60 s), qui ne garde
+ni connexion ni verrou pendant son exécution.
 
 Contrat de l'événement OCR v1 :
 
 ```json
 { "version": 1, "analysisId": "UUID", "companyId": "UUID", "userId": "UUID", "receiptKey": "receipts/COMPANY/analyses/ANALYSIS" }
 ```
-
-Les champs communs de l'ADR-003 sont conservés ; `lease_token` ajoute la protection
-contre les consommateurs périmés. La migration descendante supprime la file et
-les analyses : ne pas la rejouer en production après branchement d'autres types.
 
 ## Exploitation et dépendances
 
@@ -124,11 +130,10 @@ les analyses : ne pas la rejouer en production après branchement d'autres types
 - Exécuter depuis la racine du projet, avec `scripts/ocr-engine.mjs`, `tessdata/`
   et les dépendances de production. Les plateformes sans processus enfants ne
   conviennent pas à cet adaptateur ; le port permet un autre moteur.
-- `DATABASE_URL` est la connexion applicative. `WORKER_DATABASE_URL` est le rôle
-  de service pour réclamer/nettoyer les travaux de tous les tenants : il doit
-  disposer des droits sur l'outbox et les analyses et pouvoir franchir leur RLS.
-  En local, le rôle de démonstration existant sert de fallback. Les corrections
-  de rôles/permissions globales de l'ADR-001 restent dans leur chantier.
+- Le worker utilise `DATABASE_URL`, comme l'application. Le rôle dédié
+  `expense_worker` et l'adaptation du nettoyage (qui lit `receipt_analyses` sans
+  contexte utilisateur) arrivent avec la bascule 2-481 (ADR-001, point de
+  coordination).
 - `sharp` devient une dépendance directe, car utilisé par le moteur. `tsx` est
   une dépendance d'exécution pour le second point d'entrée TypeScript avec les
   alias du dépôt ; cela évite de maintenir une seconde version JS du worker.

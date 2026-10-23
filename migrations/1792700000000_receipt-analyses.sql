@@ -1,19 +1,6 @@
 -- Up Migration
--- Contrat commun ADR-003 : cette outbox peut accueillir les notifications de 2-484.
-CREATE TABLE outbox_events (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  type text NOT NULL,
-  payload jsonb NOT NULL,
-  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'dead')),
-  attempts integer NOT NULL DEFAULT 0,
-  next_attempt_at timestamptz NOT NULL DEFAULT now(),
-  lease_token uuid,
-  last_error text,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX outbox_due_idx ON outbox_events (type, next_attempt_at) WHERE status = 'pending';
-
+-- Analyses de reçus (OCR asynchrone, ADR-003 §2). La file est la table
+-- `outbox_events` du socle commun (migration 1792684368830, 2-484).
 CREATE TABLE receipt_analyses (
   id uuid PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -45,4 +32,3 @@ CREATE POLICY receipt_analysis_owner ON receipt_analyses
 
 -- Down Migration
 DROP TABLE receipt_analyses;
-DROP TABLE outbox_events;

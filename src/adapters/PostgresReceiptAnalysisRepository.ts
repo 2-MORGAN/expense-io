@@ -1,3 +1,5 @@
+import { PgEventOutbox } from '@/adapters/PgEventOutbox'
+import { RECEIPT_ANALYSIS_REQUESTED } from '@/domain/receipt/analysisPayload'
 import { withUserScope } from '@/lib/db'
 import { OcrError, type OcrErrorCode } from '@/domain/receipt/OcrError'
 import type { ExpenseNoteSuggestion } from '@/domain/receipt/parseReceiptText'
@@ -76,10 +78,11 @@ export class PostgresReceiptAnalysisRepository implements ReceiptAnalysisReposit
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [input.id, actor.userId, actor.companyId, input.receiptKey, input.mimeType, input.fingerprint, input.idempotencyKey]
       )
-      await client.query(
-        `INSERT INTO outbox_events (company_id, type, payload) VALUES ($1, 'receipt.analysis.requested', $2)`,
-        [actor.companyId, JSON.stringify({ version: 1, analysisId: input.id, userId: actor.userId, companyId: actor.companyId, receiptKey: input.receiptKey })]
-      )
+      // Socle asynchrone commun (2-484) : publié dans la même transaction que l'analyse.
+      await new PgEventOutbox(client).enqueue({
+        type: RECEIPT_ANALYSIS_REQUESTED,
+        payload: { version: 1, analysisId: input.id, userId: actor.userId, companyId: actor.companyId, receiptKey: input.receiptKey },
+      })
       return { id: input.id, status: 'queued' }
     })
   }

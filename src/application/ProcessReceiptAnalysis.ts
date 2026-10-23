@@ -1,13 +1,28 @@
-import { OcrError } from '@/domain/receipt/OcrError'
+import { OcrError, type OcrErrorCode } from '@/domain/receipt/OcrError'
 import { ANALYSIS_QUEUE_TIMEOUT_MS, OCR_TIMEOUT_MS } from '@/domain/receipt/limits'
-import type { OutboxEvent } from '@/ports/OutboxPort'
+import { NonRetryableError, type OutboxEventRecord } from '@/ports/EventOutbox'
 import type { ReceiptStoragePort } from '@/ports/ReceiptStoragePort'
 import type { SuggestReceiptFields } from './SuggestReceiptFields'
 import type { OcrCapacity } from './OcrCapacity'
 import { analysisPayload } from '@/domain/receipt/analysisPayload'
-import type { ReceiptAnalysisWorkPort } from '@/ports/ReceiptAnalysisWorkPort'
+import type { AnalysisPayload, ReceiptAnalysisWorkPort } from '@/ports/ReceiptAnalysisWorkPort'
 import type { OcrExecutionPort } from '@/ports/OcrExecutionPort'
 
+/** Trois essais au plus (ADR-003 §2) ; le worker relance avec `ANALYSIS_BACKOFF_SECONDS`. */
+export const MAX_ANALYSIS_ATTEMPTS = 3
+/** L'utilisateur attend devant le formulaire : relances après 1 s puis 5 s. */
+export const ANALYSIS_BACKOFF_SECONDS: readonly number[] = [1, 5]
+
+const TRANSIENT_CODES: ReadonlySet<OcrErrorCode> = new Set(['OCR_TIMEOUT', 'OCR_UNAVAILABLE', 'OCR_OVERLOADED'])
+
+/**
+ * Traitement détaché de l'événement `receipt.analysis.requested` : il
+ * s'exécute hors transaction (l'OCR peut durer jusqu'à 60 s) et enregistre
+ * lui-même l'issue de l'analyse. Il décide de la relance : panne passagère
+ * avec un essai et du budget restants → analyse remise en attente et exception
+ * (le worker relance) ; sinon → analyse « failed » et `NonRetryableError`
+ * (l'événement passe `dead`).
+ */
 export class ProcessReceiptAnalysis {
   constructor(
     private work: ReceiptAnalysisWorkPort,
@@ -17,27 +32,43 @@ export class ProcessReceiptAnalysis {
     private execution: OcrExecutionPort,
   ) {}
 
-  async execute(event: OutboxEvent, parent: AbortSignal) {
-    let payload: ReturnType<typeof analysisPayload> | null = null
-    let reservation: ReturnType<OcrCapacity['reserve']> | undefined
+  async execute(event: OutboxEventRecord, parent: AbortSignal): Promise<void> {
+    let payload: AnalysisPayload
     try {
       payload = analysisPayload(event)
+    } catch {
+      throw new NonRetryableError('VALIDATION_ERROR')
+    }
+
+    let reservation: ReturnType<OcrCapacity['reserve']> | undefined
+    try {
       const remaining = ANALYSIS_QUEUE_TIMEOUT_MS - (Date.now() - event.createdAt.getTime())
-      if (remaining <= 0 || event.attempts > 3) throw new OcrError('OCR_TIMEOUT')
+      if (remaining <= 0 || event.attempts > MAX_ANALYSIS_ATTEMPTS) throw new OcrError('OCR_TIMEOUT')
       reservation = this.capacity.reserve(parent, Math.min(OCR_TIMEOUT_MS, remaining))
-      const mimeType = await this.work.start(event, payload)
-      if (!mimeType) { await this.work.finish(event, payload, undefined, 'RESOURCE_NOT_FOUND'); return }
-      const current = payload
+      const start = await this.work.start(event, payload)
+      if (start.kind === 'done') return
+      if (start.kind === 'missing') {
+        await this.work.finish(event, payload, { status: 'failed', errorCode: 'RESOURCE_NOT_FOUND' })
+        throw new NonRetryableError('RESOURCE_NOT_FOUND')
+      }
       const result = await reservation.run(async (signal) => {
-        const data = await this.storage.read(current.receiptKey, signal)
-        return this.execution.run(current.userId, signal, () => this.suggest.execute({ data, mimeType }, signal))
+        const data = await this.storage.read(payload.receiptKey, signal)
+        return this.execution.run(payload.userId, signal, () => this.suggest.execute({ data, mimeType: start.mimeType }, signal))
       })
-      await this.work.finish(event, payload, result)
+      await this.work.finish(event, payload, { status: 'succeeded', result })
     } catch (error) {
-      if (parent.aborted) return // Bail conservé ; un autre worker reprendra après expiration.
-      const code = error instanceof OcrError ? error.code : 'OCR_UNAVAILABLE'
-      await this.work.finish(event, payload, undefined, code)
-      console.error(JSON.stringify({ eventId: event.id, code, attempt: event.attempts }))
-    } finally { reservation?.release() }
+      if (error instanceof NonRetryableError) throw error
+      // Un arrêt du worker compte comme une panne passagère : l'analyse est remise
+      // en attente (ou close au dernier essai) plutôt que laissée « running ».
+      const code: OcrErrorCode = error instanceof OcrError ? error.code : 'OCR_UNAVAILABLE'
+      const retry = TRANSIENT_CODES.has(code)
+        && event.attempts < MAX_ANALYSIS_ATTEMPTS
+        && Date.now() - event.createdAt.getTime() < ANALYSIS_QUEUE_TIMEOUT_MS
+      await this.work.finish(event, payload, retry ? { status: 'queued' } : { status: 'failed', errorCode: code })
+      console.error(JSON.stringify({ eventId: event.id, code, attempt: event.attempts, retry }))
+      throw retry ? new Error(code) : new NonRetryableError(code)
+    } finally {
+      reservation?.release()
+    }
   }
 }
