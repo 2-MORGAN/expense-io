@@ -2,7 +2,7 @@
 
 Ticket **WS5 Qualité** — figer le comportement actuel d'Expense.io **avant toute refacto**, pour que la refacto ne casse rien de ce que les correcteurs rejoueront.
 
-La suite (Playwright) pilote un vrai navigateur et l'API HTTP sur la stack locale complète (Next.js + PostgreSQL + S3/LocalStack + OCR). Elle ne modifie pas le code de l'application (`src/` est inchangé).
+La suite (Playwright) pilote un vrai navigateur et l'API HTTP sur la stack locale complète (Next.js + PostgreSQL + S3/LocalStack + Mailpit + OCR). Elle ne modifie pas le code de l'application (`src/` est inchangé).
 
 ## Principes
 
@@ -59,7 +59,7 @@ Sous PowerShell, une variable se définit ainsi : `$env:E2E_BASE_URL="http://loc
 ```
 playwright.config.ts          configuration (serveur, navigateur fr-FR / Europe/Paris, rapports)
 e2e/
-├── global-setup.ts           vérifie Postgres et le bucket, purge les données *.e2e.test, préchauffe les routes
+├── global-setup.ts           vérifie Postgres, le bucket et Mailpit, purge les données *.e2e.test, préchauffe les routes
 ├── support/
 │   ├── env.ts                configuration lue dans .env
 │   ├── db.ts                 création d'entreprises et de comptes (seule dépendance au schéma)
@@ -74,7 +74,7 @@ e2e/
 
 ## Scénarios couverts
 
-**98 tests** (86 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 12 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
+**111 tests** (99 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 13 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
 
 ### Inscription — `e2e/signup.spec.ts`
 
@@ -227,8 +227,85 @@ Les tests appellent directement `withUserScope`, `PgEventOutbox` et `processNext
 | OUTBOX-06 | Événement pas encore dû : ignoré | Intégration |
 | OUTBOX-07 | Deux workers simultanés : l'événement est traité une seule fois | Intégration |
 | OUTBOX-08 | Type sans handler : laissé « pending » pour le worker qui le connaît | Intégration |
+| OUTBOX-09 | Worker arrêté pendant le traitement : la prise en charge compte l'essai et pose un bail de 5 min ; un événement dont le dernier essai n'a jamais fini et qui a épuisé ses essais passe « dead » sans rejouer le handler | Intégration |
+| OUTBOX-10 | Prise en charge périmée (bail expiré, un autre worker a repris l'événement) : la phase 2 ne lance pas le handler et ne modifie rien | Intégration |
+
+### Notifications — `e2e/notifications.spec.ts`
+
+NOTIF-01 à 05 et NOTIF-10 appellent l'API puis lisent `outbox_events` en connexion d'administration : ce que la soumission et la décision écrivent dans la même transaction. NOTIF-06 à 09 et NOTIF-11 font tourner `processNextEvent` avec les handlers de notification (`notificationHandlers`) sur la vraie base, limité à l'entreprise du test, et lisent les emails arrivés dans Mailpit ; NOTIF-09 remplace l'envoi par un `NotificationPort` en panne, sur un événement de test d'un type unique ; NOTIF-11 insère un événement par RH sous un type unique, fait échouer l'envoi pour une seule RH et délègue le reste à l'adaptateur réel.
+
+La suite reste verte avec ou sans `make worker` en cours d'exécution (ADR-003 §5 : le worker ne conditionne pas les E2E) : aucun test n'attend qu'un événement réel soit encore « pending », et l'état « sent » est attendu (`expect.poll`) plutôt que lu aussitôt. Les exécutions laissent des événements « pending » dans les entreprises `*.e2e.test` (purgées au début de l'exécution suivante) : un worker lancé juste après une exécution de tests commence donc par les vider vers Mailpit.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| NOTIF-01 | Soumission d'un employé : un événement `expense_note.submitted` pour son manager (description, nom du soumetteur) | API |
+| NOTIF-02 | Soumission d'un manager racine : un événement `expense_note.submitted` par RH de l'entreprise, chacun avec un seul destinataire | API |
+| NOTIF-03 | Soumetteur sans approbateur : note créée, aucun événement | API |
+| NOTIF-04 | Décision du manager : un seul événement `expense_note.decided`, même après des décisions répétées (409) | API |
+| NOTIF-05 | Rejet par la RH d'une note de manager racine : événement pour le manager | API |
+| NOTIF-06 | Note soumise : email au manager, avec lien, sans montant ; Message-ID stable ; événement « sent » | Intégration |
+| NOTIF-07 | Note approuvée : email au soumetteur, avec lien vers ses notes | Intégration |
+| NOTIF-08 | Payload désignant un utilisateur d'une autre entreprise : aucun email pour lui, événement « sent » | Intégration |
+| NOTIF-09 | Envoi en panne : la décision reste acquise, l'événement (de test, type unique) repasse « pending » avec 1 essai et l'erreur | Intégration |
+| NOTIF-10 | Deux décisions simultanées du manager (approve et reject) : une seule réussit (200 et 409), un seul événement `expense_note.decided` | API |
+| NOTIF-11 | Une adresse RH en échec : l'autre RH ne reçoit pas l'email une seconde fois (un seul email pour elle, événement « sent »), l'événement de l'adresse en échec repasse « pending » avec 1 essai | Intégration |
 
 ## Résultat de la dernière exécution
+
+### 23 octobre 2026 — 111 / 111 (ticket 2-484 : un événement par destinataire, bail du worker, configuration de production)
+
+**111 / 111 tests verts (100 %)**, 0 échec, 0 flaky, sans nouvel essai.
+
+| | |
+|---|---|
+| Date | 23 octobre 2026 |
+| Code testé | `jacquesdai/2-484-3-notifications` @ `d46abe0` |
+| Commande | `make test-e2e` (Docker déjà démarré ; **aucun worker** `npm run worker` en cours) |
+| Durée | 35 s avec 5 workers Playwright |
+| Nouveaux tests | NOTIF-11 (échec partiel d'une RH), OUTBOX-09 (worker arrêté pendant le traitement), OUTBOX-10 (prise en charge périmée) ; NOTIF-02 mis à jour (un événement par RH) |
+
+Vérifications complémentaires : `npx playwright test e2e/notifications.spec.ts e2e/outbox-worker.spec.ts e2e/email.spec.ts` → 22/22 sans worker, puis 66/66 avec `npm run worker` en cours (`--repeat-each=3`, arrêté ensuite par `SIGINT`) ; `npm run check` (lint, types, 148 tests unitaires) passe.
+
+Détail de l'exécution précédente :
+
+### 22 octobre 2026 — 108 / 108 (ticket 2-484 : emails, outbox, notifications)
+
+**108 / 108 tests verts (100 %)**, 0 échec, 0 flaky, sans nouvel essai.
+
+| | |
+|---|---|
+| Date | 22 octobre 2026 |
+| Code testé | `jacquesdai/2-484-3-notifications` @ `ece3174` (le commit suivant ne change que de la documentation et un commentaire) |
+| Commande | `make test-e2e` (Docker déjà démarré ; **aucun worker** `npm run worker` en cours) |
+| Durée | 35 s avec 5 workers Playwright, serveur `next dev` démarré par Playwright, préchauffage compris |
+| Environnement | macOS, Node 22.23.3, PostgreSQL 16 (`postgres:16-alpine`), LocalStack 3.8.1, Mailpit 1.31.6, Playwright 1.63.0, Chromium fourni par Playwright |
+
+| Fichier | Tests | Résultat |
+|---|---:|---|
+| `access-control.spec.ts` | 7 | ✅ 7/7 |
+| `auth.spec.ts` | 9 | ✅ 9/9 |
+| `email.spec.ts` | 1 | ✅ 1/1 |
+| `expense-notes.spec.ts` | 22 | ✅ 22/22 |
+| `hr-approval.spec.ts` | 8 | ✅ 8/8 |
+| `hr-org-chart.spec.ts` | 8 | ✅ 8/8 |
+| `manager-approval.spec.ts` | 10 | ✅ 10/10 |
+| `notifications.spec.ts` | 10 | ✅ 10/10 |
+| `ocr-suggestion.spec.ts` | 8 | ✅ 8/8 |
+| `outbox-worker.spec.ts` | 8 | ✅ 8/8 |
+| `parcours-complet.spec.ts` | 1 | ✅ 1/1 |
+| `receipts.spec.ts` | 9 | ✅ 9/9 |
+| `signup.spec.ts` | 7 | ✅ 7/7 |
+| **Total** | **108** | **✅ 108/108** |
+
+Vérifications complémentaires, sur le même code :
+
+- **Avec ou sans worker** : `npx playwright test e2e/notifications.spec.ts e2e/outbox-worker.spec.ts e2e/email.spec.ts` → 19/19 avec `npm run worker` en cours (le worker a bien traité des événements pendant l'exécution), puis 19/19 après son arrêt (`SIGINT`) ; 95/95 dans chaque cas avec `--repeat-each=5`.
+- **Sensibilité de NOTIF-10** : sans `AND status = 'pending'` dans l'`UPDATE` des deux routes de décision du manager, il échoue 10 fois sur 10 avec `--repeat-each=10` (statuts 200 et 200) ; avec la garde, 10/10 passent. Routes remises dans leur état d'origine.
+- `npm run check` (lint, types, 142 tests unitaires) passe.
+
+Limites : exécution locale sur macOS, pas sur la CI Linux ; le Chromium est celui de Playwright 1.63.0.
+
+### 11 octobre 2026 — 89 / 89 (historique, avant le ticket 2-484)
 
 **89 / 89 tests verts (100 %)**, 0 échec, 0 flaky, sans nouvel essai.
 
@@ -290,9 +367,10 @@ Les références renvoient à `CLAUDE.md` (« Dette connue ») et à l'audit API
 | Format des clés S3 (`receipts/<compteur>.<ext>`) et champ `receiptKey` : seul le fait que le reçu soit restituable est testé | B14 |
 | Rôle figé dans le JWT jusqu'à la reconnexion | B6 |
 | Inscription sans preuve d'appartenance au domaine (premier inscrit = RH) | B12 |
-| Concurrence : deux décisions simultanées peuvent toutes deux réussir | B8 |
 
 Quand l'un de ces points est corrigé, ajouter le test correspondant (un bug corrigé = un test qui échoue avant, passe après).
+
+B8 (deux décisions simultanées pouvant toutes deux réussir) n'est plus dans cette liste : la garde `AND status = 'pending'` de l'`UPDATE` (2-484) la corrige pour les routes de décision, et NOTIF-10 le vérifie côté manager (sans la garde, il échoue : 200 et 200).
 
 ### Non testables en E2E en l'état
 

@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { getPool, withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
+import { enqueueSubmitted } from '@/lib/notifications'
 import { receiptKeyFor, uploadReceipt } from '@/lib/storage'
 
 const ALLOWED_RECEIPT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
@@ -92,7 +93,13 @@ export async function POST(request: NextRequest) {
          RETURNING *`,
         [session.user.id, amount, expenseDate, description, '']
       )
-      return inserted.rows[0]
+      const row = inserted.rows[0]
+      await enqueueSubmitted(client, {
+        id: row.id,
+        description: row.description,
+        userId: session.user.id,
+      })
+      return row
     })
 
     const extension = EXTENSION_BY_MIME[receipt.type] ?? path.extname(receipt.name) ?? ''

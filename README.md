@@ -5,7 +5,7 @@ Application de gestion de notes de frais.
 ## Prérequis
 
 - Node.js 24+
-- Docker (Postgres + LocalStack en local)
+- Docker (Postgres, LocalStack et Mailpit en local)
 
 ## Démarrage
 
@@ -13,10 +13,10 @@ Application de gestion de notes de frais.
 make dev
 ```
 
-Ceci installe les dépendances, démarre Postgres et LocalStack, applique les
-migrations, crée le bucket de stockage, peuple des comptes de démonstration
-(voir "Comptes" plus bas), puis lance le serveur de développement sur
-http://localhost:3000.
+Ceci installe les dépendances, démarre Postgres, LocalStack et Mailpit,
+applique les migrations, crée le bucket de stockage, peuple des comptes de
+démonstration (voir "Comptes" plus bas), puis lance le serveur de développement
+sur http://localhost:3000.
 
 Sans `make`, l'équivalent manuel :
 
@@ -29,6 +29,26 @@ npm run ensure-bucket
 npm run seed
 npm run dev
 ```
+
+## Emails et worker
+
+Les notifications (note soumise, note approuvée ou rejetée) passent par une
+file (`outbox_events`) que traite un worker. Dans un **second terminal**, après
+`make dev` :
+
+```bash
+make worker   # ou : npm run worker
+```
+
+Sans le worker, l'application fonctionne mais aucun email n'est envoyé : les
+événements restent en attente et partent dès qu'il démarre.
+
+En production, lancer `NODE_ENV=production npm run worker` avec `DATABASE_URL`,
+`SMTP_HOST` (et ses identifiants) et `APP_URL` définis : le worker refuse de
+démarrer s'il en manque un.
+
+En local, tous les emails arrivent dans **Mailpit** (SMTP sur le port 1025,
+interface sur http://localhost:8025) : aucun ne sort de la machine.
 
 ## Comptes
 
@@ -63,6 +83,6 @@ make test-unit # tests unitaires Vitest, sans Docker
 make test-e2e  # tests E2E de non-régression (voir docs/tests/E2E.md)
 make verify    # ce que vérifie la CI : lint, types, tests unitaires, build puis E2E (Docker requis)
 npm run check  # lint, types et tests unitaires, à lancer avant de pousser
-make down    # arrête Postgres/LocalStack
+make down    # arrête Postgres/LocalStack/Mailpit
 make clean   # arrête et supprime les données locales
 ```

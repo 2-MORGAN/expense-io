@@ -3,8 +3,8 @@ import { BASE_URL } from './e2e/support/env'
 
 // Tests E2E de non-régression — voir docs/tests/E2E.md.
 //
-// Prérequis : Postgres + LocalStack démarrés, migrations appliquées, bucket
-// créé (`make up migrate ensure-bucket`). Le serveur Next est démarré par
+// Prérequis : Postgres + LocalStack + Mailpit démarrés, migrations appliquées,
+// bucket créé (`make up migrate ensure-bucket`). Le serveur Next est démarré par
 // Playwright (`npm run dev`), ou réutilisé s'il tourne déjà (`make dev`).
 // `E2E_BASE_URL` cible un serveur déjà lancé (ex. build de prod) sans en
 // démarrer un.
