@@ -43,6 +43,10 @@ make worker   # ou : npm run worker
 Sans le worker, l'application fonctionne mais aucun email n'est envoyé : les
 événements restent en attente et partent dès qu'il démarre.
 
+En production, lancer `NODE_ENV=production npm run worker` avec `DATABASE_URL`,
+`SMTP_HOST` (et ses identifiants) et `APP_URL` définis : le worker refuse de
+démarrer s'il en manque un.
+
 En local, tous les emails arrivent dans **Mailpit** (SMTP sur le port 1025,
 interface sur http://localhost:8025) : aucun ne sort de la machine.
 

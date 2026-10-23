@@ -21,6 +21,7 @@
     "@aws-sdk/client-s3": "^3.1131.0",
     "@aws-sdk/s3-request-presigner": "^3.1131.0",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
     "next": "16.3.5",
     "next-auth": "^5.0.0-beta.32",
     "node-pg-migrate": "^9.0.0",
@@ -28,7 +29,8 @@
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "tesseract.js": "^7.0.0"
+    "tesseract.js": "^7.0.0",
+    "tsx": "4.23.15"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
@@ -38,11 +40,9 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4.3.3",
-    "tsx": "4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.3"
   },
