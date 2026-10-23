@@ -1,28 +1,15 @@
+import type { components } from '../../src/types/api'
+import { checkApiResponse } from '../../src/http/contractResponses'
+import { BASE_URL } from './env'
 import { expect, type APIRequestContext, type APIResponse } from '@playwright/test'
 import type { TestUser } from './db'
 import { pngReceipt, type UploadFile } from './files'
 
 // Contrat HTTP actuel, tel qu'observé (voir docs/tests/E2E.md).
 
-export type NoteStatus = 'pending' | 'approved' | 'rejected'
-
-export interface ExpenseNoteDto {
-  id: string
-  userId: string
-  amount: number
-  expenseDate: string
-  description: string
-  status: NoteStatus
-  createdAt: string
-}
-
-export interface CompanyUserDto {
-  id: string
-  name: string
-  email: string
-  role: 'employee' | 'manager'
-  managerId: string | null
-}
+export type NoteStatus = ExpenseNoteDto['status']
+export type ExpenseNoteDto = components['schemas']['ExpenseNote']
+export type CompanyUserDto = components['schemas']['CompanyUser']
 
 export type Decision = 'approve' | 'reject'
 
@@ -94,6 +81,20 @@ export function expectUserShape(user: CompanyUserDto): void {
   }
 }
 
+const checked = new WeakSet<APIRequestContext>()
+export function withContractChecks(request: APIRequestContext): void {
+  if (checked.has(request)) return
+  checked.add(request)
+  const fetch = request.fetch.bind(request)
+  request.fetch = async (url, options) => {
+    const response = await fetch(url, options)
+    if (new URL(response.url()).origin === new URL(BASE_URL).origin && new URL(response.url()).pathname.startsWith('/api/') && !new URL(response.url()).pathname.startsWith('/api/auth/')) {
+      checkApiResponse(options?.method ?? 'GET', response.url(), response.status(), response.headers(), await response.json())
+    }
+    return response
+  }
+}
+
 let noteCounter = 0
 
 /** Client HTTP authentifié pour un utilisateur donné. */
@@ -101,7 +102,9 @@ export class ApiClient {
   constructor(
     readonly request: APIRequestContext,
     readonly user: TestUser
-  ) {}
+  ) {
+    withContractChecks(request)
+  }
 
   // --- Employé (tout utilisateur connecté) --------------------------------
 
