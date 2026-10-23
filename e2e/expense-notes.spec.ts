@@ -271,5 +271,8 @@ test.describe('Soumission d’une note de frais — API', () => {
       const notes = await api.notes({ sort })
       expect(notes.map((note) => note.amount), sort).toEqual([20, 10, 30])
     }
+    // Formes légitimes toujours acceptées : sans direction (ASC), casse libre.
+    expect((await api.notes({ sort: 'amount' })).map((note) => note.amount)).toEqual([10, 20, 30])
+    expect((await api.notes({ sort: 'Amount desc' })).map((note) => note.amount)).toEqual([30, 20, 10])
   })
 })

@@ -24,11 +24,13 @@ const DEFAULT_ORDER_BY = 'created_at DESC'
 
 function orderByFor(sort: string | null): string {
   const match = /^(\w+)(?:\s+(asc|desc))?$/i.exec(sort?.trim() ?? '')
-  if (!match || !SORTABLE_COLUMNS.includes(match[1])) {
+  // Casse ignorée, comme pour un identifiant SQL non cité.
+  const column = match?.[1].toLowerCase()
+  if (!column || !SORTABLE_COLUMNS.includes(column)) {
     return DEFAULT_ORDER_BY
   }
-  const direction = match[2]?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
-  return `${match[1]} ${direction}`
+  const direction = match?.[2]?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
+  return `${column} ${direction}`
 }
 
 function toExpenseNote(row: Record<string, unknown>) {
