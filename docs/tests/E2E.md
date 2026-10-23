@@ -74,7 +74,7 @@ e2e/
 
 ## Scénarios couverts
 
-**108 tests** (96 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 13 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
+**110 tests** (98 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 13 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
 
 ### Inscription — `e2e/signup.spec.ts`
 
@@ -227,17 +227,18 @@ Les tests appellent directement `withUserScope`, `PgEventOutbox` et `processNext
 | OUTBOX-06 | Événement pas encore dû : ignoré | Intégration |
 | OUTBOX-07 | Deux workers simultanés : l'événement est traité une seule fois | Intégration |
 | OUTBOX-08 | Type sans handler : laissé « pending » pour le worker qui le connaît | Intégration |
+| OUTBOX-09 | Worker arrêté pendant le traitement : la prise en charge compte l'essai et pose un bail de 5 min ; un événement dont le dernier essai n'a jamais fini et qui a épuisé ses essais passe « dead » sans rejouer le handler | Intégration |
 
 ### Notifications — `e2e/notifications.spec.ts`
 
-NOTIF-01 à 05 et NOTIF-10 appellent l'API puis lisent `outbox_events` en connexion d'administration : ce que la soumission et la décision écrivent dans la même transaction. NOTIF-06 à 09 font tourner `processNextEvent` avec les handlers de notification (`notificationHandlers`) sur la vraie base, limité à l'entreprise du test, et lisent les emails arrivés dans Mailpit ; NOTIF-09 remplace l'envoi par un `NotificationPort` en panne, sur un événement de test d'un type unique.
+NOTIF-01 à 05 et NOTIF-10 appellent l'API puis lisent `outbox_events` en connexion d'administration : ce que la soumission et la décision écrivent dans la même transaction. NOTIF-06 à 09 et NOTIF-11 font tourner `processNextEvent` avec les handlers de notification (`notificationHandlers`) sur la vraie base, limité à l'entreprise du test, et lisent les emails arrivés dans Mailpit ; NOTIF-09 remplace l'envoi par un `NotificationPort` en panne, sur un événement de test d'un type unique ; NOTIF-11 fait échouer l'envoi pour une seule RH et délègue le reste à l'adaptateur réel.
 
 La suite reste verte avec ou sans `make worker` en cours d'exécution (ADR-003 §5 : le worker ne conditionne pas les E2E) : aucun test n'attend qu'un événement réel soit encore « pending », et l'état « sent » est attendu (`expect.poll`) plutôt que lu aussitôt. Les exécutions laissent des événements « pending » dans les entreprises `*.e2e.test` (purgées au début de l'exécution suivante) : un worker lancé juste après une exécution de tests commence donc par les vider vers Mailpit.
 
 | ID | Scénario | Niveau |
 |---|---|---|
 | NOTIF-01 | Soumission d'un employé : un événement `expense_note.submitted` pour son manager (description, nom du soumetteur) | API |
-| NOTIF-02 | Soumission d'un manager racine : toutes les RH de l'entreprise sont destinataires | API |
+| NOTIF-02 | Soumission d'un manager racine : un événement `expense_note.submitted` par RH de l'entreprise, chacun avec un seul destinataire | API |
 | NOTIF-03 | Soumetteur sans approbateur : note créée, aucun événement | API |
 | NOTIF-04 | Décision du manager : un seul événement `expense_note.decided`, même après des décisions répétées (409) | API |
 | NOTIF-05 | Rejet par la RH d'une note de manager racine : événement pour le manager | API |
@@ -246,8 +247,25 @@ La suite reste verte avec ou sans `make worker` en cours d'exécution (ADR-003 �
 | NOTIF-08 | Payload désignant un utilisateur d'une autre entreprise : aucun email pour lui, événement « sent » | Intégration |
 | NOTIF-09 | Envoi en panne : la décision reste acquise, l'événement (de test, type unique) repasse « pending » avec 1 essai et l'erreur | Intégration |
 | NOTIF-10 | Deux décisions simultanées du manager (approve et reject) : une seule réussit (200 et 409), un seul événement `expense_note.decided` | API |
+| NOTIF-11 | Une adresse RH en échec : l'autre RH ne reçoit pas l'email une seconde fois (un seul email pour elle, événement « sent »), l'événement de l'adresse en échec repasse « pending » avec 1 essai | Intégration |
 
 ## Résultat de la dernière exécution
+
+### 23 octobre 2026 — 110 / 110 (ticket 2-484 : un événement par destinataire, bail du worker, configuration de production)
+
+**110 / 110 tests verts (100 %)**, 0 échec, 0 flaky, sans nouvel essai.
+
+| | |
+|---|---|
+| Date | 23 octobre 2026 |
+| Code testé | `jacquesdai/2-484-3-notifications` @ `7d4e595` |
+| Commande | `make test-e2e` (Docker déjà démarré ; **aucun worker** `npm run worker` en cours) |
+| Durée | 43 s avec 5 workers Playwright |
+| Nouveaux tests | NOTIF-11 (échec partiel d'une RH), OUTBOX-09 (worker arrêté pendant le traitement) ; NOTIF-02 mis à jour (un événement par RH) |
+
+Vérifications complémentaires : `npx playwright test e2e/notifications.spec.ts e2e/outbox-worker.spec.ts e2e/email.spec.ts` → 21/21 sans worker, puis 21/21 avec `npm run worker` en cours (arrêté ensuite par `SIGINT`) ; `npm run check` (lint, types, 148 tests unitaires) passe.
+
+Détail de l'exécution précédente :
 
 ### 22 octobre 2026 — 108 / 108 (ticket 2-484 : emails, outbox, notifications)
 
