@@ -20,20 +20,27 @@ export function getPool(): Pool {
 }
 
 /**
- * Pose le contexte utilisateur pour la durée de la transaction — l'isolation
- * entre utilisateurs et entre entreprises est garantie par PostgreSQL (Row
- * Level Security, voir migrations/), ce helper ne fait qu'exposer l'id
- * courant aux policies.
+ * Ferme le pool et l'oublie : le prochain `getPool()` en ouvre un nouveau.
+ * Pour les processus qui doivent se terminer proprement (worker, tests).
  */
-export async function withUserScope<T>(
-  userId: string,
+export async function closePool(): Promise<void> {
+  const pool = global.__pgPool
+  global.__pgPool = undefined
+  await pool?.end()
+}
+
+/**
+ * Transaction sans contexte utilisateur : réservée aux traitements hors
+ * requête (worker, ADR-003). Une route ou un cas d'usage appelé par un
+ * utilisateur passe par `withUserScope`.
+ */
+export async function withSystemTransaction<T>(
   fn: (client: PoolClient) => Promise<T>
 ): Promise<T> {
   const pool = getPool()
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
-    await client.query("SELECT set_config('app.current_user_id', $1, true)", [userId])
     const result = await fn(client)
     await client.query('COMMIT')
     return result
@@ -43,4 +50,37 @@ export async function withUserScope<T>(
   } finally {
     client.release()
   }
+}
+
+/**
+ * Exécute `fn` dans un point de sauvegarde de la transaction du `client` : si
+ * elle échoue, ses écritures sont annulées, l'erreur est relancée et la
+ * transaction reste utilisable (le worker y enregistre l'échec de l'événement).
+ */
+export async function withSavepoint<T>(client: PoolClient, fn: () => Promise<T>): Promise<T> {
+  await client.query('SAVEPOINT outbox_handler')
+  try {
+    const result = await fn()
+    await client.query('RELEASE SAVEPOINT outbox_handler')
+    return result
+  } catch (error) {
+    await client.query('ROLLBACK TO SAVEPOINT outbox_handler')
+    throw error
+  }
+}
+
+/**
+ * Pose le contexte utilisateur pour la durée de la transaction — l'isolation
+ * entre utilisateurs et entre entreprises est garantie par PostgreSQL (Row
+ * Level Security, voir migrations/), ce helper ne fait qu'exposer l'id
+ * courant aux policies.
+ */
+export async function withUserScope<T>(
+  userId: string,
+  fn: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  return withSystemTransaction(async (client) => {
+    await client.query("SELECT set_config('app.current_user_id', $1, true)", [userId])
+    return fn(client)
+  })
 }

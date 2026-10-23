@@ -32,6 +32,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 | Tests E2E de non-régression (Playwright) | `make test-e2e` · `npm run test:e2e` — voir `docs/tests/E2E.md` |
 | Migrations | `npm run migrate:up` · `npm run migrate:down` |
 | Seed (idempotent) / bucket | `npm run seed` · `npm run ensure-bucket` |
+| Worker (outbox : emails, puis OCR) | `make worker` · `npm run worker` (second terminal) |
 | Build prod | `npm run build` |
 | Reset des données locales | `make clean` |
 
@@ -74,6 +75,7 @@ src/
 ├── ports/                   # NotificationPort, ReceiptStoragePort (interfaces)
 ├── adapters/                # ConsoleNotificationAdapter, S3ReceiptAdapter
 ├── utils/                   # validators.ts, format.ts
+├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), processNextEvent.ts
 └── proxy.ts                 # garde de navigation (ne couvre PAS /api)
 migrations/                  # SQL versionné — seule source de vérité du schéma
 scripts/                     # seed.mjs, ensure-bucket.mjs
@@ -84,6 +86,7 @@ Règles de placement pour tout **nouveau** code :
 - **Règle métier** (statuts, qui peut valider quoi, calculs) → `src/domain/`. Pas d'import de `pg`, `next`, `aws-sdk`, `auth`. Testable sans infrastructure.
 - **Dépendance externe** (S3, notifications, OCR, queue) → interface dans `src/ports/`, implémentation dans `src/adapters/`. Le domaine et les cas d'usage ne dépendent que du port.
 - **Route handler** (`route.ts`) → fine couche HTTP : authentifier, valider l'entrée, appeler le domaine/cas d'usage, formater la réponse. **Pas de SQL ni de règle métier dans un route handler.**
+- **Traitement asynchrone** (email, OCR…) → un type d'événement dans l'outbox et un handler déclaré dans `src/worker/handlers.ts` ; le worker (`npm run worker`) ne traite que les types déclarés.
 - **Accès base** → via `withUserScope()` de `src/lib/db.ts`, jamais `getPool().query` direct pour des données tenant.
 - **Schéma** → nouvelle migration dans `migrations/` (horodatée, jamais d'édition d'une migration existante), avec `down`.
 - **UI** → `src/components/` ; les pages restent minces.
