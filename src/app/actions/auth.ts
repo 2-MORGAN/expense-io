@@ -41,32 +41,26 @@ export async function signup(
   const domain = emailMatch[1].toLowerCase()
   const companyName = domain.split('.')[0]
 
-  const insertedCompany = await getPool().query<{ id: string }>(
-    `INSERT INTO companies (name, email_domain) VALUES ($1, $2)
-     ON CONFLICT (email_domain) DO NOTHING
-     RETURNING id`,
-    [companyName, domain]
+  const passwordHash = await bcrypt.hash(password, 12)
+
+  // Entreprise et RH créées atomiquement par la base (ADR-001, 2-478) ; NULL
+  // si le domaine a déjà son entreprise.
+  const registered = await getPool().query<{ user_id: string | null }>(
+    'SELECT register_user($1, $2, $3, $4, $5) AS user_id',
+    [name.trim(), email, passwordHash, companyName, domain]
   )
 
-  let companyId: string
-  let role: 'employee' | 'hr_admin'
-  if (insertedCompany.rows[0]) {
-    companyId = insertedCompany.rows[0].id
-    role = 'hr_admin'
-  } else {
+  if (!registered.rows[0].user_id) {
+    // Règle de domaine (S7) conservée jusqu'aux invitations de 2-496.
     const existingCompany = await getPool().query<{ id: string }>(
       'SELECT id FROM companies WHERE email_domain = $1',
       [domain]
     )
-    companyId = existingCompany.rows[0].id
-    role = 'employee'
+    await getPool().query(
+      'INSERT INTO users (name, email, password_hash, company_id, role) VALUES ($1, $2, $3, $4, $5)',
+      [name.trim(), email, passwordHash, existingCompany.rows[0].id, 'employee']
+    )
   }
-
-  const passwordHash = await bcrypt.hash(password, 12)
-  await getPool().query(
-    'INSERT INTO users (name, email, password_hash, company_id, role) VALUES ($1, $2, $3, $4, $5)',
-    [name.trim(), email, passwordHash, companyId, role]
-  )
 
   try {
     await signIn('credentials', { email, password, redirectTo: '/expenses' })
