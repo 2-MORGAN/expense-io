@@ -2,6 +2,8 @@
 
 Seules les ADR au statut **Acceptée** font foi (règle de l'ADR-005, §2). Un test E2E ne se modifie que si une ADR acceptée décide le changement de comportement.
 
+Nouvelle décision : copier le [modèle](ADR-000-modele.md) en `ADR-NNN-titre-court.md`, l'ajouter à ce tableau au statut « Proposée », puis la faire accepter par le PO dans une PR.
+
 | ADR | Titre | Statut | Auteur | Date |
 |---|---|---|---|---|
 | [ADR-001](ADR-001-isolation-multi-tenant.md) | Stratégie d'isolation multi-tenant | Acceptée (précisée le 23/10 : worker et bascule 2-481) | Amalraj Soupramanien | 20/10/2026 |
