@@ -45,11 +45,13 @@ Décidé par l'ADR-005. Ce qui vérifie le code, et quand :
 | Moment | Ce qui tourne | Durée |
 |---|---|---|
 | `git commit` | hook pre-commit : ESLint avec cache | ≈ 3 s, 5 s à froid |
-| `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 15 s |
+| `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 25 s |
 | À la demande | E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` | ≈ 3 min pour la suite, Docker requis |
 | PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner | ≈ 1 min et 3 min 30 |
+| Claude Code : avant une commande shell | hook `PreToolUse` (`.claude/hooks/guard-git.mjs`) : refuse `--no-verify`, `git commit -n`, `HUSKY=0`, la modification de `core.hooksPath`, le push sur `main`, le force-push, et `gh pr create` sans `--repo` explicite ou vers le dépôt du cours | instantané |
+| Claude Code : fin de tour | hook `Stop` (`.claude/hooks/check-on-stop.mjs`) : `npm run check` si le code a changé depuis le dernier check vert ; rouge, le tour continue une fois avec l'erreur, puis l'utilisateur est averti | ≈ 25 s |
 
-Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils donnent un retour rapide ; la garantie, c'est la CI.
+Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils donnent un retour rapide ; la garantie, c'est la CI. Les hooks Claude Code sont déclarés dans `.claude/settings.json`, versionné : ne pas les désactiver pour avancer, un refus signale un contournement du harnais.
 
 **Après un pull ou un changement de branche, lancer `npm install`** si `package.json` ou `package-lock.json` a changé : sinon une dépendance manque (Vitest, `@playwright/test`, husky…) et `npm run check` échoue, à la main comme dans le hook.
 
