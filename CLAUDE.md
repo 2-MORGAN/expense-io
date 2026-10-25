@@ -73,12 +73,13 @@ src/
 ├── application/             # cas d'usage OCR synchrones et asynchrones
 ├── composition/             # branchement des ports et adaptateurs OCR
 ├── http/                    # transport et problèmes HTTP du module OCR
-├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts
+├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts, log.ts (journal JSON)
 ├── domain/                  # ExpenseNote.ts, User.ts   (entités métier)
 ├── ports/                   # stockage, OCR, analyses, exécution et outbox
 ├── adapters/                # S3, Tesseract isolé et persistance PostgreSQL
 ├── utils/                   # validators.ts, format.ts
 ├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), processNextEvent.ts
+├── instrumentation.ts       # journalise les erreurs captées par Next.js (onRequestError)
 └── proxy.ts                 # garde de navigation (ne couvre PAS /api)
 migrations/                  # SQL versionné — seule source de vérité du schéma
 scripts/                     # seed.mjs, ensure-bucket.mjs
@@ -113,7 +114,7 @@ Règles de placement pour tout **nouveau** code :
 2. **Autorisation côté serveur, à chaque route**, y compris les routes de reçus. Ne jamais supposer qu'une vérification a été faite en amont (`proxy.ts` ne protège pas `/api`).
 3. **Zéro concaténation SQL** : requêtes paramétrées (`$1`, `$2`…). Pour un tri ou un champ dynamique, utiliser une liste blanche explicite.
 4. **Secrets uniquement via variables d'environnement** (`.env.example` fait foi). Ne jamais coder un secret en dur, ne jamais committer `.env`.
-5. **Erreurs** : ne jamais renvoyer message interne ou stacktrace au client. Cible : `application/problem+json` (RFC 9457), 401 = non authentifié, 403 = non autorisé, 404 si la ressource n'est pas visible par l'appelant.
+5. **Erreurs** : ne jamais renvoyer message interne ou stacktrace au client. Cible : `application/problem+json` (RFC 9457), 401 = non authentifié, 403 = non autorisé, 404 si la ressource n'est pas visible par l'appelant. Le détail va au journal du serveur : `logError()` de `src/lib/log.ts` (une ligne JSON avec message et pile, sans email ni URL pré-signée, ADR-005 §5), jamais `console.error(error)` ; une erreur qui échappe aux `catch` y arrive par `src/instrumentation.ts`.
 6. **Reçus** : clés S3 non devinables et préfixées par tenant ; accès uniquement par URL pré-signée de courte durée après contrôle d'autorisation.
 7. **Opérations multi-étapes** (insert + upload S3 + update) : atomiques ou compensées, et idempotentes quand c'est rejouable.
 
