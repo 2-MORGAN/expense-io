@@ -4,6 +4,8 @@ import { auth } from '@/lib/auth'
 import { getPool, withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
 import { receiptKeyFor, uploadReceipt } from '@/lib/storage'
+import { toExpenseNoteDto } from '@/http/expenseNote'
+import { requireRole } from '@/http/requireRole'
 import { MAX_RECEIPT_BYTES } from '@/domain/receipt/limits'
 
 const ALLOWED_RECEIPT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
@@ -15,25 +17,11 @@ const EXTENSION_BY_MIME: Record<string, string> = {
   'application/pdf': '.pdf',
 }
 
-function toExpenseNote(row: Record<string, unknown>) {
-  return {
-    id: row.id,
-    userId: row.user_id,
-    amount: Number.parseFloat(row.amount as string),
-    expenseDate: row.expense_date,
-    description: row.description,
-    receiptKey: row.receipt_key,
-    status: row.status,
-    createdAt: new Date(row.created_at as string).toISOString(),
-  }
-}
-
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    if (!session?.user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const actor = requireRole(session)
+    if (actor instanceof Response) return actor
 
     const url = new URL(request.url)
     // Le tri est construit dynamiquement plutôt que via une valeur liée :
@@ -41,12 +29,12 @@ export async function GET(request: NextRequest) {
     // en SQL standard, donc ce fragment est concaténé directement.
     const sort = url.searchParams.get('sort') || 'created_at DESC'
 
-    return withUserScope(session.user.id, async (client) => {
+    return withUserScope(actor.id, async (client) => {
       const result = await client.query(
         `SELECT * FROM expense_notes WHERE user_id = $1 ORDER BY ${sort}`,
-        [session.user.id]
+        [actor.id]
       )
-      return Response.json(result.rows.map(toExpenseNote))
+      return Response.json(result.rows.map(toExpenseNoteDto))
     })
   } catch (error) {
     return respondError(error)
@@ -56,9 +44,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    if (!session?.user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const actor = requireRole(session)
+    if (actor instanceof Response) return actor
 
     const formData = await request.formData()
     const amountRaw = formData.get('amount')
@@ -85,12 +72,12 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Fichier trop volumineux' }, { status: 400 })
     }
 
-    const note = await withUserScope(session.user.id, async (client) => {
+    const note = await withUserScope(actor.id, async (client) => {
       const inserted = await client.query(
         `INSERT INTO expense_notes (user_id, amount, expense_date, description, receipt_key)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING *`,
-        [session.user.id, amount, expenseDate, description, '']
+        [actor.id, amount, expenseDate, description, '']
       )
       return inserted.rows[0]
     })
@@ -105,7 +92,7 @@ export async function POST(request: NextRequest) {
       [receiptKey, note.id]
     )
 
-    return Response.json(toExpenseNote(updated.rows[0]), { status: 201 })
+    return Response.json(toExpenseNoteDto(updated.rows[0]), { status: 201 })
   } catch (error) {
     return respondError(error)
   }

@@ -1,22 +1,19 @@
 import { auth } from '@/lib/auth'
 import { getPool } from '@/lib/db'
 import { respondError } from '@/lib/errors'
+import { requireRole } from '@/http/requireRole'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
-    if (!session?.user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    if (session.user.role !== 'hr_admin') {
-      return Response.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const actor = requireRole(session, 'hr_admin')
+    if (actor instanceof Response) return actor
     const { id } = await params
     const body = (await request.json().catch(() => null)) as { managerId?: string | null } | null
     const managerId = body?.managerId ?? null
 
     const hrAdminResult = await getPool().query('SELECT company_id FROM users WHERE id = $1', [
-      session.user.id,
+      actor.id,
     ])
     const companyId = hrAdminResult.rows[0]?.company_id
     if (!companyId) {
