@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Expense.io API",
-    "version": "1.0.0",
-    "description": "Contrat HTTP des 17 opérations métier (Auth.js exclu). ADR-004 : URL stables, pas de pagination. Les refus historiques application/json restent transitoirement disponibles jusqu’à 2-485 ; les nouvelles validations et le module OCR utilisent application/problem+json. Les permissions documentées ne dispensent pas des contrôles de sécurité ADR-001."
+    "version": "1.1.0",
+    "description": "Contrat HTTP des 17 opérations métier (Auth.js exclu). ADR-004 : URL stables, pas de pagination. Toutes les erreurs métier utilisent application/problem+json (2-485), avec un code stable et un requestId. Le membre error historique reste déprécié pour compatibilité, sans détail interne. Les permissions documentées ne dispensent pas des contrôles de sécurité ADR-001."
   },
   "security": [
     {
@@ -149,6 +149,15 @@
           },
           "400": {
             "description": "Malformed UUID.",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -162,6 +171,15 @@
           },
           "404": {
             "description": "Analyse inconnue, étrangère ou expirée.",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -776,14 +794,7 @@
             }
           },
           "400": {
-            "description": "Missing or malformed email address; nothing written. Historical envelope until 2-485.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InvalidEmailError"
-                }
-              }
-            }
+            "$ref": "#/components/responses/InvalidInput"
           },
           "401": {
             "$ref": "#/components/responses/AuthenticationRequired"
@@ -835,6 +846,15 @@
     "responses": {
       "Problem": {
         "description": "Refus explicite ou erreur interne, sans fuite technique",
+        "headers": {
+          "X-Request-Id": {
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
         "content": {
           "application/problem+json": {
             "schema": {
@@ -846,6 +866,13 @@
       "Unavailable": {
         "description": "OCR_UNAVAILABLE, OCR_TIMEOUT ou OCR_OVERLOADED",
         "headers": {
+          "X-Request-Id": {
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "Retry-After": {
             "required": true,
             "schema": {
@@ -864,12 +891,16 @@
       },
       "AuthenticationRequired": {
         "description": "Authentication required.",
-        "content": {
-          "application/json": {
+        "headers": {
+          "X-Request-Id": {
+            "required": true,
             "schema": {
-              "$ref": "#/components/schemas/LegacyError"
+              "type": "string",
+              "format": "uuid"
             }
-          },
+          }
+        },
+        "content": {
           "application/problem+json": {
             "schema": {
               "$ref": "#/components/schemas/Problem"
@@ -879,12 +910,16 @@
       },
       "InternalError": {
         "description": "Internal server error.",
-        "content": {
-          "application/json": {
+        "headers": {
+          "X-Request-Id": {
+            "required": true,
             "schema": {
-              "$ref": "#/components/schemas/LegacyError"
+              "type": "string",
+              "format": "uuid"
             }
-          },
+          }
+        },
+        "content": {
           "application/problem+json": {
             "schema": {
               "$ref": "#/components/schemas/Problem"
@@ -894,6 +929,15 @@
       },
       "InvalidInput": {
         "description": "Invalid input; no write or upload.",
+        "headers": {
+          "X-Request-Id": {
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
         "content": {
           "application/problem+json": {
             "schema": {
@@ -904,12 +948,16 @@
       },
       "ResourceNotFound": {
         "description": "Resource not found or not visible; indistinguishable response.",
-        "content": {
-          "application/json": {
+        "headers": {
+          "X-Request-Id": {
+            "required": true,
             "schema": {
-              "$ref": "#/components/schemas/LegacyError"
+              "type": "string",
+              "format": "uuid"
             }
-          },
+          }
+        },
+        "content": {
           "application/problem+json": {
             "schema": {
               "$ref": "#/components/schemas/Problem"
@@ -919,12 +967,16 @@
       },
       "Forbidden": {
         "description": "Role is not allowed.",
-        "content": {
-          "application/json": {
+        "headers": {
+          "X-Request-Id": {
+            "required": true,
             "schema": {
-              "$ref": "#/components/schemas/LegacyError"
+              "type": "string",
+              "format": "uuid"
             }
-          },
+          }
+        },
+        "content": {
           "application/problem+json": {
             "schema": {
               "$ref": "#/components/schemas/Problem"
@@ -934,12 +986,16 @@
       },
       "Conflict": {
         "description": "Resource conflict: ALREADY_DECIDED or INVALID_MANAGER.",
-        "content": {
-          "application/json": {
+        "headers": {
+          "X-Request-Id": {
+            "required": true,
             "schema": {
-              "$ref": "#/components/schemas/LegacyError"
+              "type": "string",
+              "format": "uuid"
             }
-          },
+          }
+        },
+        "content": {
           "application/problem+json": {
             "schema": {
               "$ref": "#/components/schemas/Problem"
@@ -1068,6 +1124,7 @@
       },
       "Problem": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "type",
           "title",
@@ -1110,7 +1167,8 @@
               "INVALID_JSON",
               "FORBIDDEN",
               "ALREADY_DECIDED",
-              "INVALID_MANAGER"
+              "INVALID_MANAGER",
+              "INVALID_EMAIL"
             ]
           },
           "requestId": {
@@ -1174,19 +1232,6 @@
             ]
           }
         ]
-      },
-      "LegacyError": {
-        "type": "object",
-        "deprecated": true,
-        "required": [
-          "error"
-        ],
-        "properties": {
-          "error": {
-            "type": "string"
-          }
-        },
-        "description": "Enveloppe historique transitoire ; supprimée après migration 2-485. Aucun détail interne ne fait partie du contrat public."
       },
       "Uuid": {
         "type": "string",
@@ -1424,31 +1469,6 @@
         "examples": [
           {
             "email": "salarie@example.org"
-          }
-        ]
-      },
-      "InvalidEmailError": {
-        "type": "object",
-        "deprecated": true,
-        "additionalProperties": false,
-        "required": [
-          "error",
-          "code"
-        ],
-        "properties": {
-          "error": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string",
-            "const": "INVALID_EMAIL"
-          }
-        },
-        "description": "Enveloppe historique de l’invitation, comme LegacyError avec un code stable ; remplacée par application/problem+json avec 2-485.",
-        "examples": [
-          {
-            "error": "Invalid email",
-            "code": "INVALID_EMAIL"
           }
         ]
       },

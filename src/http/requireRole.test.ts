@@ -11,7 +11,11 @@ describe('requireRole', () => {
       const denied = requireRole(session, 'manager')
       expect(denied).toBeInstanceOf(Response)
       expect((denied as Response).status).toBe(401)
-      expect(await (denied as Response).json()).toEqual({ error: 'Unauthorized' })
+      expect(await (denied as Response).json()).toEqual({
+        type: '/problems/authentication-required', title: 'Authentication required', status: 401,
+        detail: 'Please sign in to continue.', code: 'AUTHENTICATION_REQUIRED',
+        requestId: expect.any(String), error: 'Unauthorized',
+      })
     }
   })
 
@@ -19,7 +23,11 @@ describe('requireRole', () => {
     const denied = requireRole(sessionAs('employee'), 'manager')
     expect(denied).toBeInstanceOf(Response)
     expect((denied as Response).status).toBe(403)
-    expect(await (denied as Response).json()).toEqual({ error: 'Unauthorized' })
+    expect(await (denied as Response).json()).toEqual({
+      type: '/problems/forbidden', title: 'Forbidden', status: 403,
+      detail: 'You are not allowed to perform this action.', code: 'FORBIDDEN',
+      requestId: expect.any(String), error: 'Unauthorized',
+    })
   })
 
   it("retourne l'utilisateur si le rôle est accepté", () => {

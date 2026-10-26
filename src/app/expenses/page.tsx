@@ -1,5 +1,7 @@
 'use client'
 
+import { responseErrorMessage, ApiResponseError } from '@/components/apiError'
+
 import type { ExpenseNote } from '@/http/dto'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { analyzeReceipt } from '@/components/receiptAnalysisClient'
@@ -56,7 +58,7 @@ export default function ExpensesPage() {
     if (response.ok) {
       setNotes(await response.json())
     } else {
-      setError('Impossible de charger les notes de frais.')
+      setError(await responseErrorMessage(response))
     }
     setLoading(false)
   }, [])
@@ -89,12 +91,7 @@ export default function ExpensesPage() {
       setSuggestionNotice(null)
       await loadNotes()
     } else {
-      const body = await response.json().catch(() => null)
-      setError(
-        typeof body?.error === 'string'
-          ? body.error
-          : 'Échec de la soumission de la note de frais.'
-      )
+      setError(await responseErrorMessage(response))
     }
   }
 
@@ -135,8 +132,8 @@ export default function ExpensesPage() {
           `${foundAmount ? 'Date' : 'Montant'} non reconnu(e) sur ce reçu — vérifie ce champ.`
         )
       }
-    } catch {
-      if (!controller.signal.aborted) setError('Impossible d’analyser ce reçu.')
+    } catch (error) {
+      if (!controller.signal.aborted) setError(error instanceof ApiResponseError ? error.message : 'Impossible d’analyser ce reçu.')
     } finally {
       if (!controller.signal.aborted) setExtracting(false)
     }
@@ -145,7 +142,7 @@ export default function ExpensesPage() {
   async function handleViewReceipt(id: string) {
     const response = await fetch(`/api/expense-notes/${id}/receipt-url`)
     if (!response.ok) {
-      setError('Impossible de récupérer le reçu.')
+      setError(await responseErrorMessage(response))
       return
     }
     const { url } = await response.json()
