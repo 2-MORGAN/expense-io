@@ -45,11 +45,13 @@ Décidé par l'ADR-005. Ce qui vérifie le code, et quand :
 | Moment | Ce qui tourne | Durée |
 |---|---|---|
 | `git commit` | hook pre-commit : ESLint avec cache | ≈ 3 s, 5 s à froid |
-| `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 15 s |
+| `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 25 s |
 | À la demande | E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` | ≈ 3 min pour la suite, Docker requis |
 | PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner | ≈ 1 min et 3 min 30 |
+| Claude Code : avant une commande shell | hook `PreToolUse` (`.claude/hooks/guard-git.mjs`) : refuse `--no-verify`, `git commit -n`, `HUSKY=0`, la modification de `core.hooksPath`, le push sur `main`, le force-push, et `gh pr create` sans `--repo` explicite ou vers le dépôt du cours | instantané |
+| Claude Code : fin de tour | hook `Stop` (`.claude/hooks/check-on-stop.mjs`) : `npm run check` si le code a changé depuis le dernier check vert ; rouge, le tour continue une fois avec l'erreur, puis l'utilisateur est averti | ≈ 25 s |
 
-Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils donnent un retour rapide ; la garantie, c'est la CI.
+Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils donnent un retour rapide ; la garantie, c'est la CI. Les hooks Claude Code sont déclarés dans `.claude/settings.json`, versionné : ne pas les désactiver pour avancer, un refus signale un contournement du harnais.
 
 **Après un pull ou un changement de branche, lancer `npm install`** si `package.json` ou `package-lock.json` a changé : sinon une dépendance manque (Vitest, `@playwright/test`, husky…) et `npm run check` échoue, à la main comme dans le hook.
 
@@ -73,12 +75,13 @@ src/
 ├── application/             # cas d'usage OCR synchrones et asynchrones
 ├── composition/             # branchement des ports et adaptateurs OCR
 ├── http/                    # transport et problèmes HTTP du module OCR
-├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts
+├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts, log.ts (journal JSON)
 ├── domain/                  # ExpenseNote.ts, User.ts   (entités métier)
 ├── ports/                   # stockage, OCR, analyses, exécution et outbox
 ├── adapters/                # S3, Tesseract isolé et persistance PostgreSQL
 ├── utils/                   # validators.ts, format.ts
 ├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), processNextEvent.ts
+├── instrumentation.ts       # journalise les erreurs captées par Next.js (onRequestError)
 └── proxy.ts                 # garde de navigation (ne couvre PAS /api)
 migrations/                  # SQL versionné — seule source de vérité du schéma
 scripts/                     # seed.mjs, ensure-bucket.mjs
@@ -113,7 +116,7 @@ Règles de placement pour tout **nouveau** code :
 2. **Autorisation côté serveur, à chaque route**, y compris les routes de reçus. Ne jamais supposer qu'une vérification a été faite en amont (`proxy.ts` ne protège pas `/api`).
 3. **Zéro concaténation SQL** : requêtes paramétrées (`$1`, `$2`…). Pour un tri ou un champ dynamique, utiliser une liste blanche explicite.
 4. **Secrets uniquement via variables d'environnement** (`.env.example` fait foi). Ne jamais coder un secret en dur, ne jamais committer `.env`.
-5. **Erreurs** : ne jamais renvoyer message interne ou stacktrace au client. Cible : `application/problem+json` (RFC 9457), 401 = non authentifié, 403 = non autorisé, 404 si la ressource n'est pas visible par l'appelant.
+5. **Erreurs** : ne jamais renvoyer message interne ou stacktrace au client. Cible : `application/problem+json` (RFC 9457), 401 = non authentifié, 403 = non autorisé, 404 si la ressource n'est pas visible par l'appelant. Le détail va au journal du serveur : `logError()` de `src/lib/log.ts` (une ligne JSON avec message et pile, sans email ni URL pré-signée, ADR-005 §5), jamais `console.error(error)` ; une erreur qui échappe aux `catch` y arrive par `src/instrumentation.ts`.
 6. **Reçus** : clés S3 non devinables et préfixées par tenant ; accès uniquement par URL pré-signée de courte durée après contrôle d'autorisation.
 7. **Opérations multi-étapes** (insert + upload S3 + update) : atomiques ou compensées, et idempotentes quand c'est rejouable.
 
