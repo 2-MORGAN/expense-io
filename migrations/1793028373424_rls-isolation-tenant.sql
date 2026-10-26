@@ -27,7 +27,9 @@ $$;
 -- `users.password_hash` (la connexion passe par `auth_find_user`). Une table
 -- future n'ouvre aucun droit tant que sa migration ne le donne pas.
 GRANT SELECT, INSERT ON expense_notes TO expense_app;
-GRANT UPDATE (status) ON expense_notes TO expense_app;
+-- Décision d'une note : statut, puis auteur et date de la décision (B16,
+-- migration 1792916067000, écrits par PostgresExpenseNoteDecisionRepository).
+GRANT UPDATE (status, decided_by, decided_at) ON expense_notes TO expense_app;
 GRANT USAGE ON SEQUENCE expense_notes_receipt_seq_seq TO expense_app;
 GRANT SELECT (id, company_id, name, email, role, manager_id, created_at) ON users TO expense_app;
 GRANT UPDATE (manager_id) ON users TO expense_app;

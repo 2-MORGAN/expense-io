@@ -1,0 +1,5 @@
+# Fichiers générés, comparés octet par octet par `npm run check` : fins de
+# ligne LF même sous Windows avec core.autocrlf=true, sinon ils paraissent
+# périmés.
+src/types/*.d.ts text eol=lf
+src/generated/** text eol=lf

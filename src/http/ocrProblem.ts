@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { OcrError, type OcrErrorCode } from '@/domain/receipt/OcrError'
+import { log, logError } from '@/lib/log'
 
 const catalogue: Record<OcrErrorCode, [number, string, string?]> = {
   VALIDATION_ERROR: [400, 'Invalid receipt.', 'Champs invalides'],
@@ -20,7 +21,13 @@ export function ocrProblem(error: unknown) {
   const code = error instanceof OcrError ? error.code : 'INTERNAL_ERROR'
   const [status, detail, legacy] = catalogue[code]
   const requestId = randomUUID()
-  if (status >= 500) console.error(JSON.stringify({ requestId, code, outcome: code === 'OCR_TIMEOUT' ? 'timeout' : code === 'OCR_OVERLOADED' ? 'overloaded' : 'failed' }))
+  if (status >= 500) {
+    const fields = { requestId, status, code, outcome: code === 'OCR_TIMEOUT' ? 'timeout' : code === 'OCR_OVERLOADED' ? 'overloaded' : 'failed' }
+    // Pile pour une erreur inattendue seulement : un 503 identifié se répète en
+    // surcharge, son code suffit.
+    if (error instanceof OcrError) log('error', 'http.error', fields)
+    else logError('http.error', error, fields)
+  }
   return Response.json({
     type: `/problems/${code.toLowerCase().replaceAll('_', '-')}`,
     title: code.toLowerCase().replaceAll('_', ' '), status, detail, code, requestId,

@@ -106,8 +106,6 @@ test.describe('Consultation des reçus — manager', () => {
     org,
     apiAs,
   }) => {
-    // L'accès d'un manager au reçu d'une note hors de son équipe (IDOR,
-    // dette B2) n'est volontairement PAS figé.
     const receipt = pngReceipt('recu-05')
     const note = await (await apiAs(org.employee)).submitNote({ receipt })
     const managerApi = await apiAs(org.manager)
@@ -118,6 +116,28 @@ test.describe('Consultation des reçus — manager', () => {
     await expectServesReceipt(managerApi.request, url, receipt)
 
     await expectApiError(await managerApi.managerReceiptUrl(UNKNOWN_ID), 404, 'Not found')
+  })
+
+  test('[RECU-08] GET manager receipt-url : 404 pour une note hors de son équipe, même entreprise ou non', async ({
+    org,
+    apiAs,
+  }) => {
+    // Faille S2 (audit WS1) : le reçu n'est servi qu'au manager direct de
+    // l'auteur de la note, dans la même entreprise.
+    const otherManager = await addUser(org, { name: 'Oscar Autre-Manager', role: 'manager' })
+    const otherOrg = await createOrg('recu-08-autre')
+    const note = await (await apiAs(org.employee)).submitNote()
+    const ownNote = await (await apiAs(org.manager)).submitNote()
+    const otherCompanyNote = await (await apiAs(otherOrg.employee)).submitNote()
+
+    await expectApiError(await (await apiAs(otherManager)).managerReceiptUrl(note.id), 404, 'Not found')
+    await expectApiError(await (await apiAs(otherOrg.manager)).managerReceiptUrl(note.id), 404, 'Not found')
+
+    const managerApi = await apiAs(org.manager)
+    for (const id of [ownNote.id, otherCompanyNote.id]) {
+      await expectApiError(await managerApi.managerReceiptUrl(id), 404, 'Not found')
+    }
+    expect((await managerApi.managerReceiptUrl(note.id)).status()).toBe(200)
   })
 })
 

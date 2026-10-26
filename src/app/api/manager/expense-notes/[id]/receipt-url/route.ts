@@ -1,24 +1,28 @@
 import { auth } from '@/lib/auth'
-import { getPool } from '@/lib/db'
+import { withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
+import { requireRole } from '@/http/requireRole'
 import { getReceiptUrl } from '@/lib/storage'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
-    if (!session?.user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    if (session.user.role !== 'manager') {
-      return Response.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const actor = requireRole(session, 'manager')
+    if (actor instanceof Response) return actor
     const { id } = await params
 
-    // La note existe forcément dans la liste des notes en attente du
-    // manager avant qu'il n'en consulte le reçu — pas besoin de revérifier
-    // le rattachement ici.
-    const result = await getPool().query('SELECT receipt_key FROM expense_notes WHERE id = $1', [id])
-    const note = result.rows[0]
+    // Seul le manager direct de l'auteur, dans la même entreprise, obtient le
+    // reçu : une note hors de son équipe est traitée comme inexistante.
+    const note = await withUserScope(actor.id, async (client) => {
+      const result = await client.query(
+        `SELECT en.receipt_key FROM expense_notes en
+         JOIN users u ON u.id = en.user_id
+         WHERE en.id = $1 AND u.manager_id = $2
+           AND u.company_id = (SELECT company_id FROM users WHERE id = $2)`,
+        [id, actor.id]
+      )
+      return result.rows[0]
+    })
     if (!note) {
       return Response.json({ error: 'Not found' }, { status: 404 })
     }

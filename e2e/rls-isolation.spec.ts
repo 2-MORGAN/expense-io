@@ -184,6 +184,19 @@ test.describe('Isolation par la base (RLS, rôle expense_app)', () => {
     )
     expect(prefix.rowCount).toBe(0)
   })
+
+  test('[ISO-07j] le manager tranche la note de son équipe avec les écritures de la décision (statut, auteur, date)', async () => {
+    // Mêmes requêtes que PostgresExpenseNoteDecisionRepository (2-488).
+    const decided = await asApp(a.manager.id, async (client) => {
+      await client.query('SELECT * FROM expense_notes WHERE id = $1 FOR UPDATE', [employeeNoteA])
+      return client.query<{ status: string; decided_by: string }>(
+        `UPDATE expense_notes SET status = $1, decided_by = $2, decided_at = now()
+         WHERE id = $3 RETURNING status, decided_by`,
+        ['approved', a.manager.id, employeeNoteA]
+      )
+    })
+    expect(decided.rows).toEqual([{ status: 'approved', decided_by: a.manager.id }])
+  })
 })
 
 test.describe('Inscription atomique (register_user)', () => {

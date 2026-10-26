@@ -1,50 +1,31 @@
 import { auth } from '@/lib/auth'
-import { withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
+import { decideExpenseNote } from '@/composition/decisions'
+import { requireRole } from '@/http/requireRole'
+import {
+  ExpenseNoteAlreadyDecided,
+  ExpenseNoteNotVisible,
+} from '@/domain/validation/DecideExpenseNote'
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
-    if (!session?.user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    if (session.user.role !== 'hr_admin') {
-      return Response.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const actor = requireRole(session, 'hr_admin')
+    if (actor instanceof Response) return actor
     const { id } = await params
 
-    return withUserScope(session.user.id, async (client) => {
-      const existing = await client.query(
-        `SELECT en.* FROM expense_notes en
-         JOIN users u ON u.id = en.user_id
-         WHERE en.id = $1 AND u.role = 'manager' AND u.manager_id IS NULL
-           AND u.company_id = (SELECT company_id FROM users WHERE id = $2)`,
-        [id, session.user.id]
-      )
-      const row = existing.rows[0]
-      if (!row) {
+    try {
+      const note = await decideExpenseNote.execute(id, actor.id, 'rejected')
+      return Response.json(note)
+    } catch (error) {
+      if (error instanceof ExpenseNoteNotVisible) {
         return Response.json({ error: 'Not found' }, { status: 404 })
       }
-      if (row.status !== 'pending') {
+      if (error instanceof ExpenseNoteAlreadyDecided) {
         return Response.json({ error: 'Already decided' }, { status: 409 })
       }
-
-      const updated = await client.query(
-        `UPDATE expense_notes SET status = 'rejected' WHERE id = $1 RETURNING *`,
-        [id]
-      )
-      const note = updated.rows[0]
-      return Response.json({
-        id: note.id,
-        userId: note.user_id,
-        amount: Number.parseFloat(note.amount),
-        expenseDate: note.expense_date,
-        description: note.description,
-        receiptKey: note.receipt_key,
-        status: note.status,
-        createdAt: new Date(note.created_at).toISOString(),
-      })
-    })
+      throw error
+    }
   } catch (error) {
     return respondError(error)
   }
