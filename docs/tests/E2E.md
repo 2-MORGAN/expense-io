@@ -206,6 +206,24 @@ e2e/
 
 Pour ACL-01 à ACL-04, chaque refus est vérifié **sans effet de bord** (notes toujours `pending`, rattachement inchangé).
 
+### Isolation par la base (RLS) — `e2e/rls-isolation.spec.ts`
+
+Tests d'intégration de base (ADR-001 §5.1, 2-478). Chaque vérification tourne sous le rôle restreint `expense_app` (`SET LOCAL ROLE`), avec le contexte que pose `withUserScope`, dans une transaction annulée. Les témoins vérifient que la même requête voit bien les données de sa propre entreprise. L'application, elle, ne passe sous `expense_app` qu'avec 2-481.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| ISO-07a | `expense_app` n'est ni superuser ni `BYPASSRLS` ; aucun droit sur `users.password_hash` (42501) ni sur `companies` | Base |
+| ISO-07b | Contexte absent ou inconnu → 0 note | Base |
+| ISO-07c | Contexte absent ou inconnu → 0 utilisateur | Base |
+| ISO-07d | RH de B → 0 note et 0 utilisateur de A ; témoin : la RH de A voit la note de son manager racine et ses 3 utilisateurs | Base |
+| ISO-07e | Lien manager inter-entreprises refusé par la clé étrangère (23503) ; posé malgré tout (contrôles désactivés), le manager de B ne voit ni ne tranche la note de A | Base |
+| ISO-07f | Un employé ne change pas le statut de sa propre note (0 ligne) | Base |
+| ISO-07g | Le manager racine trouve les RH de son entreprise, et seulement elles (notification de soumission) | Base |
+| ISO-07h | Rattachement : la RH dans son entreprise seulement, jamais un employé ; changer un rôle est refusé (42501) | Base |
+| ISO-07i | `auth_find_user` rend une seule ligne, par email exact | Base |
+| ISO-07j | Le manager tranche la note de son équipe avec les écritures de la décision : statut, `decided_by`, `decided_at` (2-488) | Base |
+| SIGNUP-09 | `register_user` : panne injectée (email déjà pris, en autocommit) → aucune entreprise créée ; domaine déjà pris → `NULL` | Base |
+
 ### Parcours complet — `e2e/parcours-complet.spec.ts`
 
 | ID | Scénario | Niveau |
@@ -320,7 +338,7 @@ Quand l'un de ces points est corrigé, ajouter le test correspondant (un bug cor
 - Atomicité de la création note + upload S3 (panne S3 ou base en cours de route), idempotence des réessais (B9) : demande une injection de pannes.
 - Charge et limites de l'OCR : gros fichiers, durée, concurrence (B10). La distinction entre panne de l'OCR et « rien trouvé » n'existe pas (les deux donnent `{}`, B11) ; seul le cas « type non pris en charge → `{}` » est figé.
 - Messages d'erreur de l'UI qui n'apparaissent qu'en cas de panne serveur : « Impossible de charger les notes de frais. », « Impossible de récupérer le reçu. », « Impossible d’analyser ce reçu. », « Échec de l'assignation. ».
-- Policies RLS de PostgreSQL : contournées dans la configuration actuelle (connexion superuser). L'isolation est vérifiée au niveau HTTP (ISO-*, MGR-09, RH-08, ORG-08/09, RECU-02/07/08), pas au niveau des policies.
+- Policies RLS de PostgreSQL **sous l'application lancée** : elle se connecte encore en superuser jusqu'à 2-481. Les policies sont vérifiées en base sous `expense_app` (ISO-07, `e2e/rls-isolation.spec.ts`), et l'isolation au niveau HTTP (ISO-01 à 03, MGR-09, RH-08, ORG-08/09, RECU-02/07/08).
 
 ### Hors périmètre de cette suite
 

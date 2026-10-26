@@ -124,7 +124,7 @@ Règles de placement pour tout **nouveau** code :
 
 Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 
-- RLS probablement contournée (connexion en superuser, policy RH sans `company_id`) : l'isolation repose en pratique sur les `WHERE` manuels.
+- RLS contournée tant que l'application se connecte en superuser : l'isolation repose en pratique sur les `WHERE` manuels. Policies bornées par l'entreprise, RLS sur `users` et rôle restreint `expense_app` en place (2-478, tests ISO-07) ; la connexion bascule sur `expense_app` avec 2-481.
 - `lib/errors.ts` renvoie la stacktrace au client.
 - Inscription : l'entreprise et le rôle RH sont déduits du domaine email (S7, voir plus haut).
 - Classes métier historiques encore inutilisées ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes. Le module OCR utilise désormais domaine, cas d'usage, ports et adaptateurs.
