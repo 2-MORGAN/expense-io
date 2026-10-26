@@ -1,3 +1,4 @@
+import { problemResponse } from './problem'
 import { randomUUID } from 'node:crypto'
 import Ajv2020, { type ErrorObject, type ValidateFunction, type AnySchema } from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
@@ -76,20 +77,5 @@ export async function readManagerInput(request: Request): Promise<Schemas['SetMa
 }
 
 export function inputProblem(error: InputError): Response {
-  const details: Record<InputCode, [string, string, string]> = {
-    VALIDATION_ERROR: ['Validation failed', 'The request does not satisfy the API contract.', 'Champs invalides'],
-    INVALID_JSON: ['Invalid JSON', 'A valid JSON object is required.', 'Champs invalides'],
-    RECEIPT_TOO_LARGE: ['Receipt too large', 'Receipt exceeds the 10 MiB limit.', 'Fichier trop volumineux'],
-    RECEIPT_TYPE_NOT_ALLOWED: ['Invalid receipt', 'Invalid or unsupported receipt content.', 'Type de fichier non autorisé pour le reçu'],
-    INVALID_IDEMPOTENCY_KEY: ['Invalid idempotency key', 'Idempotency-Key must be a UUID.', 'Invalid idempotency key'],
-  }
-  const [title, detail, legacy] = details[error.code]
-  const requestId = randomUUID()
-  const body: Schemas['Problem'] = {
-    type: `/problems/${error.code.toLowerCase().replaceAll('_', '-')}`,
-    title, status: 400, detail, code: error.code, requestId,
-    error: error.legacy ?? legacy,
-    ...(error.errors.length ? { errors: error.errors } : {}),
-  }
-  return Response.json(body, { status: 400, headers: { 'Content-Type': 'application/problem+json', 'X-Request-Id': requestId } })
+  return problemResponse(error.code, { errors: error.errors, legacy: error.legacy })
 }
