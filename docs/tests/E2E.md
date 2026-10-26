@@ -102,6 +102,10 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | SIGNUP-08d | Invitation déjà utilisée → lien refusé | UI |
 | SIGNUP-08e | Jeton d'invitation présenté avec une autre adresse (champ en lecture seule contourné) → refusé, aucun compte créé | UI |
 | SIGNUP-10 | Créateur non vérifié : connexion refusée avec « Confirmez votre adresse email avant de vous connecter. » (mauvais mot de passe : message générique) ; lien → « Email confirmé », connexion ; lien à usage unique | UI |
+| SIGNUP-11a | Inscription non confirmée sur une adresse, puis invitation de la RH pour cette adresse : l'invité rejoint l'entreprise de la RH, l'entreprise fantôme est supprimée | UI + base |
+| SIGNUP-11b | Adresse déjà vérifiée : l'invitation est refusée (« Un compte existe déjà avec cet email. »), le compte existant reste intact | UI + base |
+| SIGNUP-12 | Nouvelle inscription sur une adresse non confirmée : remplace l'ancienne (nouvel id, ancienne entreprise supprimée), ancien lien invalide, seul le nouveau mot de passe fonctionne | UI + base |
+| SIGNUP-13 | Renvoi de l'email de vérification depuis `/signup/verify` (lien depuis la connexion refusée) : nouveau lien valide, ancien invalide ; même message pour une adresse inconnue ou déjà vérifiée, sans email | UI |
 | INV-01 | `POST /api/hr/invitations` : 401 sans session, 403 employé et manager, 400 `INVALID_EMAIL`, 201 `{ id, email, expiresAt }` (adresse normalisée) ; relance de la même adresse → même invitation, nouvel email, ancien lien invalide | API |
 | INV-02 | Sous `expense_app` : invitation visible de la RH de son entreprise seulement (ni RH d'une autre entreprise, ni employé, ni manager) ; insertion pour une autre entreprise ou par un employé refusée (42501) | Base |
 

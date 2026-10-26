@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ResendVerificationForm } from '@/components/ResendVerificationForm'
 
 export default function SignupVerifyPage() {
   return (
@@ -8,6 +9,7 @@ export default function SignupVerifyPage() {
         Votre entreprise est créée. Nous vous avons envoyé un lien pour confirmer votre adresse
         email : ouvrez-le, puis connectez-vous. Le lien est valable 24 heures.
       </p>
+      <ResendVerificationForm />
       <Link href="/login" className="text-sm font-medium text-brand-600 hover:underline">
         Aller à la connexion
       </Link>

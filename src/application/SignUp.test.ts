@@ -4,11 +4,12 @@ import { SignUp } from './SignUp'
 
 function registry(overrides: Partial<AccountRegistry> = {}): AccountRegistry {
   return {
-    emailExists: vi.fn(async () => false),
+    verifiedAccountExists: vi.fn(async () => false),
     registerCompanyAdmin: vi.fn(async () => 'user-1'),
     acceptInvitation: vi.fn(async () => ({ userId: 'user-2' })),
     previewInvitation: vi.fn(async () => null),
     verifyEmail: vi.fn(async () => false),
+    requestVerification: vi.fn(async () => undefined),
     ...overrides,
   }
 }
@@ -56,7 +57,7 @@ describe('SignUp', () => {
 
   it('email déjà pris, avant ou pendant l’inscription → email_taken', async () => {
     await expect(
-      new SignUp(registry({ emailExists: vi.fn(async () => true) }), hashPassword, hashToken).execute(valid)
+      new SignUp(registry({ verifiedAccountExists: vi.fn(async () => true) }), hashPassword, hashToken).execute(valid)
     ).resolves.toEqual({ kind: 'email_taken' })
     await expect(
       new SignUp(registry({ registerCompanyAdmin: vi.fn(async () => null) }), hashPassword, hashToken).execute(valid)
@@ -74,7 +75,7 @@ describe('SignUp', () => {
     ]) {
       await expect(signUp.execute(input)).resolves.toEqual({ kind: 'invalid' })
     }
-    expect(accounts.emailExists).not.toHaveBeenCalled()
+    expect(accounts.verifiedAccountExists).not.toHaveBeenCalled()
   })
 
   it('aperçu d’invitation et vérification d’email passent par l’empreinte du jeton', async () => {
@@ -84,5 +85,21 @@ describe('SignUp', () => {
     await expect(signUp.verifyEmail('tok')).resolves.toBe(true)
     expect(accounts.previewInvitation).toHaveBeenCalledWith('sha256(tok)')
     expect(accounts.verifyEmail).toHaveBeenCalledWith('sha256(tok)')
+  })
+
+  it('renvoi de vérification : demande l’email pour l’adresse, même réponse qu’elle ait un compte ou non', async () => {
+    const accounts = registry()
+    const signUp = new SignUp(accounts, hashPassword, hashToken)
+    await expect(signUp.resendVerification('  alice@Acme.example ')).resolves.toBe('requested')
+    expect(accounts.requestVerification).toHaveBeenCalledWith('alice@Acme.example')
+  })
+
+  it('renvoi de vérification : une adresse mal formée n’interroge pas la base', async () => {
+    const accounts = registry()
+    const signUp = new SignUp(accounts, hashPassword, hashToken)
+    for (const email of ['', 'alice@localhost', null, 42]) {
+      await expect(signUp.resendVerification(email)).resolves.toBe('invalid')
+    }
+    expect(accounts.requestVerification).not.toHaveBeenCalled()
   })
 })

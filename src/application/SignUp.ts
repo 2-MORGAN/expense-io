@@ -42,7 +42,9 @@ export class SignUp {
       return { kind: 'invalid' }
     }
 
-    if (await this.registry.emailExists(parsed.email)) {
+    // Seule une adresse vérifiée est prise : une inscription non confirmée
+    // est remplacée par la base (register_user, accept_invitation).
+    if (await this.registry.verifiedAccountExists(parsed.email)) {
       return { kind: 'email_taken' }
     }
 
@@ -80,5 +82,16 @@ export class SignUp {
   /** Lien de vérification de l'email du créateur : à usage unique. */
   verifyEmail(token: string): Promise<boolean> {
     return this.registry.verifyEmail(this.hashToken(token))
+  }
+
+  /**
+   * Renvoi de l'email de vérification. La réponse est la même que l'adresse
+   * ait un compte non vérifié ou non : elle ne révèle aucune adresse.
+   */
+  async resendVerification(email: unknown): Promise<'invalid' | 'requested'> {
+    const parsed = parseEmail(typeof email === 'string' ? email.trim() : email)
+    if (!parsed) return 'invalid'
+    await this.registry.requestVerification(parsed.email)
+    return 'requested'
   }
 }

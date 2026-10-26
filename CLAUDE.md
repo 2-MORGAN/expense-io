@@ -15,7 +15,7 @@ Manager racine (manager_id NULL) ──soumet──▶ pending ──RH de l'ent
 
 Rôles : `employee`, `manager`, `hr_admin`. `manager` ne s'attribue que par seed/base.
 
-Inscription (S7 corrigée, ADR-001 §3, 2-496) : le domaine de l'email ne donne **aucun droit**. S'inscrire sans invitation crée sa propre entreprise, dont on devient RH ; la connexion n'est possible qu'après le lien de vérification reçu par email. On rejoint une entreprise uniquement par une **invitation de sa RH** (`/hr`, `POST /api/hr/invitations`) : lien à usage unique, valable 7 jours, qui vaut vérification d'email. Les jetons ne sont stockés qu'en empreinte SHA-256 ; le worker les crée à l'envoi (l'outbox ne transporte que des ids). Inscription, acceptation et vérification passent par des fonctions `SECURITY DEFINER` (`register_user`, `accept_invitation`, `verify_email`…).
+Inscription (S7 corrigée, ADR-001 §3, 2-496) : le domaine de l'email ne donne **aucun droit**. S'inscrire sans invitation crée sa propre entreprise, dont on devient RH ; la connexion n'est possible qu'après le lien de vérification reçu par email. Un compte non vérifié ne bloque pas son adresse : une nouvelle inscription ou une invitation acceptée le remplace (`purge_unverified_account`), et l'email de vérification peut être renvoyé depuis `/signup/verify`. On rejoint une entreprise uniquement par une **invitation de sa RH** (`/hr`, `POST /api/hr/invitations`) : lien à usage unique, valable 7 jours, qui vaut vérification d'email. Les jetons ne sont stockés qu'en empreinte SHA-256 ; le worker les crée à l'envoi (l'outbox ne transporte que des ids). Inscription, acceptation et vérification passent par des fonctions `SECURITY DEFINER` (`register_user`, `accept_invitation`, `verify_email`…).
 
 ## Stack
 

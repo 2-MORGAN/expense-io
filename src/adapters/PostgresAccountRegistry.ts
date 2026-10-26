@@ -14,10 +14,10 @@ function isUniqueViolation(error: unknown): boolean {
  * le rôle restreint `expense_app` (2-481).
  */
 export class PostgresAccountRegistry implements AccountRegistry {
-  async emailExists(email: string): Promise<boolean> {
+  async verifiedAccountExists(email: string): Promise<boolean> {
     return withSystemTransaction(async (client) => {
       const result = await client.query<{ exists: boolean }>(
-        'SELECT EXISTS (SELECT 1 FROM auth_find_user($1)) AS exists',
+        'SELECT EXISTS (SELECT 1 FROM auth_find_user($1) WHERE email_verified_at IS NOT NULL) AS exists',
         [email]
       )
       return result.rows[0].exists
@@ -74,6 +74,12 @@ export class PostgresAccountRegistry implements AccountRegistry {
         tokenHash,
       ])
       return result.rows[0].verified
+    })
+  }
+
+  async requestVerification(email: string): Promise<void> {
+    await withSystemTransaction(async (client) => {
+      await client.query('SELECT request_email_verification($1)', [email])
     })
   }
 }

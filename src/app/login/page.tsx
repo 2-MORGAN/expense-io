@@ -34,7 +34,10 @@ export default function LoginPage({
       )}
       {verification === 'invalid' && (
         <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          Lien de confirmation invalide ou expiré.
+          Lien de confirmation invalide ou expiré.{' '}
+          <Link href="/signup/verify" className="font-medium underline">
+            Renvoyer l&apos;email de confirmation
+          </Link>
         </p>
       )}
 
@@ -65,6 +68,11 @@ export default function LoginPage({
           <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
             {state.error}
           </p>
+        )}
+        {state?.unverified && (
+          <Link href="/signup/verify" className="text-sm font-medium text-brand-600 hover:underline">
+            Renvoyer l&apos;email de confirmation
+          </Link>
         )}
 
         <button

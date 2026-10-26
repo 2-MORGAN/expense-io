@@ -9,6 +9,10 @@ import { signUp } from '@/composition/identity'
 
 export interface AuthFormState {
   error?: string
+  /** Connexion refusée faute d'email confirmé : la page propose le renvoi. */
+  unverified?: boolean
+  /** Message neutre, sans erreur (renvoi de l'email de vérification). */
+  notice?: string
 }
 
 const SIGNUP_ERRORS = {
@@ -64,7 +68,7 @@ export async function login(
     await signIn('credentials', { email, password, redirectTo: '/expenses' })
   } catch (error) {
     if (error instanceof CredentialsSignin && error.code === EMAIL_NOT_VERIFIED) {
-      return { error: 'Confirmez votre adresse email avant de vous connecter.' }
+      return { error: 'Confirmez votre adresse email avant de vous connecter.', unverified: true }
     }
     if (error instanceof AuthError) {
       return { error: 'Email ou mot de passe incorrect.' }
@@ -72,6 +76,21 @@ export async function login(
     throw error
   }
   return {}
+}
+
+// Renvoi de l'email de vérification (S7) : même réponse que l'adresse ait un
+// compte non confirmé ou non, pour ne révéler aucune adresse.
+export async function resendVerification(
+  _prevState: AuthFormState,
+  formData: FormData
+): Promise<AuthFormState> {
+  const result = await signUp.resendVerification(formData.get('email'))
+  if (result === 'invalid') {
+    return { error: 'Adresse email invalide.' }
+  }
+  return {
+    notice: 'Si un compte non confirmé existe pour cette adresse, un nouvel email de confirmation a été envoyé.',
+  }
 }
 
 export async function logout(): Promise<void> {
