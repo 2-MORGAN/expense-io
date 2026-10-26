@@ -148,6 +148,10 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | IDEM-04 | Clé qui n'est pas un UUID : 400 `INVALID_IDEMPOTENCY_KEY` | API |
 | IDEM-05 | La clé est propre à l'utilisateur : un collègue avec la même clé crée sa propre note | API |
 | IDEM-06 | Sans en-tête : deux envois identiques créent deux notes (comportement inchangé) | API |
+| CLEAN-01 | La base refuse une note sans reçu (`receipt_key = ''`), à l'insertion comme à la mise à jour (2-476 étape 3) | API |
+| CLEAN-02 | `clean-notes-without-receipt` sans `--execute` : rapport seul, rien de modifié | API |
+| CLEAN-03 | `--execute --out` : CSV de toutes les notes sans reçu, suppression des seules notes `pending`, notes décidées conservées, autre entreprise intacte | API |
+| CLEAN-04 | `--execute` sans `--out` : refusé, rien supprimé | API |
 
 ### Pré-remplissage depuis le reçu (OCR) — `e2e/ocr-suggestion.spec.ts`
 
