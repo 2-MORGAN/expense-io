@@ -14,6 +14,7 @@ flowchart LR
   r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_approve["POST /api/hr/expense-notes/[id]/approve"]
   r_GET_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_receipt_2d_url["GET /api/hr/expense-notes/[id]/receipt-url"]
   r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_reject["POST /api/hr/expense-notes/[id]/reject"]
+  r_POST_20__2f_api_2f_hr_2f_invitations["POST /api/hr/invitations"]
   r_GET_20__2f_api_2f_hr_2f_users["GET /api/hr/users"]
   r_PUT_20__2f_api_2f_hr_2f_users_2f__5b_id_5d__2f_manager["PUT /api/hr/users/[id]/manager"]
   r_GET_20__2f_api_2f_manager_2f_expense_2d_notes["GET /api/manager/expense-notes"]
@@ -22,6 +23,7 @@ flowchart LR
   r_POST_20__2f_api_2f_manager_2f_expense_2d_notes_2f__5b_id_5d__2f_reject["POST /api/manager/expense-notes/[id]/reject"]
   r_POST_20__2f_api_2f_receipt_2d_analyses["POST /api/receipt-analyses"]
   r_GET_20__2f_api_2f_receipt_2d_analyses_2f__5b_id_5d_["GET /api/receipt-analyses/[id]"]
+  r_GET_20__2f_verify_2d_email["GET /verify-email"]
   g_public --> r_GET_20__2f_api_2f_auth_2f__5b__2e__2e__2e_nextauth_5d_
   g_public --> r_POST_20__2f_api_2f_auth_2f__5b__2e__2e__2e_nextauth_5d_
   g_session --> r_GET_20__2f_api_2f_expense_2d_notes
@@ -32,6 +34,7 @@ flowchart LR
   g_role_hr_5f_admin --> r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_approve
   g_role_hr_5f_admin --> r_GET_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_receipt_2d_url
   g_role_hr_5f_admin --> r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_reject
+  g_role_hr_5f_admin --> r_POST_20__2f_api_2f_hr_2f_invitations
   g_role_hr_5f_admin --> r_GET_20__2f_api_2f_hr_2f_users
   g_role_hr_5f_admin --> r_PUT_20__2f_api_2f_hr_2f_users_2f__5b_id_5d__2f_manager
   g_role_manager --> r_GET_20__2f_api_2f_manager_2f_expense_2d_notes
@@ -40,3 +43,4 @@ flowchart LR
   g_role_manager --> r_POST_20__2f_api_2f_manager_2f_expense_2d_notes_2f__5b_id_5d__2f_reject
   g_session --> r_POST_20__2f_api_2f_receipt_2d_analyses
   g_session --> r_GET_20__2f_api_2f_receipt_2d_analyses_2f__5b_id_5d_
+  g_public --> r_GET_20__2f_verify_2d_email

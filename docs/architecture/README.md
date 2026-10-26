@@ -30,6 +30,7 @@ flowchart TB
   m_app["app (pages)"]
   m_app_2f_actions["app/actions"]
   m_app_2f_api["app/api"]
+  m_app_2f_verify_2d_email["app/verify-email"]
   m_components["components"]
   m_http["http"]
   m_instrumentation["instrumentation"]
@@ -38,17 +39,21 @@ flowchart TB
   m_worker["worker"]
   m_application["application"]
   m_domain["domain"]
+  m_generated["generated"]
   m_ports["ports"]
   m_utils["utils"]
   m_adapters["adapters"]
   m_composition["composition"]
   m_lib_2f_auth["lib/auth"]
+  m_lib_2f_authErrors["lib/authErrors"]
   m_lib_2f_db["lib/db"]
   m_lib_2f_email["lib/email"]
   m_lib_2f_errors["lib/errors"]
   m_lib_2f_log["lib/log"]
   m_lib_2f_outbox["lib/outbox"]
+  m_lib_2f_sessionUser["lib/sessionUser"]
   m_lib_2f_storage["lib/storage"]
+  m_lib_2f_tokens["lib/tokens"]
   p__40_aws_2d_sdk(["@aws-sdk"])
   p_next(["next"])
   p_next_2d_auth(["next-auth"])
@@ -56,8 +61,10 @@ flowchart TB
   p_nodemailer(["nodemailer"])
   p_pg(["pg"])
   p_react(["react"])
+  p_sharp(["sharp"])
   m_adapters --> p_nodemailer
   m_adapters --> p_pg
+  m_adapters --> p_sharp
   m_adapters --> m_domain
   m_adapters -.->|"legacy"| m_http
   m_adapters --> m_lib_2f_db
@@ -67,10 +74,15 @@ flowchart TB
   m_app --> p_react
   m_app --> m_app_2f_actions
   m_app --> m_components
+  m_app -.->|"legacy"| m_composition
+  m_app --> m_http
   m_app --> m_lib_2f_auth
+  m_app_2f_actions --> p_next
   m_app_2f_actions --> p_next_2d_auth
+  m_app_2f_actions --> m_application
+  m_app_2f_actions --> m_composition
   m_app_2f_actions --> m_lib_2f_auth
-  m_app_2f_actions -.->|"legacy"| m_lib_2f_db
+  m_app_2f_actions --> m_lib_2f_authErrors
   m_app_2f_api --> p_next
   m_app_2f_api --> m_composition
   m_app_2f_api --> m_domain
@@ -79,18 +91,26 @@ flowchart TB
   m_app_2f_api -.->|"legacy"| m_lib_2f_db
   m_app_2f_api --> m_lib_2f_errors
   m_app_2f_api -.->|"legacy"| m_lib_2f_storage
+  m_app_2f_verify_2d_email --> p_next
+  m_app_2f_verify_2d_email --> m_composition
   m_application --> p_node_3a_crypto
   m_application --> m_domain
   m_application --> m_ports
   m_components --> p_next
   m_components --> p_react
+  m_components --> m_app_2f_actions
+  m_components --> m_http
   m_components --> m_types
   m_composition --> m_adapters
   m_composition --> m_application
+  m_composition --> m_lib_2f_tokens
+  m_domain --> m_generated
   m_domain --> m_ports
   m_http --> p_next_2d_auth
+  m_http -.->|"legacy"| m_adapters
   m_http --> m_composition
   m_http --> m_domain
+  m_http --> m_generated
   m_http --> m_lib_2f_auth
   m_http --> m_lib_2f_log
   m_http --> m_ports
@@ -98,14 +118,21 @@ flowchart TB
   m_instrumentation --> p_next
   m_instrumentation --> m_lib_2f_log
   m_lib_2f_auth --> p_next_2d_auth
+  m_lib_2f_auth --> m_lib_2f_authErrors
   m_lib_2f_auth --> m_lib_2f_db
+  m_lib_2f_auth --> m_lib_2f_sessionUser
+  m_lib_2f_authErrors --> p_next_2d_auth
   m_lib_2f_db --> p_pg
   m_lib_2f_email --> m_adapters
   m_lib_2f_email --> m_ports
+  m_lib_2f_errors --> m_http
   m_lib_2f_errors --> m_lib_2f_log
   m_lib_2f_outbox --> p_pg
   m_lib_2f_outbox --> m_lib_2f_db
   m_lib_2f_outbox --> m_ports
+  m_lib_2f_sessionUser --> p_react
+  m_lib_2f_sessionUser --> m_domain
+  m_lib_2f_sessionUser --> m_lib_2f_db
   m_lib_2f_storage --> p__40_aws_2d_sdk
   m_lib_2f_storage --> m_domain
   m_ports --> m_domain
@@ -121,16 +148,17 @@ flowchart TB
   m_worker --> m_lib_2f_email
   m_worker --> m_lib_2f_log
   m_worker --> m_lib_2f_outbox
+  m_worker --> m_lib_2f_tokens
   m_worker --> m_ports
-  linkStyle 3,14,20,22 stroke:#ea580c,stroke-width:2px,color:#ea580c
+  linkStyle 4,12,26,28,45 stroke:#ea580c,stroke-width:2px,color:#ea580c
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
-  class m_app,m_app_2f_actions,m_app_2f_api,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
+  class m_app,m_app_2f_actions,m_app_2f_api,m_app_2f_verify_2d_email,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
-  class m_application,m_domain,m_ports,m_utils coeur
+  class m_application,m_domain,m_generated,m_ports,m_utils coeur
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
-  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_db,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_outbox,m_lib_2f_storage infra
+  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_db,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_tokens infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
-  class p__40_aws_2d_sdk,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react paquet
+  class p__40_aws_2d_sdk,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react,p_sharp paquet
 ```
 <!-- fin : layers.mmd -->
 
@@ -156,6 +184,7 @@ flowchart LR
   r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_approve["POST /api/hr/expense-notes/[id]/approve"]
   r_GET_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_receipt_2d_url["GET /api/hr/expense-notes/[id]/receipt-url"]
   r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_reject["POST /api/hr/expense-notes/[id]/reject"]
+  r_POST_20__2f_api_2f_hr_2f_invitations["POST /api/hr/invitations"]
   r_GET_20__2f_api_2f_hr_2f_users["GET /api/hr/users"]
   r_PUT_20__2f_api_2f_hr_2f_users_2f__5b_id_5d__2f_manager["PUT /api/hr/users/[id]/manager"]
   r_GET_20__2f_api_2f_manager_2f_expense_2d_notes["GET /api/manager/expense-notes"]
@@ -164,6 +193,7 @@ flowchart LR
   r_POST_20__2f_api_2f_manager_2f_expense_2d_notes_2f__5b_id_5d__2f_reject["POST /api/manager/expense-notes/[id]/reject"]
   r_POST_20__2f_api_2f_receipt_2d_analyses["POST /api/receipt-analyses"]
   r_GET_20__2f_api_2f_receipt_2d_analyses_2f__5b_id_5d_["GET /api/receipt-analyses/[id]"]
+  r_GET_20__2f_verify_2d_email["GET /verify-email"]
   g_public --> r_GET_20__2f_api_2f_auth_2f__5b__2e__2e__2e_nextauth_5d_
   g_public --> r_POST_20__2f_api_2f_auth_2f__5b__2e__2e__2e_nextauth_5d_
   g_session --> r_GET_20__2f_api_2f_expense_2d_notes
@@ -174,6 +204,7 @@ flowchart LR
   g_role_hr_5f_admin --> r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_approve
   g_role_hr_5f_admin --> r_GET_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_receipt_2d_url
   g_role_hr_5f_admin --> r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_reject
+  g_role_hr_5f_admin --> r_POST_20__2f_api_2f_hr_2f_invitations
   g_role_hr_5f_admin --> r_GET_20__2f_api_2f_hr_2f_users
   g_role_hr_5f_admin --> r_PUT_20__2f_api_2f_hr_2f_users_2f__5b_id_5d__2f_manager
   g_role_manager --> r_GET_20__2f_api_2f_manager_2f_expense_2d_notes
@@ -182,5 +213,6 @@ flowchart LR
   g_role_manager --> r_POST_20__2f_api_2f_manager_2f_expense_2d_notes_2f__5b_id_5d__2f_reject
   g_session --> r_POST_20__2f_api_2f_receipt_2d_analyses
   g_session --> r_GET_20__2f_api_2f_receipt_2d_analyses_2f__5b_id_5d_
+  g_public --> r_GET_20__2f_verify_2d_email
 ```
 <!-- fin : routes.mmd -->

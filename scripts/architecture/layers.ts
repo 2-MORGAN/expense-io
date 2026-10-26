@@ -42,6 +42,7 @@ const HTTP_ENTRY = [
   'src/generated',
   'src/http',
   'src/lib/auth',
+  'src/lib/authErrors',
   'src/lib/errors',
   'src/lib/log',
   'src/ports',
@@ -58,6 +59,8 @@ export const LAYERS: readonly Layer[] = [
   // Entrées : HTTP, UI, worker. Elles appellent un cas d'usage (ADR-002 §3.3).
   { path: 'src/app/api', group: 'entrees', may: HTTP_ENTRY },
   { path: 'src/app/actions', group: 'entrees', may: HTTP_ENTRY },
+  // Route hors de /api : le lien de vérification d'email (2-496).
+  { path: 'src/app/verify-email', group: 'entrees', may: HTTP_ENTRY },
   { path: 'src/app', group: 'entrees', label: 'app (pages)', may: [...UI, 'src/components', 'src/lib/auth', 'next-auth'] },
   { path: 'src/components', group: 'entrees', may: UI },
   { path: 'src/http', group: 'entrees', may: HTTP_ENTRY },
@@ -78,6 +81,7 @@ export const LAYERS: readonly Layer[] = [
       'src/lib/email',
       'src/lib/log',
       'src/lib/outbox',
+      'src/lib/tokens',
       'src/ports',
       'src/utils',
       'pg',
@@ -108,6 +112,7 @@ export const LAYERS: readonly Layer[] = [
       'src/lib/log',
       'src/lib/outbox',
       'src/lib/storage',
+      'src/lib/tokens',
       'src/ports',
       'src/utils',
     ],
@@ -130,7 +135,13 @@ export const LAYERS: readonly Layer[] = [
       'tesseract.js',
     ],
   },
-  { path: 'src/lib/auth', group: 'infra', may: ['src/domain', 'src/lib/db', 'src/lib/log', 'next-auth'] },
+  {
+    path: 'src/lib/auth',
+    group: 'infra',
+    may: ['src/domain', 'src/lib/authErrors', 'src/lib/db', 'src/lib/log', 'src/lib/sessionUser', 'next-auth'],
+  },
+  // Échec de connexion d'un email non vérifié (2-496), partagé avec l'action de connexion.
+  { path: 'src/lib/authErrors', group: 'infra', may: ['next-auth'] },
   { path: 'src/lib/db', group: 'infra', may: ['src/lib/log', 'pg'] },
   // Fabrique de l'adaptateur SMTP (2-484).
   { path: 'src/lib/email', group: 'infra', may: ['src/adapters', 'src/lib/log', 'src/ports'] },
@@ -138,7 +149,11 @@ export const LAYERS: readonly Layer[] = [
   { path: 'src/lib/errors', group: 'infra', may: ['src/http', 'src/lib/log', 'next'] },
   { path: 'src/lib/log', group: 'infra', may: [] },
   { path: 'src/lib/outbox', group: 'infra', may: ['src/domain', 'src/lib/db', 'src/lib/log', 'src/ports', 'pg'] },
+  // Rôle de la session relu en base à chaque auth() (2-496, S9).
+  { path: 'src/lib/sessionUser', group: 'infra', may: ['src/domain', 'src/lib/db', 'react'] },
   { path: 'src/lib/storage', group: 'infra', may: ['src/domain', 'src/lib/log', '@aws-sdk'] },
+  // Jetons des liens d'invitation et de vérification (node:crypto).
+  { path: 'src/lib/tokens', group: 'infra', may: [] },
 ]
 
 // Paquets dessinés : ceux qui font l'infrastructure ou le framework. Les
@@ -163,9 +178,9 @@ export const LEGACY_EDGES: readonly LegacyEdge[] = [
     why: 'PostgresExpenseNoteDecisionRepository renvoie le DTO HTTP (toExpenseNoteDto) : un adaptateur sortant ne dépend pas de la couche d’entrée',
   },
   {
-    from: 'src/app/actions',
-    to: 'src/lib/db',
-    why: 'inscription et connexion en SQL direct (LEGACY_DB_ACCESS de eslint.config.mjs)',
+    from: 'src/app',
+    to: 'src/composition',
+    why: 'la page d’inscription lit l’invitation par la composition (2-496), alors que l’ADR-002 (§4) fait passer l’UI par une route fine. À confirmer par WS2',
   },
   {
     from: 'src/app/api',
@@ -177,6 +192,11 @@ export const LEGACY_EDGES: readonly LegacyEdge[] = [
     to: 'src/lib/storage',
     why: 'upload et URL pré-signées appelés depuis les routes, au lieu d’un port (ADR-002 §3.3)',
   },
+  {
+    from: 'src/http',
+    to: 'src/adapters',
+    why: 'readReceipt et readExpenseInput appellent inspectReceipt (2-486) au lieu d’un port ou de la composition (ADR-002 §3.3)',
+  },
 ]
 
 // Méthodes de route servies sans garde, par nature : `MÉTHODE /chemin`.
@@ -184,4 +204,6 @@ export const PUBLIC_ROUTES: readonly string[] = [
   // Auth.js : connexion, déconnexion et session.
   'GET /api/auth/[...nextauth]',
   'POST /api/auth/[...nextauth]',
+  // Lien de l'email de vérification (2-496) : ouvert sans session, le jeton du lien fait la preuve.
+  'GET /verify-email',
 ]
