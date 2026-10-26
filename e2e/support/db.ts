@@ -106,6 +106,11 @@ export async function setRole(userId: string, role: Role): Promise<void> {
   await db().query('UPDATE users SET role = $1 WHERE id = $2', [role, userId])
 }
 
+/** Supprime un compte créé pour le test (sans note ni rattachement). */
+export async function deleteUser(userId: string): Promise<void> {
+  await db().query('DELETE FROM users WHERE id = $1', [userId])
+}
+
 export async function findUserByEmail(
   email: string
 ): Promise<{ id: string; role: Role; companyId: string; managerId: string | null } | null> {

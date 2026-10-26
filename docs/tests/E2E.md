@@ -239,6 +239,17 @@ Tests d'intégration de base (ADR-001 §5.1, 2-478). Chaque vérification tourne
 | ISO-07j | Le manager tranche la note de son équipe avec les écritures de la décision : statut, `decided_by`, `decided_at` (2-488) | Base |
 | SIGNUP-09 | `register_user` : panne injectée (email déjà pris, en autocommit) → aucune entreprise créée ; même domaine → deuxième entreprise distincte, RH non vérifiées, email de vérification demandé dans la même transaction (S7) | Base |
 
+### Session et rôle à jour — `e2e/session-roles.spec.ts`
+
+S9 (ADR-001 §4, 2-496) : le rôle est relu en base à chaque lecture de session (callback `jwt`), sans reconnexion.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| AUTH-10a | Manager rétrogradé en base → `GET /api/manager/expense-notes` **403**, `/manager` « Accès réservé aux managers », lien « Manager » absent | API + UI |
+| AUTH-10b | Employé promu manager en base → accès manager immédiat (200) | API |
+| AUTH-10c | Compte supprimé en base → API **401**, page protégée redirigée vers `/login` | API + UI |
+| AUTH-10d | Cookie de session : expiration 8 h après la dernière requête (et non 30 jours) | UI |
+
 ### Parcours complet — `e2e/parcours-complet.spec.ts`
 
 | ID | Scénario | Niveau |

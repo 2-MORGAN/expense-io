@@ -3,12 +3,18 @@ import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { getPool } from '@/lib/db'
 import { EmailNotVerified } from '@/lib/authErrors'
+import { loadSessionUser } from '@/lib/sessionUser'
+
+// Session de 8 h d'inactivité (S9, ADR-001 §4) : une journée de travail. Elle
+// borne aussi la durée pendant laquelle un cookie volé reste utilisable.
+// Chaque requête repousse l'échéance (jeton réémis par Auth.js).
+export const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // Secret de signature des sessions : uniquement par l'environnement
   // (`.env.example`). Absent, Auth.js refuse de démarrer (MissingSecret).
   secret: process.env.AUTH_SECRET,
-  session: { strategy: 'jwt' },
+  session: { strategy: 'jwt', maxAge: SESSION_MAX_AGE_SECONDS },
   pages: {
     signIn: '/login',
   },
@@ -46,11 +52,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    // S9 : le rôle n'est pas figé dans le jeton, il est relu en base à chaque
+    // lecture de session. `null` (compte supprimé) fait effacer le cookie par
+    // Auth.js, comme une erreur de base (échec fermé, ADR-001 §4).
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.role = user.role
-      }
+      if (user) token.id = user.id
+      if (typeof token.id !== 'string') return null
+      const current = await loadSessionUser(token.id)
+      if (!current) return null
+      token.role = current.role
       return token
     },
     async session({ session, token }) {
