@@ -324,7 +324,7 @@ Les références renvoient à `CLAUDE.md` (« Dette connue ») et à l'audit API
 |---|---|
 | Message interne et stacktrace renvoyés dans les erreurs 500 ; certaines erreurs SQL échappent au `catch` | B4, Q1.3 |
 | Corps JSON invalide ou sans `managerId` sur `PUT …/manager` = détachement silencieux (200) | B7 |
-| Validation laxiste : `12abc` accepté comme 12, date invalide → 500, fichier vide accepté, type MIME déclaratif non vérifié | B7 |
+| Validation stricte B7 : désormais couverte par API-01 à API-04 et les tests unitaires de frontière ; refus avant DB/S3 | 2-486 |
 | Cycles hiérarchiques acceptés (A → B puis B → A) | B13 |
 | Format des clés S3 (`receipts/<compteur>.<ext>`) et champ `receiptKey` : seul le fait que le reçu soit restituable est testé | B14 |
 | Rôle figé dans le JWT jusqu'à la reconnexion | B6 |
@@ -359,3 +359,14 @@ Quand l'un de ces points est corrigé, ajouter le test correspondant (un bug cor
 ## Dépendance ajoutée
 
 `@playwright/test` (devDependency, ^1.63.0). Justification : outil E2E de référence recommandé par la documentation Next.js, qui couvre à la fois le navigateur et l'API HTTP, isole chaque utilisateur dans son propre contexte et produit des traces exploitables en cas d'échec. Aucun impact sur le build de production.
+
+## Contrat API (2-486)
+
+`openapi.yaml` couvre les 16 opérations métier actuelles. Les contextes API des fixtures vérifient leurs réponses (statut, contenu, schéma et en-têtes) contre ce contrat, en conservant toutes les assertions métier existantes. Auth.js, S3 et Mailpit sont exclus de cette validation. Voir `docs/api/README.md`.
+
+- API-01 : montants stricts, plafond, calendrier et absence de création sur rejet.
+- API-02 : JSON/managerId invalides sans détachement ; `null` explicite conservé.
+- API-03 : neuf UUID de chemin invalides → 400, session/rôle prioritaires.
+- API-04 : reçus vides, PNG falsifié/tronqué et PDF corrompu refusés ; PDF réel → OCR vide.
+
+NDF-07 et RECU-03 utilisent des octets JPEG/WebP/PDF réels depuis le commit de fixtures de 2-486. Le helper PDF possède une table xref et des offsets exacts.

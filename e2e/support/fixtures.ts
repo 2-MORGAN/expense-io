@@ -5,7 +5,7 @@ import {
   type BrowserContext,
   type Page,
 } from '@playwright/test'
-import { ApiClient, signInWithCredentials } from './api'
+import { ApiClient, signInWithCredentials, withContractChecks } from './api'
 import { closeDb, createCompany, createUser, type Company, type Role, type TestUser } from './db'
 
 /**
@@ -70,6 +70,10 @@ interface WorkerFixtures {
 // NB : le second paramètre des fixtures est nommé `provide` (et non `use`)
 // pour ne pas déclencher la règle react-hooks d'eslint-config-next.
 export const test = base.extend<Fixtures, WorkerFixtures>({
+  request: async ({ request }, provide) => {
+    withContractChecks(request)
+    await provide(request)
+  },
   databasePool: [
     async ({}, provide) => {
       await provide()

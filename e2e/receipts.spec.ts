@@ -6,7 +6,7 @@ import {
   UNKNOWN_ID,
 } from './support/api'
 import { addUser, createOrg, expect, signIn, test } from './support/fixtures'
-import { pngReceipt, type UploadFile } from './support/files'
+import { pngReceipt, receiptForType, type UploadFile } from './support/files'
 
 /** Clique sur « Voir le reçu » et renvoie l'URL ouverte dans le nouvel onglet. */
 async function openReceiptFrom(page: Page, row: Locator): Promise<string> {
@@ -78,7 +78,7 @@ test.describe('Consultation des reçus — employé', () => {
     ['PDF', 'application/pdf'],
   ] as const) {
     test(`[RECU-03] reçu ${label} restitué avec son type (${mimeType})`, async ({ org, apiAs }) => {
-      const receipt = { ...pngReceipt(`recu-03-${label}`), mimeType, name: `recu.${label.toLowerCase()}` }
+      const receipt = receiptForType(`recu-03-${label}`, mimeType)
       const api = await apiAs(org.employee)
       const note = await api.submitNote({ receipt })
       const { url } = (await (await api.receiptUrl(note.id)).json()) as { url: string }

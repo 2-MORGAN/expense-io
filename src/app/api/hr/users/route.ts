@@ -1,3 +1,4 @@
+import type { CompanyUser } from '@/http/dto'
 import { auth } from '@/lib/auth'
 import { getPool } from '@/lib/db'
 import { respondError } from '@/lib/errors'
@@ -23,7 +24,7 @@ export async function GET() {
         email: row.email,
         role: row.role,
         managerId: row.manager_id,
-      }))
+      } satisfies CompanyUser))
     )
   } catch (error) {
     return respondError(error)

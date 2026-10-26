@@ -50,19 +50,35 @@ export function pngReceipt(label: string, name = 'recu.png'): UploadFile {
   return { name, mimeType: 'image/png', buffer }
 }
 
-/** PDF minimal (une page vide), unique par libellé. */
+/** PDF valide avec table xref et offsets exacts, unique par libellé. */
 export function pdfReceipt(label: string, name = 'recu.pdf'): UploadFile {
-  const content = [
-    '%PDF-1.4',
-    `% ${label}`,
+  let content = `%PDF-1.4\n% ${createHash('sha256').update(label).digest('hex')}\n`
+  const offsets = [0]
+  for (const object of [
     '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
     '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
-    '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] >> endobj',
-    'trailer << /Root 1 0 R >>',
-    '%%EOF',
-    '',
-  ].join('\n')
+    '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Resources << >> >> endobj',
+  ]) {
+    offsets.push(Buffer.byteLength(content, 'latin1'))
+    content += `${object}\n`
+  }
+  const start = Buffer.byteLength(content, 'latin1')
+  content += 'xref\n0 4\n0000000000 65535 f \n'
+  content += offsets.slice(1).map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')
+  content += `trailer << /Size 4 /Root 1 0 R >>\nstartxref\n${start}\n%%EOF\n`
   return { name, mimeType: 'application/pdf', buffer: Buffer.from(content, 'latin1') }
+}
+
+/** Vrais formats : les octets JPEG/WebP sont versionnés dans fixtures/. */
+export function receiptForType(label: string, mimeType: string): UploadFile {
+  if (mimeType === 'image/png') return pngReceipt(label)
+  if (mimeType === 'application/pdf') return pdfReceipt(label)
+  const extension = mimeType === 'image/jpeg' ? 'jpg' : 'webp'
+  return {
+    name: `recu.${extension}`,
+    mimeType,
+    buffer: readFileSync(path.join(__dirname, '..', 'fixtures', `recu-valide.${extension}`)),
+  }
 }
 
 export function textFile(name = 'recu.txt'): UploadFile {

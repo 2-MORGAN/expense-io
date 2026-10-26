@@ -39,7 +39,6 @@ export class ReceiptAnalyses {
   }
 
   async find(actor: AnalysisActor, id: string) {
-    if (!UUID.test(id)) throw new OcrError('RESOURCE_NOT_FOUND')
     const analysis = await this.repository.find(actor, id)
     if (!analysis) throw new OcrError('RESOURCE_NOT_FOUND')
     return analysis

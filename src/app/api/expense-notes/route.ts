@@ -4,11 +4,9 @@ import { auth } from '@/lib/auth'
 import { getPool, withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
 import { receiptKeyFor, uploadReceipt } from '@/lib/storage'
+import { readExpenseInput } from '@/http/readExpenseInput'
 import { toExpenseNoteDto } from '@/http/expenseNote'
 import { requireRole } from '@/http/requireRole'
-import { MAX_RECEIPT_BYTES } from '@/domain/receipt/limits'
-
-const ALLOWED_RECEIPT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   'image/png': '.png',
@@ -62,30 +60,7 @@ export async function POST(request: NextRequest) {
     const actor = requireRole(session)
     if (actor instanceof Response) return actor
 
-    const formData = await request.formData()
-    const amountRaw = formData.get('amount')
-    const expenseDate = formData.get('expenseDate')
-    const description = formData.get('description')
-    const receipt = formData.get('receipt')
-
-    const amount = typeof amountRaw === 'string' ? Number.parseFloat(amountRaw) : NaN
-
-    if (
-      !Number.isFinite(amount) ||
-      amount <= 0 ||
-      typeof expenseDate !== 'string' ||
-      typeof description !== 'string' ||
-      description.trim().length === 0 ||
-      !(receipt instanceof File)
-    ) {
-      return Response.json({ error: 'Champs invalides' }, { status: 400 })
-    }
-    if (!ALLOWED_RECEIPT_TYPES.includes(receipt.type)) {
-      return Response.json({ error: 'Type de fichier non autorisé pour le reçu' }, { status: 400 })
-    }
-    if (receipt.size > MAX_RECEIPT_BYTES) {
-      return Response.json({ error: 'Fichier trop volumineux' }, { status: 400 })
-    }
+    const { amount, expenseDate, description, receipt } = await readExpenseInput(request)
 
     const note = await withUserScope(actor.id, async (client) => {
       const inserted = await client.query(
