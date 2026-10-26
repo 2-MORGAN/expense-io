@@ -2,6 +2,7 @@
 
 import type { ExpenseNote, CompanyUser } from '@/http/dto'
 import { useCallback, useEffect, useState } from 'react'
+import { InviteEmployeeForm } from '@/components/InviteEmployeeForm'
 
 const selectClass =
   'rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-brand-900'
@@ -112,6 +113,8 @@ export function AdminConsole() {
           des managers sans manager assigné.
         </p>
       </div>
+
+      <InviteEmployeeForm />
 
       <section className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <h2 className="border-b border-gray-200 px-6 py-4 text-base font-semibold dark:border-gray-800">

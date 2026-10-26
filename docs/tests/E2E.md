@@ -82,13 +82,32 @@ e2e/
 
 | ID | Scénario | Niveau |
 |---|---|---|
-| SIGNUP-01 | Premier compte d'un domaine : crée l'entreprise, devient RH (lien « RH », organigramme vide), connecté et redirigé vers `/expenses` | UI |
-| SIGNUP-02 | Compte suivant sur le même domaine : employé de la même entreprise, sans manager, visible par la RH ; `/hr` lui est refusé | UI |
+| SIGNUP-01 | Premier compte sans invitation : crée l'entreprise, devient RH ; page « Vérifiez votre boîte mail », lien de confirmation reçu (Mailpit), puis connexion → `/expenses`, lien « RH », organigramme vide (S7, ADR-001 §3) | UI |
+| SIGNUP-02 | Compte suivant sur le même domaine, sans invitation : RH de sa propre entreprise (organigramme vide), invisible de la première RH (S7 : le domaine ne regroupe plus personne) | UI |
 | SIGNUP-03 | Email déjà utilisé → « Un compte existe déjà avec cet email. » | UI |
 | SIGNUP-04 | Nom composé d'espaces → message de validation serveur | UI |
 | SIGNUP-05 | Email sans point dans le domaine (accepté par le HTML) → message de validation serveur | UI |
 | SIGNUP-06 | Mot de passe < 8 caractères : bloqué par le navigateur (`minlength`), et refusé par le serveur si on contourne | UI |
-| SIGNUP-07 | Le compte créé permet de se reconnecter via `/login` | UI |
+| SIGNUP-07 | Le compte créé (email confirmé) permet de se reconnecter via `/login` | UI |
+
+### Invitations et vérification d'email — `e2e/invitations.spec.ts`
+
+S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les liens sont lus dans Mailpit (`e2e/support/identity.ts`) ; le worker lancé par `npm run dev` envoie les emails.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| SIGNUP-08a | Deux inscriptions sans invitation sur le même domaine → deux entreprises distinctes, chacune avec sa RH, aucune ne voit l'autre | UI + Base |
+| SIGNUP-08b | Invitation envoyée depuis `/hr` → lien reçu → formulaire « Vous rejoignez … », email imposé → employé de l'entreprise de la RH, connecté, visible dans son organigramme | UI |
+| SIGNUP-08c | Invitation expirée : refusée à la soumission (formulaire ouvert avant l'expiration) et à l'ouverture du lien ; aucun compte créé | UI |
+| SIGNUP-08d | Invitation déjà utilisée → lien refusé | UI |
+| SIGNUP-08e | Jeton d'invitation présenté avec une autre adresse (champ en lecture seule contourné) → refusé, aucun compte créé | UI |
+| SIGNUP-10 | Créateur non vérifié : connexion refusée avec « Confirmez votre adresse email avant de vous connecter. » (mauvais mot de passe : message générique) ; lien → « Email confirmé », connexion ; lien à usage unique | UI |
+| SIGNUP-11a | Inscription non confirmée sur une adresse, puis invitation de la RH pour cette adresse : l'invité rejoint l'entreprise de la RH, l'entreprise fantôme est supprimée | UI + base |
+| SIGNUP-11b | Adresse déjà vérifiée : l'invitation est refusée (« Un compte existe déjà avec cet email. »), le compte existant reste intact | UI + base |
+| SIGNUP-12 | Nouvelle inscription sur une adresse non confirmée : remplace l'ancienne (nouvel id, ancienne entreprise supprimée), ancien lien invalide, seul le nouveau mot de passe fonctionne | UI + base |
+| SIGNUP-13 | Renvoi de l'email de vérification depuis `/signup/verify` (lien depuis la connexion refusée) : nouveau lien valide, ancien invalide ; même message pour une adresse inconnue ou déjà vérifiée, sans email | UI |
+| INV-01 | `POST /api/hr/invitations` : 401 sans session, 403 employé et manager, 400 `INVALID_EMAIL`, 201 `{ id, email, expiresAt }` (adresse normalisée) ; relance de la même adresse → même invitation, nouvel email, ancien lien invalide | API |
+| INV-02 | Sous `expense_app` : invitation visible de la RH de son entreprise seulement (ni RH d'une autre entreprise, ni employé, ni manager) ; insertion pour une autre entreprise ou par un employé refusée (42501) | Base |
 
 ### Connexion et session — `e2e/auth.spec.ts`
 
@@ -222,13 +241,24 @@ Tests d'intégration de base (ADR-001 §5.1, 2-478). Chaque vérification tourne
 | ISO-07h | Rattachement : la RH dans son entreprise seulement, jamais un employé ; changer un rôle est refusé (42501) | Base |
 | ISO-07i | `auth_find_user` rend une seule ligne, par email exact | Base |
 | ISO-07j | Le manager tranche la note de son équipe avec les écritures de la décision : statut, `decided_by`, `decided_at` (2-488) | Base |
-| SIGNUP-09 | `register_user` : panne injectée (email déjà pris, en autocommit) → aucune entreprise créée ; domaine déjà pris → `NULL` | Base |
+| SIGNUP-09 | `register_user` : panne injectée (email déjà pris, en autocommit) → aucune entreprise créée ; même domaine → deuxième entreprise distincte, RH non vérifiées, email de vérification demandé dans la même transaction (S7) | Base |
+
+### Session et rôle à jour — `e2e/session-roles.spec.ts`
+
+S9 (ADR-001 §4, 2-496) : le rôle est relu en base à chaque lecture de session (callback `jwt`), sans reconnexion.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| AUTH-10a | Manager rétrogradé en base → `GET /api/manager/expense-notes` **403**, `/manager` « Accès réservé aux managers », lien « Manager » absent | API + UI |
+| AUTH-10b | Employé promu manager en base → accès manager immédiat (200) | API |
+| AUTH-10c | Compte supprimé en base → API **401**, page protégée redirigée vers `/login` | API + UI |
+| AUTH-10d | Cookie de session : expiration 8 h après la dernière requête (et non 30 jours) | UI |
 
 ### Parcours complet — `e2e/parcours-complet.spec.ts`
 
 | ID | Scénario | Niveau |
 |---|---|---|
-| FLOW-01 | Inscriptions (RH puis deux comptes), promotion manager en base, rattachement par la RH, note de l'employée consultée puis approuvée par le manager, note du manager rejetée par la RH | UI |
+| FLOW-01 | Inscription de la RH (email confirmé), invitation du futur manager et de l'employée depuis `/hr`, inscription par le lien reçu, promotion manager en base, rattachement par la RH, note de l'employée consultée puis approuvée par le manager, note du manager rejetée par la RH | UI |
 
 ### Emails — `e2e/email.spec.ts`
 

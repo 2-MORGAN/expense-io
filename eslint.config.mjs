@@ -20,7 +20,6 @@ const literal = (path) => path.replace(/[[\]]/g, '\\$&')
 // Routes et server actions qui accèdent encore à la base. Chacune sort de la
 // liste quand elle passe par un cas d'usage (2-488, ADR-002 §6).
 export const LEGACY_DB_ACCESS = [
-  'src/app/actions/auth.ts',
   'src/app/api/expense-notes/route.ts',
   'src/app/api/expense-notes/[id]/receipt-url/route.ts',
   'src/app/api/hr/expense-notes/route.ts',
@@ -32,9 +31,9 @@ export const LEGACY_DB_ACCESS = [
 ].map(literal)
 
 // Fichiers des appels à getPool() que 2-481 supprime (ADR-001, annexe B) :
-// 12 à l'origine, 11 depuis la correction de S2 (2-471).
+// 12 à l'origine, 11 depuis la correction de S2 (2-471). La server action
+// d'inscription en est sortie avec les invitations (2-496).
 export const LEGACY_GET_POOL = [
-  'src/app/actions/auth.ts',
   'src/app/api/expense-notes/route.ts',
   'src/app/api/hr/users/route.ts',
   'src/app/api/hr/users/[id]/manager/route.ts',

@@ -3,7 +3,7 @@ openapi: 3.1.0
 info:
   title: Expense.io API
   version: 1.0.0
-  description: "Contrat HTTP des 16 opérations métier (Auth.js exclu). ADR-004 : URL stables, pas de pagination.
+  description: "Contrat HTTP des 17 opérations métier (Auth.js exclu). ADR-004 : URL stables, pas de pagination.
     Les refus historiques application/json restent transitoirement disponibles jusqu’à 2-485 ; les nouvelles
     validations et le module OCR utilisent application/problem+json. Les permissions documentées ne dispensent
     pas des contrôles de sécurité ADR-001."
@@ -476,6 +476,41 @@ paths:
               $ref: "#/components/schemas/SetManager"
       tags:
         - Expenses and organisation
+  /api/hr/invitations:
+    post:
+      operationId: inviteEmployee
+      summary: "RH : inviter un salarié à rejoindre son entreprise (S7, ADR-001 §3)."
+      description: Session required, hr_admin only. The invitation belongs to the caller's company, read in the
+        database. An address is trimmed and lower-cased before use. Inviting an address that already has a pending
+        invitation in the same company returns that invitation with a new expiry and invalidates the previous link.
+        The email itself is sent asynchronously through the outbox.
+      responses:
+        "201":
+          description: Invitation created or renewed; email queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "400":
+          description: Missing or malformed email address; nothing written. Historical envelope until 2-485.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidEmailError"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvitation"
+      tags:
+        - Expenses and organisation
 components:
   securitySchemes:
     session:
@@ -871,6 +906,55 @@ components:
       examples:
         - managerId: 00000000-0000-4000-8000-000000000001
         - managerId: null
+    CreateInvitation:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          description: Adresse du salarié invité, sans espaces autour ; mise en minuscules par le serveur.
+      examples:
+        - email: salarie@example.org
+    InvalidEmailError:
+      type: object
+      deprecated: true
+      additionalProperties: false
+      required:
+        - error
+        - code
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          const: INVALID_EMAIL
+      description: Enveloppe historique de l’invitation, comme LegacyError avec un code stable ; remplacée par
+        application/problem+json avec 2-485.
+      examples:
+        - error: Invalid email
+          code: INVALID_EMAIL
+    Invitation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - email
+        - expiresAt
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        email:
+          type: string
+          format: email
+        expiresAt:
+          type: string
+          format: date-time
+          description: Fin de validité du lien, 7 jours après la dernière invitation.
+      examples:
+        - id: 00000000-0000-4000-8000-000000000001
+          email: salarie@example.org
+          expiresAt: 2026-11-02T10:00:00.000Z
     CivilDate:
       type: string
       format: date

@@ -3,16 +3,18 @@ import { downloadReceipt } from './support/api'
 import { findUserByEmail, setRole, uniqueDomain } from './support/db'
 import { AUTH_TIMEOUT, expect, test } from './support/fixtures'
 import { pngReceipt } from './support/files'
+import { inviteFromHrPage, linkFromEmail, pathOf, signUpAndVerify } from './support/identity'
 
 // Parcours métier de bout en bout, uniquement par l'interface (hors promotion
 // au rôle manager, qui n'existe qu'en base/seed).
 
 const PASSWORD = 'motdepasse-parcours'
 
-async function signUp(page: Page, name: string, email: string): Promise<void> {
-  await page.goto('/signup')
+/** Inscription par le lien d'invitation reçu par email (S7, ADR-001 §3). */
+async function acceptInvitation(page: Page, name: string, email: string): Promise<void> {
+  const link = await linkFromEmail(page.context().request, email, '/signup?invitation=')
+  await page.goto(pathOf(link))
   await page.getByLabel('Nom').fill(name)
-  await page.getByLabel('Email').fill(email)
   await page.getByLabel('Mot de passe').fill(PASSWORD)
   await page.getByRole('button', { name: "S'inscrire" }).click()
   await expect(page).toHaveURL(/\/expenses$/, { timeout: AUTH_TIMEOUT })
@@ -42,13 +44,17 @@ async function runJourney(newPage: () => Promise<Page>): Promise<void> {
   const managerEmail = `marc@${domain}`
   const employeeEmail = `eva@${domain}`
 
-  // 1. Inscriptions : la première crée l'entreprise (RH), les suivantes la rejoignent.
+  // 1. Inscriptions : la RH crée l'entreprise et confirme son email, puis
+  //    invite le futur manager et l'employée, qui la rejoignent par le lien
+  //    reçu (S7, ADR-001 §3 : le domaine ne regroupe plus personne).
   const hrPage = await newPage()
-  await signUp(hrPage, 'Alice Rh', hrEmail)
+  await signUpAndVerify(hrPage, { name: 'Alice Rh', email: hrEmail, password: PASSWORD })
+  await inviteFromHrPage(hrPage, managerEmail)
+  await inviteFromHrPage(hrPage, employeeEmail)
   const managerPage = await newPage()
-  await signUp(managerPage, 'Marc Manager', managerEmail)
+  await acceptInvitation(managerPage, 'Marc Manager', managerEmail)
   const employeePage = await newPage()
-  await signUp(employeePage, 'Eva Employee', employeeEmail)
+  await acceptInvitation(employeePage, 'Eva Employee', employeeEmail)
 
   // 2. Promotion manager (seed/base uniquement), puis reconnexion pour que la
   //    session porte le nouveau rôle.

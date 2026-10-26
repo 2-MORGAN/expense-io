@@ -200,7 +200,7 @@ test.describe('Isolation par la base (RLS, rôle expense_app)', () => {
 })
 
 test.describe('Inscription atomique (register_user)', () => {
-  test('[SIGNUP-09] entreprise et RH créées ensemble ou pas du tout ; domaine déjà pris → NULL', async ({
+  test('[SIGNUP-09] entreprise et RH créées ensemble ou pas du tout ; même domaine → deuxième entreprise', async ({
     org,
   }) => {
     const register = 'SELECT register_user($1, $2, $3, $4, $5) AS user_id'
@@ -243,15 +243,29 @@ test.describe('Inscription atomique (register_user)', () => {
         domain,
       ])
       expect(first.rows[0].user_id).toEqual(expect.any(String))
-      expect(second.rows[0].user_id).toBeNull()
+      // S7 (ADR-001 §3, 2-496) : le domaine ne regroupe plus personne, la
+      // seconde inscription crée sa propre entreprise.
+      expect(second.rows[0].user_id).toEqual(expect.any(String))
 
       await client.query('RESET ROLE')
-      const companies = await client.query<{ email_domain: string; role: string; email: string }>(
-        `SELECT c.email_domain, u.role, u.email FROM companies c JOIN users u ON u.company_id = c.id
-         WHERE c.email_domain = $1`,
+      const companies = await client.query<{ company_id: string; role: string; email: string; verified: boolean }>(
+        `SELECT c.id AS company_id, u.role, u.email, u.email_verified_at IS NOT NULL AS verified
+         FROM companies c JOIN users u ON u.company_id = c.id
+         WHERE c.email_domain = $1 ORDER BY u.email`,
         [domain]
       )
-      expect(companies.rows).toEqual([{ email_domain: domain, role: 'hr_admin', email: `alice@${domain}` }])
+      expect(companies.rows).toEqual([
+        { company_id: expect.any(String), role: 'hr_admin', email: `alice@${domain}`, verified: false },
+        { company_id: expect.any(String), role: 'hr_admin', email: `bob@${domain}`, verified: false },
+      ])
+      expect(companies.rows[0].company_id).not.toBe(companies.rows[1].company_id)
+      // Email de vérification demandé dans la même transaction.
+      const events = await client.query(
+        `SELECT 1 FROM outbox_events WHERE type = 'email.verification.requested'
+         AND payload->>'userId' = ANY($1::text[])`,
+        [[first.rows[0].user_id, second.rows[0].user_id]]
+      )
+      expect(events.rowCount).toBe(2)
     } finally {
       await client.query('ROLLBACK')
       client.release()

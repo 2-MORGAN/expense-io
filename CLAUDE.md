@@ -15,7 +15,7 @@ Manager racine (manager_id NULL) ──soumet──▶ pending ──RH de l'ent
 
 Rôles : `employee`, `manager`, `hr_admin`. `manager` ne s'attribue que par seed/base.
 
-Signup **actuel** : le premier compte d'un domaine email crée l'entreprise et devient RH, les suivants la rejoignent comme employés. **C'est la faille S7, à corriger** (ADR-001 §3, ticket 2-496) : le domaine ne donnera plus aucun droit, s'inscrire sans invitation créera sa propre entreprise et rejoindre une entreprise passera par une invitation de sa RH avec vérification d'email. Ne pas s'appuyer sur la règle de domaine dans du nouveau code. Mettre ce paragraphe à jour dans la PR qui applique 2-496.
+Inscription (S7 corrigée, ADR-001 §3, 2-496) : le domaine de l'email ne donne **aucun droit**. S'inscrire sans invitation crée sa propre entreprise, dont on devient RH ; la connexion n'est possible qu'après le lien de vérification reçu par email. Un compte non vérifié ne bloque pas son adresse : une nouvelle inscription ou une invitation acceptée le remplace (`purge_unverified_account`), et l'email de vérification peut être renvoyé depuis `/signup/verify`. On rejoint une entreprise uniquement par une **invitation de sa RH** (`/hr`, `POST /api/hr/invitations`) : lien à usage unique, valable 7 jours, qui vaut vérification d'email. Les jetons ne sont stockés qu'en empreinte SHA-256 ; le worker les crée à l'envoi (l'outbox ne transporte que des ids). Inscription, acceptation et vérification passent par des fonctions `SECURITY DEFINER` (`register_user`, `accept_invitation`, `verify_email`…).
 
 ## Stack
 
@@ -133,12 +133,11 @@ Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 
 - RLS contournée tant que l'application se connecte en superuser : l'isolation repose en pratique sur les `WHERE` manuels. Policies bornées par l'entreprise, RLS sur `users` et rôle restreint `expense_app` en place (2-478, tests ISO-07) ; la connexion bascule sur `expense_app` avec 2-481.
 - `lib/errors.ts` renvoie la stacktrace au client.
-- Inscription : l'entreprise et le rôle RH sont déduits du domaine email (S7, voir plus haut).
 - Classes métier historiques encore inutilisées ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes. Le module OCR utilise désormais domaine, cas d'usage, ports et adaptateurs.
 - Création de NDF non atomique (2-476). Les bornes OCR et son parcours asynchrone, branché sur le socle commun de l'outbox (2-484), sont décrits dans `docs/ocr.md`.
 - Contrat global dans `openapi.yaml`, types et JSON de validation générés (2-486). L’unification des erreurs reste 2-485 (le journal des erreurs serveur est fait, 2-490).
 
-Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489) ; OCR : montant lu sur la dernière ligne de total chiffrée, « TTC » en priorité, et description suggérée (nom du commerçant), règles pures dans `src/domain/receipt/parseReceiptText.ts` (PR #17) ; sécurité WS1 (2-471) : tri `?sort=` par liste blanche (S1), reçu manager limité à son équipe (S2), rattachement limité aux managers de l'entreprise (S3), `AUTH_SECRET` lu dans l'environnement (S5).
+Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489) ; OCR : montant lu sur la dernière ligne de total chiffrée, « TTC » en priorité, et description suggérée (nom du commerçant), règles pures dans `src/domain/receipt/parseReceiptText.ts` (PR #17) ; sécurité WS1 (2-471) : tri `?sort=` par liste blanche (S1), reçu manager limité à son équipe (S2), rattachement limité aux managers de l'entreprise (S3), `AUTH_SECRET` lu dans l'environnement (S5) ; identité (2-496) : invitations par la RH et vérification d'email du créateur, le domaine ne donne plus aucun droit (S7), rôle relu en base à chaque requête et session de 8 h d'inactivité (S9).
 
 Ne pas « corriger au passage » un de ces points dans une PR sans rapport : ouvrir un sujet dédié. Constats détaillés : [`docs/audit/`](docs/audit/) ; décisions : [`docs/adr/`](docs/adr/) ; tickets : projet Linear ARLA, jalon J4.
 
