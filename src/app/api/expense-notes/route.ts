@@ -2,7 +2,7 @@ import path from 'node:path'
 import type { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { getPool, withUserScope } from '@/lib/db'
-import { respondError } from '@/lib/errors'
+import { withApiErrors } from '@/http/withApiErrors'
 import { receiptKeyFor, uploadReceipt } from '@/lib/storage'
 import { readExpenseInput } from '@/http/readExpenseInput'
 import { toExpenseNoteDto } from '@/http/expenseNote'
@@ -33,57 +33,49 @@ function orderByFor(sort: string | null): string {
   return `${column} ${direction}`
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await auth()
-    const actor = requireRole(session)
-    if (actor instanceof Response) return actor
+export const GET = withApiErrors('/api/expense-notes', async function GET(request: NextRequest) {
+  const session = await auth()
+  const actor = requireRole(session)
+  if (actor instanceof Response) return actor
 
-    const url = new URL(request.url)
-    const orderBy = orderByFor(url.searchParams.get('sort'))
+  const url = new URL(request.url)
+  const orderBy = orderByFor(url.searchParams.get('sort'))
 
-    return withUserScope(actor.id, async (client) => {
-      const result = await client.query(
-        `SELECT * FROM expense_notes WHERE user_id = $1 ORDER BY ${orderBy}`,
-        [actor.id]
-      )
-      return Response.json(result.rows.map(toExpenseNoteDto))
-    })
-  } catch (error) {
-    return respondError(error)
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const session = await auth()
-    const actor = requireRole(session)
-    if (actor instanceof Response) return actor
-
-    const { amount, expenseDate, description, receipt } = await readExpenseInput(request)
-
-    const note = await withUserScope(actor.id, async (client) => {
-      const inserted = await client.query(
-        `INSERT INTO expense_notes (user_id, amount, expense_date, description, receipt_key)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING *`,
-        [actor.id, amount, expenseDate, description, '']
-      )
-      return inserted.rows[0]
-    })
-
-    const extension = EXTENSION_BY_MIME[receipt.type] ?? path.extname(receipt.name) ?? ''
-    const receiptKey = receiptKeyFor(note.receipt_seq, extension)
-    const buffer = Buffer.from(await receipt.arrayBuffer())
-    await uploadReceipt(receiptKey, buffer, receipt.type)
-
-    const updated = await getPool().query(
-      `UPDATE expense_notes SET receipt_key = $1 WHERE id = $2 RETURNING *`,
-      [receiptKey, note.id]
+  return withUserScope(actor.id, async (client) => {
+    const result = await client.query(
+      `SELECT * FROM expense_notes WHERE user_id = $1 ORDER BY ${orderBy}`,
+      [actor.id]
     )
+    return Response.json(result.rows.map(toExpenseNoteDto))
+  })
+})
 
-    return Response.json(toExpenseNoteDto(updated.rows[0]), { status: 201 })
-  } catch (error) {
-    return respondError(error)
-  }
-}
+export const POST = withApiErrors('/api/expense-notes', async function POST(request: NextRequest) {
+  const session = await auth()
+  const actor = requireRole(session)
+  if (actor instanceof Response) return actor
+
+  const { amount, expenseDate, description, receipt } = await readExpenseInput(request)
+
+  const note = await withUserScope(actor.id, async (client) => {
+    const inserted = await client.query(
+      `INSERT INTO expense_notes (user_id, amount, expense_date, description, receipt_key)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [actor.id, amount, expenseDate, description, '']
+    )
+    return inserted.rows[0]
+  })
+
+  const extension = EXTENSION_BY_MIME[receipt.type] ?? path.extname(receipt.name) ?? ''
+  const receiptKey = receiptKeyFor(note.receipt_seq, extension)
+  const buffer = Buffer.from(await receipt.arrayBuffer())
+  await uploadReceipt(receiptKey, buffer, receipt.type)
+
+  const updated = await getPool().query(
+    `UPDATE expense_notes SET receipt_key = $1 WHERE id = $2 RETURNING *`,
+    [receiptKey, note.id]
+  )
+
+  return Response.json(toExpenseNoteDto(updated.rows[0]), { status: 201 })
+})

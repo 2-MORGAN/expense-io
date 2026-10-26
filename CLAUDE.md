@@ -132,10 +132,9 @@ Règles de placement pour tout **nouveau** code :
 Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 
 - RLS contournée tant que l'application se connecte en superuser : l'isolation repose en pratique sur les `WHERE` manuels. Policies bornées par l'entreprise, RLS sur `users` et rôle restreint `expense_app` en place (2-478, tests ISO-07) ; la connexion bascule sur `expense_app` avec 2-481.
-- `lib/errors.ts` renvoie la stacktrace au client.
 - Classes métier historiques encore inutilisées ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes. Le module OCR utilise désormais domaine, cas d'usage, ports et adaptateurs.
 - Création de NDF non atomique (2-476). Les bornes OCR et son parcours asynchrone, branché sur le socle commun de l'outbox (2-484), sont décrits dans `docs/ocr.md`.
-- Contrat global dans `openapi.yaml`, types et JSON de validation générés (2-486). L’unification des erreurs reste 2-485 (le journal des erreurs serveur est fait, 2-490).
+- Contrat global dans `openapi.yaml`, types et JSON de validation générés (2-486). Erreurs communes sans détail interne et traductions front (2-485), logger serveur de 2-490 réutilisé.
 
 Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489) ; OCR : montant lu sur la dernière ligne de total chiffrée, « TTC » en priorité, et description suggérée (nom du commerçant), règles pures dans `src/domain/receipt/parseReceiptText.ts` (PR #17) ; sécurité WS1 (2-471) : tri `?sort=` par liste blanche (S1), reçu manager limité à son équipe (S2), rattachement limité aux managers de l'entreprise (S3), `AUTH_SECRET` lu dans l'environnement (S5) ; identité (2-496) : invitations par la RH et vérification d'email du créateur, le domaine ne donne plus aucun droit (S7), rôle relu en base à chaque requête et session de 8 h d'inactivité (S9).
 
