@@ -156,6 +156,7 @@ export async function purgeE2eData(): Promise<number> {
          WHERE manager_id IN (SELECT id FROM users WHERE company_id = ANY($1::uuid[]))`,
         [companyIds]
       )
+      await client.query('DELETE FROM invitations WHERE company_id = ANY($1::uuid[])', [companyIds])
       await client.query('DELETE FROM users WHERE company_id = ANY($1::uuid[])', [companyIds])
       await client.query('DELETE FROM companies WHERE id = ANY($1::uuid[])', [companyIds])
     }

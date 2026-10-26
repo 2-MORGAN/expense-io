@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { use, useActionState } from 'react'
 import Link from 'next/link'
 import { login, type AuthFormState } from '@/app/actions/auth'
 
@@ -9,8 +9,14 @@ const initialState: AuthFormState = {}
 const inputClass =
   'w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-brand-900'
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ verified?: string; verification?: string }>
+}) {
   const [state, formAction, pending] = useActionState(login, initialState)
+  // Retour du lien de vérification d'email (S7, /verify-email).
+  const { verified, verification } = use(searchParams)
 
   return (
     <main className="mx-auto flex max-w-sm flex-col gap-6 pt-8">
@@ -20,6 +26,17 @@ export default function LoginPage() {
           Accède à tes notes de frais.
         </p>
       </div>
+
+      {verified === '1' && (
+        <p role="status" className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-950 dark:text-green-200">
+          Email confirmé, vous pouvez vous connecter.
+        </p>
+      )}
+      {verification === 'invalid' && (
+        <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          Lien de confirmation invalide ou expiré.
+        </p>
+      )}
 
       <form
         action={formAction}

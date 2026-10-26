@@ -31,6 +31,20 @@ export function smtpConfigFromEnv(env: Env): SmtpConfig {
   return config
 }
 
+const DEFAULT_APP_URL = 'http://localhost:3000'
+
+/** Adresse publique de l'application, pour les liens des emails. */
+export function appUrlFromEnv(env: Env): string {
+  if (env.NODE_ENV === 'production' && !env.APP_URL) {
+    throw new Error('APP_URL is not set')
+  }
+  const url = env.APP_URL || DEFAULT_APP_URL
+  if (!/^https?:\/\/[^/\s]+/.test(url)) {
+    throw new Error('APP_URL is invalid')
+  }
+  return url.replace(/\/+$/, '')
+}
+
 export function createEmailSender(env: Env): EmailPort {
   return SmtpEmailAdapter.fromConfig(smtpConfigFromEnv(env))
 }

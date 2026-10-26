@@ -90,6 +90,21 @@ e2e/
 | SIGNUP-06 | Mot de passe < 8 caractères : bloqué par le navigateur (`minlength`), et refusé par le serveur si on contourne | UI |
 | SIGNUP-07 | Le compte créé permet de se reconnecter via `/login` | UI |
 
+### Invitations et vérification d'email — `e2e/invitations.spec.ts`
+
+S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les liens sont lus dans Mailpit (`e2e/support/identity.ts`) ; le worker lancé par `npm run dev` envoie les emails.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| SIGNUP-08a | Deux inscriptions sans invitation sur le même domaine → deux entreprises distinctes, chacune avec sa RH, aucune ne voit l'autre | UI + Base |
+| SIGNUP-08b | Invitation envoyée depuis `/hr` → lien reçu → formulaire « Vous rejoignez … », email imposé → employé de l'entreprise de la RH, connecté, visible dans son organigramme | UI |
+| SIGNUP-08c | Invitation expirée : refusée à la soumission (formulaire ouvert avant l'expiration) et à l'ouverture du lien ; aucun compte créé | UI |
+| SIGNUP-08d | Invitation déjà utilisée → lien refusé | UI |
+| SIGNUP-08e | Jeton d'invitation présenté avec une autre adresse (champ en lecture seule contourné) → refusé, aucun compte créé | UI |
+| SIGNUP-10 | Créateur non vérifié : connexion refusée avec « Confirmez votre adresse email avant de vous connecter. » (mauvais mot de passe : message générique) ; lien → « Email confirmé », connexion ; lien à usage unique | UI |
+| INV-01 | `POST /api/hr/invitations` : 401 sans session, 403 employé et manager, 400 `INVALID_EMAIL`, 201 `{ id, email, expiresAt }` (adresse normalisée) ; relance de la même adresse → même invitation, nouvel email, ancien lien invalide | API |
+| INV-02 | Sous `expense_app` : invitation visible de la RH de son entreprise seulement (ni RH d'une autre entreprise, ni employé, ni manager) ; insertion pour une autre entreprise ou par un employé refusée (42501) | Base |
+
 ### Connexion et session — `e2e/auth.spec.ts`
 
 | ID | Scénario | Niveau |

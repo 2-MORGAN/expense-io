@@ -58,10 +58,14 @@ note de frais en attente :
 | Manager (racine, sans manager assigné) | `manager@expense.io` | `manager1234` |
 | Employé (rattaché au manager ci-dessus) | `demo@expense.io` | `demo1234` |
 
-D'autres comptes se créent sur `/signup`. Aujourd'hui, le premier compte d'un
-domaine email fonde une entreprise et en devient RH, et les suivants la
-rejoignent comme employés : c'est la faille S7, que corrige le ticket 2-496
-(ADR-001 §3). Le rôle `manager` ne s'attribue que par le seed ou en base.
+D'autres comptes se créent sur `/signup`. Le domaine de l'email ne donne
+aucun droit (faille S7 corrigée par 2-496, ADR-001 §3) : s'inscrire sans
+invitation crée sa propre entreprise, dont on devient RH après avoir confirmé
+son email par le lien reçu. Pour rejoindre une entreprise, sa RH envoie une
+invitation depuis `/hr` ; le lien, à usage unique et valable 7 jours, vaut
+vérification d'email. En local, les emails arrivent dans Mailpit
+(http://localhost:8025). Le rôle `manager` ne s'attribue que par le seed ou en
+base.
 
 ### OCR, emails et worker
 

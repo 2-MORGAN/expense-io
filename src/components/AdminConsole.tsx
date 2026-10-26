@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { InviteEmployeeForm } from '@/components/InviteEmployeeForm'
 
 interface CompanyUser {
   id: string
@@ -128,6 +129,8 @@ export function AdminConsole() {
           des managers sans manager assigné.
         </p>
       </div>
+
+      <InviteEmployeeForm />
 
       <section className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <h2 className="border-b border-gray-200 px-6 py-4 text-base font-semibold dark:border-gray-800">
