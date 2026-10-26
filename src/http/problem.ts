@@ -19,6 +19,7 @@ export const problemCatalogue = {
   RESOURCE_NOT_FOUND: [404, 'Resource not found', 'Resource not found.', 'Not found'],
   ALREADY_DECIDED: [409, 'Already decided', 'This expense note has already been decided.', 'Already decided'],
   INVALID_MANAGER: [409, 'Invalid manager', 'The selected manager cannot be assigned.', 'Invalid manager'],
+  INVALID_EMAIL: [400, 'Invalid email', 'A valid email address is required.', 'Invalid email'],
   IDEMPOTENCY_KEY_REUSED: [422, 'Idempotency key reused', 'Idempotency-Key was already used with another receipt.'],
   INTERNAL_ERROR: [500, 'Internal server error', 'An unexpected error occurred.'],
   OCR_UNAVAILABLE: [503, 'OCR unavailable', 'Receipt analysis is temporarily unavailable.'],

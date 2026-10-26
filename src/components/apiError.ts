@@ -9,6 +9,7 @@ const messages: Record<Problem['code'], string> = {
   RESOURCE_NOT_FOUND: 'La ressource demandée est introuvable.',
   ALREADY_DECIDED: 'Cette note a déjà été tranchée.',
   INVALID_MANAGER: 'Le manager sélectionné ne peut pas être affecté.',
+  INVALID_EMAIL: 'Adresse email invalide.',
   INVALID_JSON: 'La requête envoyée est invalide.',
   VALIDATION_ERROR: 'Champs invalides',
   RECEIPT_TOO_LARGE: 'Fichier trop volumineux',

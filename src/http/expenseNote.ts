@@ -1,6 +1,7 @@
-import type { ExpenseNote } from './dto'
+import type { ExpenseNote } from '@/http/dto'
 
-// Mise en forme unique d'une note de frais en DTO JSON (WS2).
+// Mise en forme unique d'une note de frais en DTO JSON (WS2), typée par le
+// contrat OpenAPI (2-486) : un champ qui s'en écarte ne compile pas.
 // Les montants arrivent en `numeric` (chaîne) et les dates en `YYYY-MM-DD`
 // (parser OID 1082 volontairement brut) : la conversion a lieu ici, à la frontière.
 export interface ExpenseNoteRow {

@@ -1,6 +1,6 @@
 # Contrat HTTP — 2-486
 
-La source de vérité est [`openapi.yaml`](../../openapi.yaml), OpenAPI 3.1. Elle couvre les **16 opérations métier** présentes : les 14 de l’audit initial et les deux opérations d’analyse asynchrone livrées par 2-475. Auth.js, les méthodes automatiques HEAD/OPTIONS et les erreurs produites avant le handler restent hors périmètre.
+La source de vérité est [`openapi.yaml`](../../openapi.yaml), OpenAPI 3.1. Elle couvre les **17 opérations métier** présentes : les 14 de l’audit initial, les deux opérations d’analyse asynchrone livrées par 2-475 et l’invitation d’un salarié par la RH (`POST /api/hr/invitations`, 2-496). Auth.js, les méthodes automatiques HEAD/OPTIONS et les erreurs produites avant le handler restent hors périmètre.
 
 ## Modifier et vérifier
 

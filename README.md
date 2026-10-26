@@ -58,10 +58,14 @@ note de frais en attente :
 | Manager (racine, sans manager assigné) | `manager@expense.io` | `manager1234` |
 | Employé (rattaché au manager ci-dessus) | `demo@expense.io` | `demo1234` |
 
-D'autres comptes se créent sur `/signup`. Aujourd'hui, le premier compte d'un
-domaine email fonde une entreprise et en devient RH, et les suivants la
-rejoignent comme employés : c'est la faille S7, que corrige le ticket 2-496
-(ADR-001 §3). Le rôle `manager` ne s'attribue que par le seed ou en base.
+D'autres comptes se créent sur `/signup`. Le domaine de l'email ne donne
+aucun droit (faille S7 corrigée par 2-496, ADR-001 §3) : s'inscrire sans
+invitation crée sa propre entreprise, dont on devient RH après avoir confirmé
+son email par le lien reçu. Pour rejoindre une entreprise, sa RH envoie une
+invitation depuis `/hr` ; le lien, à usage unique et valable 7 jours, vaut
+vérification d'email. En local, les emails arrivent dans Mailpit
+(http://localhost:8025). Le rôle `manager` ne s'attribue que par le seed ou en
+base.
 
 ### OCR, emails et worker
 
@@ -77,14 +81,6 @@ L'ancienne route synchrone reste disponible. Les protections, le contrat
 de la file commune avec les notifications et les choix de reprise sont
 décrits dans [docs/ocr.md](docs/ocr.md).
 
-## Contrat API
-
-Les 16 opérations métier sont décrites dans [openapi.yaml](openapi.yaml).
-Les types serveur/front sont générés par `npm run generate:api` ;
-`npm run check` contrôle le contrat, les artefacts et la couverture des routes.
-Validation des entrées, outils, compatibilité et transition des erreurs :
-[docs/api/README.md](docs/api/README.md).
-
 En local, les emails arrivent dans Mailpit (http://localhost:8025) : aucun ne
 sort de la machine.
 
@@ -96,7 +92,7 @@ sort de la machine.
 
 | Commande | Ce qu'elle vérifie | Docker |
 |---|---|---|
-| `npm run check` | lint (règles d'architecture comprises), types, tests unitaires, types OCR générés à jour | non |
+| `npm run check` | lint (règles d'architecture comprises), types, tests unitaires, contrat API valide et types générés à jour | non |
 | `npx playwright test -g "<ID>"` | un scénario E2E désigné par son ID ([`docs/tests/E2E.md`](docs/tests/E2E.md)), sur le serveur de `make dev` s'il tourne | oui |
 | `make test-e2e` | toute la suite E2E de non-régression, environ 3 min | oui |
 | `make verify` | tout ce que vérifie la CI : `npm run check`, build de production, puis la suite E2E | oui |
@@ -126,6 +122,14 @@ capte. La sortie du serveur s'affiche dans le terminal de `make dev`, ou dans la
 console de Playwright quand il démarre lui-même le serveur ; en CI, dans le
 journal du job `e2e`.
 
+## Contrat API
+
+Les 16 opérations métier sont décrites dans [openapi.yaml](openapi.yaml).
+Les types serveur/front sont générés par `npm run generate:api` ;
+`npm run check` contrôle le contrat, les artefacts et la couverture des routes.
+Validation des entrées, outils, compatibilité et transition des erreurs :
+[docs/api/README.md](docs/api/README.md).
+
 ## Contribuer
 
 1. Lire [`CLAUDE.md`](CLAUDE.md). Seules les ADR au statut « Acceptée » font foi ([`docs/adr/`](docs/adr/README.md)).
@@ -145,7 +149,8 @@ journal du job `e2e`.
 | [`docs/adr/`](docs/adr/README.md) | décisions d'architecture, leur statut et le modèle |
 | [`docs/audit/`](docs/audit/) | constats d'audit : sécurité (S), architecture (A), API (Q, B) |
 | [`docs/tests/E2E.md`](docs/tests/E2E.md) | scénarios E2E avec leurs IDs, résultats des exécutions |
-| [`docs/ocr.md`](docs/ocr.md) | OCR : protections, file asynchrone et contrat ([`docs/api/ocr.openapi.yaml`](docs/api/ocr.openapi.yaml)) |
+| [`openapi.yaml`](openapi.yaml), [`docs/api/`](docs/api/README.md) | contrat de l'API (16 opérations) et ses règles d'évolution |
+| [`docs/ocr.md`](docs/ocr.md) | OCR : protections et file asynchrone |
 | `src/` | le code ; où placer quoi : « Où placer le code » dans `CLAUDE.md` |
 | `migrations/` | schéma SQL versionné, seule source de vérité |
 | `e2e/` | tests Playwright |

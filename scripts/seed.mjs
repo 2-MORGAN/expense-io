@@ -43,16 +43,23 @@ const s3 = new S3Client({
 const bucket = process.env.S3_BUCKET ?? 'receipts'
 
 async function resolveCompany() {
+  // Le domaine n'est plus unique (S7, 2-496) : l'entreprise de démo est celle
+  // de la RH de démo, sinon la première créée sur ce domaine.
+  const existing = await pool.query(
+    `SELECT c.id FROM companies c
+     LEFT JOIN users u ON u.company_id = c.id AND u.email = $2
+     WHERE c.email_domain = $1
+     ORDER BY u.id IS NULL, c.created_at
+     LIMIT 1`,
+    [domain, hrEmail]
+  )
+  if (existing.rows[0]) return existing.rows[0].id
   const companyName = domain.split('.')[0]
   const inserted = await pool.query(
-    `INSERT INTO companies (name, email_domain) VALUES ($1, $2)
-     ON CONFLICT (email_domain) DO NOTHING
-     RETURNING id`,
+    'INSERT INTO companies (name, email_domain) VALUES ($1, $2) RETURNING id',
     [companyName, domain]
   )
-  if (inserted.rows[0]) return inserted.rows[0].id
-  const existing = await pool.query('SELECT id FROM companies WHERE email_domain = $1', [domain])
-  return existing.rows[0].id
+  return inserted.rows[0].id
 }
 
 async function upsertUser(email, name, password, role, companyId, managerId = null) {
