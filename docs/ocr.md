@@ -111,7 +111,7 @@ Le worker supprime les reçus S3 après état terminal, en réessayant les éche
 nettoyage toutes les 10 s. Résultats et clés de rejeu expirent après 24 h ; les
 lectures expirées sont invisibles immédiatement, la purge physique suit le
 nettoyage du reçu. Un upload dont la compensation échoue avant insertion en base
-peut rester orphelin : la réconciliation S3 générale de 2-476 reste nécessaire.
+peut rester orphelin : la réconciliation S3 générale de 2-476 (`npm run reconcile:orphan-receipts`) le supprime au bout de 24 h.
 
 Les erreurs HTTP suivent application/problem+json, code anglais et requestId,
 sans stack ni message interne. Panne, expiration et surcharge : 503 avec
