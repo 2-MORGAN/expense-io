@@ -41,7 +41,6 @@ const HTTP_ENTRY = [
   'src/domain',
   'src/generated',
   'src/http',
-  'src/lib',
   'src/lib/auth',
   'src/lib/errors',
   'src/lib/log',
@@ -75,7 +74,6 @@ export const LAYERS: readonly Layer[] = [
       'src/application',
       'src/composition',
       'src/domain',
-      'src/lib',
       'src/lib/db',
       'src/lib/email',
       'src/lib/log',
@@ -86,8 +84,10 @@ export const LAYERS: readonly Layer[] = [
     ],
   },
 
-  // Cœur : règles pures et cas d'usage, sans infrastructure.
-  { path: 'src/application', group: 'coeur', may: ['src/domain', 'src/ports', 'src/utils'] },
+  // Cœur : règles pures et cas d'usage, sans infrastructure. Tout paquet
+  // qu'il importe est jugé, déclaré dans PACKAGES ou non (`node:fs`, `zod`…).
+  // Les cas d'usage tirent leurs identifiants de node:crypto (ReceiptAnalyses).
+  { path: 'src/application', group: 'coeur', may: ['src/domain', 'src/ports', 'src/utils', 'node:crypto'] },
   { path: 'src/domain', group: 'coeur', may: ['src/generated', 'src/ports', 'src/utils'] },
   // Données générées depuis le contrat OpenAPI (2-486) : sans dépendance.
   { path: 'src/generated', group: 'coeur', may: [] },
@@ -102,7 +102,6 @@ export const LAYERS: readonly Layer[] = [
       'src/adapters',
       'src/application',
       'src/domain',
-      'src/lib',
       'src/lib/auth',
       'src/lib/db',
       'src/lib/email',
@@ -140,28 +139,10 @@ export const LAYERS: readonly Layer[] = [
   { path: 'src/lib/log', group: 'infra', may: [] },
   { path: 'src/lib/outbox', group: 'infra', may: ['src/domain', 'src/lib/db', 'src/lib/log', 'src/ports', 'pg'] },
   { path: 'src/lib/storage', group: 'infra', may: ['src/domain', 'src/lib/log', '@aws-sdk'] },
-  // Un autre fichier de src/lib (notifications…) : lib/db et lib/storage
-  // restent des couches à part, que les entrées n'importent pas.
-  {
-    path: 'src/lib',
-    group: 'infra',
-    label: 'lib (autres)',
-    may: [
-      'src/adapters',
-      'src/domain',
-      'src/lib/db',
-      'src/lib/email',
-      'src/lib/log',
-      'src/lib/outbox',
-      'src/ports',
-      'src/utils',
-      'pg',
-    ],
-  },
 ]
 
 // Paquets dessinés : ceux qui font l'infrastructure ou le framework. Les
-// autres (modules de Node, utilitaires) ne sont pas jugés ici.
+// autres (modules de Node, utilitaires) ne sont jugés que depuis le cœur.
 export const PACKAGES: readonly ExternalPackage[] = [
   { name: '@aws-sdk', packages: ['@aws-sdk/*'] },
   { name: 'next', packages: ['next'] },

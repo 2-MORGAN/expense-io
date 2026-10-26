@@ -25,6 +25,7 @@ flowchart TB
   p__40_aws_2d_sdk(["@aws-sdk"])
   p_next(["next"])
   p_next_2d_auth(["next-auth"])
+  p_node_3a_crypto(["node:crypto"])
   p_nodemailer(["nodemailer"])
   p_pg(["pg"])
   p_react(["react"])
@@ -51,6 +52,7 @@ flowchart TB
   m_app_2f_api -.->|"legacy"| m_lib_2f_db
   m_app_2f_api --> m_lib_2f_errors
   m_app_2f_api -.->|"legacy"| m_lib_2f_storage
+  m_application --> p_node_3a_crypto
   m_application --> m_domain
   m_application --> m_ports
   m_components --> p_next
@@ -101,4 +103,4 @@ flowchart TB
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
   class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_db,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_outbox,m_lib_2f_storage infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
-  class p__40_aws_2d_sdk,p_next,p_next_2d_auth,p_nodemailer,p_pg,p_react paquet
+  class p__40_aws_2d_sdk,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react paquet

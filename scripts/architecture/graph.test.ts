@@ -57,22 +57,67 @@ describe('graphe des couches', () => {
     expect(layerOf('src/domain/receipt', ARCH.layers)?.path).toBe('src/domain')
   })
 
-  it('ni les tests, ni un import cité dans une chaîne ou un commentaire, ni un paquet non dessiné ne comptent', () => {
+  it('ni les tests, ni un import cité dans une chaîne ou un commentaire ne comptent ; hors du cœur, un paquet non dessiné non plus', () => {
     const graph = layerGraph(
       [
         file('src/domain/Note.test.ts', `import { Pool } from 'pg'`),
-        file(
-          'src/domain/Note.ts',
-          `const text = "import { Pool } from 'pg'"`,
-          `// import { pool } from '@/lib/db'`,
-          `import { readFileSync } from 'node:fs'`,
-          `import { z } from 'zod'`
-        ),
+        file('src/domain/Note.ts', `const text = "import { Pool } from 'pg'"`, `// import { pool } from '@/lib/db'`),
+        file('src/lib/db.ts', `import { readFileSync } from 'node:fs'`, `import { z } from 'zod'`),
       ],
       { ...ARCH, legacy: [] }
     )
     expect(graph.edges).toEqual([])
-    expect(graph.modules).toEqual(['src/domain'])
+    expect(graph.modules).toEqual(['src/domain', 'src/lib/db'])
+  })
+
+  it('le cœur reste pur : tout paquet qu’il importe est jugé, même non dessiné, même chargé par createRequire', () => {
+    const core: Architecture = {
+      ...ARCH,
+      layers: ARCH.layers.map((l) => (l.path === 'src/application' ? { ...l, may: [...l.may, 'node:crypto'] } : l)),
+      legacy: [],
+    }
+    const graph = layerGraph(
+      [
+        file('src/application/ids.ts', `import { randomUUID } from 'node:crypto'`),
+        file('src/domain/Note.ts', `import { readFileSync } from 'node:fs'`, `import { z } from 'zod'`),
+        file(
+          'src/domain/Hidden.ts',
+          `import { createRequire } from 'node:module'`,
+          `export const pg = createRequire(import.meta.url)('pg')`,
+          `export const pool = module.require('pg-pool')`
+        ),
+      ],
+      core
+    )
+    expect(graph.edges).toEqual([
+      { from: 'src/application', to: 'node:crypto', verdict: 'allowed' },
+      { from: 'src/domain', to: 'node:fs', verdict: 'forbidden' },
+      { from: 'src/domain', to: 'node:module', verdict: 'forbidden' },
+      { from: 'src/domain', to: 'pg', verdict: 'forbidden' },
+      { from: 'src/domain', to: 'pg-pool', verdict: 'forbidden' },
+      { from: 'src/domain', to: 'zod', verdict: 'forbidden' },
+    ])
+    expect(graph.modules).toEqual(['src/application', 'src/domain', 'node:crypto', 'node:fs', 'node:module', 'pg', 'pg-pool', 'zod'])
+  })
+
+  it('un alias @/ qui remonte (@/application/../lib/db) vise bien sa couche', () => {
+    const graph = layerGraph([file('src/application/leak.ts', `import { pool } from '@/application/../lib/db'`)], ARCH)
+    expect(graph.edges).toEqual([{ from: 'src/application', to: 'src/lib/db', verdict: 'forbidden' }])
+  })
+
+  it('un fichier de données ou une image hors de src/ ne se juge pas ; du code hors de src/, si', () => {
+    const graph = layerGraph(
+      [
+        file(
+          'src/app/api/version/route.ts',
+          `import pkg from '../../../../package.json'`,
+          `import logo from '../../../../public/logo.png'`,
+          `import { db } from '../../../../e2e/support/db'`
+        ),
+      ],
+      { ...ARCH, legacy: [] }
+    )
+    expect(graph.unclassified).toEqual(['src/app/api/version/route.ts → e2e/support/db'])
   })
 
   it('un fichier ou un import hors des couches, et un import au chemin calculé, sont signalés', () => {

@@ -26,6 +26,12 @@ const isControl = (c: string): boolean => {
 /** Moitié de paire de substitution, seule : elle ne s'écrit pas en UTF-8. */
 const isLoneSurrogate = (c: string): boolean => c.length === 1 && c >= '\uD800' && c <= '\uDFFF'
 
+/** Un contrôle devient une espace, une moitié de paire seule devient �. */
+function safeChar(c: string): string {
+  if (isControl(c)) return ' '
+  return isLoneSurrogate(c) ? '�' : c
+}
+
 /**
  * Texte d'une étiquette, entre guillemets : sur une ligne, sans contrôle ni
  * direction, coupé entre deux caractères, jamais vide ; « " < > & # % » et
@@ -33,7 +39,7 @@ const isLoneSurrogate = (c: string): boolean => c.length === 1 && c >= '\uD800' 
  * Markdown ne s'interprètent pas).
  */
 export function label(text: string, max = 100): string {
-  const clean = Array.from(text.replace(BIDI, ' '), (c) => (isControl(c) ? ' ' : isLoneSurrogate(c) ? '�' : c))
+  const clean = Array.from(text.replace(BIDI, ' '), safeChar)
   const flat = Array.from(clean.join('').replace(/\s+/g, ' ').trim())
   const cut = flat.length > max ? `${flat.slice(0, max - 1).join('')}…` : flat.join('')
   const coded = cut.replace(/[#"<>&%`]/g, (c) => `#${c.codePointAt(0)};`)
@@ -95,14 +101,18 @@ export function layersMermaid(graph: LayerGraph, arch: Architecture): string {
 
 const GUARD_RANK: Record<Guard['kind'], number> = { public: 0, session: 1, role: 2, none: 3 }
 
-const guardTitle = (g: Guard): string =>
-  g.kind === 'public'
-    ? 'Publique (PUBLIC_ROUTES)'
-    : g.kind === 'session'
-      ? 'Session requise'
-      : g.kind === 'role'
-        ? `Rôle ${g.role}`
-        : 'SANS GARDE'
+function guardTitle(g: Guard): string {
+  switch (g.kind) {
+    case 'public':
+      return 'Publique (PUBLIC_ROUTES)'
+    case 'session':
+      return 'Session requise'
+    case 'role':
+      return `Rôle ${g.role}`
+    case 'none':
+      return 'SANS GARDE'
+  }
+}
 
 const guardId = (g: Guard): string => (g.kind === 'role' ? `g_role_${freeId(g.role)}` : `g_${g.kind}`)
 

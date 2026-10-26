@@ -45,7 +45,7 @@ export const CODE = /\.[cm]?[jt]sx?$/
 const TEST = /\.(?:test|spec)\.[cm]?[jt]sx?$/
 
 /** Ordre des chaînes par code UTF-16, le même sur tous les postes (pas de localeCompare). */
-export const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
+export const byText = (a: string, b: string): number => Number(a > b) - Number(a < b)
 
 export const edgeName = (e: { from: string; to: string }): string => `${e.from} → ${e.to}`
 
@@ -72,81 +72,104 @@ function packageOf(specifier: string, packages: readonly ExternalPackage[]): Ext
   return packages.find((p) => p.packages.includes(name) || (scope !== undefined && p.packages.includes(scope)))
 }
 
-type Target = { kind: 'module'; id: string } | { kind: 'outside'; path: string }
+type Target =
+  | { kind: 'module'; id: string }
+  /** Un paquet que PACKAGES ne dessine pas : jugé seulement depuis le cœur. */
+  | { kind: 'external'; name: string }
+  | { kind: 'outside'; path: string }
 
-/** Ce que vise un import : une couche, un paquet dessiné, un chemin hors des couches, ou rien à juger. */
+/** Chemin du dépôt qu'un import vise (alias `@/` ou chemin relatif), normalisé ; undefined pour un paquet. */
+function pathOf(file: string, specifier: string): string | undefined {
+  if (specifier.startsWith('@/')) return posix.normalize(`src/${specifier.slice(2)}`)
+  if (specifier === '.' || specifier === '..' || /^\.\.?\//.test(specifier))
+    return posix.normalize(posix.join(posix.dirname(file), specifier))
+  return undefined
+}
+
+/** Ce que vise un import : une couche, un paquet, un chemin hors des couches, ou rien à juger. */
 function targetOf(file: string, specifier: string, arch: Architecture): Target | undefined {
-  let path: string | undefined
-  if (specifier.startsWith('@/')) path = `src/${specifier.slice(2)}`
-  else if (specifier === '.' || specifier === '..' || /^\.\.?\//.test(specifier))
-    path = posix.normalize(posix.join(posix.dirname(file), specifier))
+  const path = pathOf(file, specifier)
   if (path === undefined) {
     const pkg = packageOf(specifier, arch.packages)
-    return pkg ? { kind: 'module', id: pkg.name } : undefined
+    return pkg ? { kind: 'module', id: pkg.name } : { kind: 'external', name: packageName(specifier) }
   }
   const layer = layerOf(path, arch.layers)
-  return layer ? { kind: 'module', id: layer.path } : { kind: 'outside', path }
+  if (layer) return { kind: 'module', id: layer.path }
+  // Un fichier de données ou une image hors de src/ (package.json, public/) n'est pas du code à juger.
+  if (!path.startsWith('src/') && posix.extname(path) !== '' && !CODE.test(path)) return undefined
+  return { kind: 'outside', path }
 }
 
 /** Une déclaration qui vise une couche ou un paquet inconnu éteindrait une règle sans rien dire. */
 function checkDeclaration(arch: Architecture): void {
-  const known = new Set([...arch.layers.map((l) => l.path), ...arch.packages.map((p) => p.name)])
+  const names = new Set([...arch.layers.map((l) => l.path), ...arch.packages.map((p) => p.name)])
+  // Un module de Node (`node:crypto`) se nomme sans être déclaré dans PACKAGES.
+  const known = (name: string) => names.has(name) || name.startsWith('node:')
   const unknown = [
-    ...arch.layers.flatMap((l) => l.may.filter((m) => !known.has(m)).map((m) => `${l.path} peut importer ${m}`)),
-    ...arch.legacy.filter((e) => !known.has(e.from) || !known.has(e.to)).map((e) => `exception ${edgeName(e)}`),
+    ...arch.layers.flatMap((l) => l.may.filter((m) => !known(m)).map((m) => `${l.path} peut importer ${m}`)),
+    ...arch.legacy.filter((e) => !known(e.from) || !known(e.to)).map((e) => `exception ${edgeName(e)}`),
   ]
   if (unknown.length) throw new Error(`layers.ts vise une couche ou un paquet inconnu : ${unknown.join(' ; ')}`)
+}
+
+function verdictOf(from: Layer, to: string, legacy: ReadonlySet<string>): Verdict {
+  if (from.may.includes(to)) return 'allowed'
+  return legacy.has(edgeName({ from: from.path, to })) ? 'legacy' : 'forbidden'
+}
+
+/** Ce que la lecture des fichiers accumule. */
+interface Observed {
+  used: Set<string>
+  edges: Map<string, Edge>
+  unclassified: string[]
+  unsure: string[]
+}
+
+/** La flèche vers une couche ou un paquet ; un paquet non dessiné ne se juge que depuis le cœur, qui reste pur. */
+function addEdge(seen: Observed, from: Layer, to: string, external: boolean, legacy: ReadonlySet<string>): void {
+  if (to === from.path || (external && from.group !== 'coeur')) return
+  const edge = { from: from.path, to }
+  seen.edges.set(edgeName(edge), { ...edge, verdict: verdictOf(from, to, legacy) })
+}
+
+/** Les imports d'un fichier de code, ajoutés à ce qui est observé. */
+function observe(file: SourceFile, arch: Architecture, legacy: ReadonlySet<string>, seen: Observed): void {
+  const from = layerOf(file.path, arch.layers)
+  if (!from) {
+    seen.unclassified.push(file.path)
+    return
+  }
+  seen.used.add(from.path)
+  const specifiers = fileImports(file.path, file.text)
+  if (!specifiers) {
+    seen.unsure.push(file.path)
+    return
+  }
+  for (const specifier of specifiers) {
+    const target = targetOf(file.path, specifier, arch)
+    if (target?.kind === 'outside') seen.unclassified.push(`${file.path} → ${target.path}`)
+    else if (target?.kind === 'module') addEdge(seen, from, target.id, false, legacy)
+    else if (target?.kind === 'external') addEdge(seen, from, target.name, true, legacy)
+  }
 }
 
 export function layerGraph(files: readonly SourceFile[], arch: Architecture): LayerGraph {
   checkDeclaration(arch)
   const legacy = new Set(arch.legacy.map(edgeName))
-  const used = new Set<string>()
-  const edges = new Map<string, Edge>()
-  const unclassified: string[] = []
-  const unsure: string[] = []
-  const sorted = [...files].sort((a, b) => byText(a.path, b.path))
-  for (const file of sorted) {
-    if (!CODE.test(file.path) || TEST.test(file.path)) continue
-    const from = layerOf(file.path, arch.layers)
-    if (!from) {
-      unclassified.push(file.path)
-      continue
-    }
-    used.add(from.path)
-    const specifiers = fileImports(file.path, file.text)
-    if (!specifiers) {
-      unsure.push(file.path)
-      continue
-    }
-    for (const specifier of specifiers) {
-      const target = targetOf(file.path, specifier, arch)
-      if (!target) continue
-      if (target.kind === 'outside') {
-        unclassified.push(`${file.path} → ${target.path}`)
-        continue
-      }
-      if (target.id === from.path) continue
-      const edge = { from: from.path, to: target.id }
-      const verdict: Verdict = from.may.includes(target.id)
-        ? 'allowed'
-        : legacy.has(edgeName(edge))
-          ? 'legacy'
-          : 'forbidden'
-      edges.set(edgeName(edge), { ...edge, verdict })
-    }
-  }
-  const sortedEdges = [...edges.values()].sort((a, b) => byText(a.from, b.from) || byText(a.to, b.to))
-  const packages = new Set(arch.packages.map((p) => p.name))
+  const seen: Observed = { used: new Set(), edges: new Map(), unclassified: [], unsure: [] }
+  for (const file of [...files].sort((a, b) => byText(a.path, b.path)))
+    if (CODE.test(file.path) && !TEST.test(file.path)) observe(file, arch, legacy, seen)
+  const edges = [...seen.edges.values()].sort((a, b) => byText(a.from, b.from) || byText(a.to, b.to))
+  const layers = new Set(arch.layers.map((l) => l.path))
   const imported = new Set<string>()
-  for (const { to } of sortedEdges) (packages.has(to) ? imported : used).add(to)
+  for (const { to } of edges) (layers.has(to) ? seen.used : imported).add(to)
   return {
-    modules: [...[...used].sort(byText), ...[...imported].sort(byText)],
-    edges: sortedEdges,
-    unclassified: [...new Set(unclassified)].sort(byText),
-    unsure,
+    modules: [...[...seen.used].sort(byText), ...[...imported].sort(byText)],
+    edges,
+    unclassified: [...new Set(seen.unclassified)].sort(byText),
+    unsure: seen.unsure,
     staleLegacy: arch.legacy
-      .filter((e) => edges.get(edgeName(e))?.verdict !== 'legacy')
+      .filter((e) => seen.edges.get(edgeName(e))?.verdict !== 'legacy')
       .map(edgeName)
       .sort(byText),
   }

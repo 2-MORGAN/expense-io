@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { analyze, readSources, README } from './architecture'
@@ -58,5 +59,23 @@ describe('architecture du dépôt (docs/architecture)', () => {
 
   it('chaque route publique déclarée existe', () => {
     expect(analysis.routes.stalePublic, 'retirer l’entrée de PUBLIC_ROUTES').toEqual([])
+  })
+})
+
+describe('lecture de src/', () => {
+  it('lit les fichiers de code, dossiers cachés compris, triés et sans BOM', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'expense-io-sources-'))
+    try {
+      mkdirSync(join(dir, 'src/.hidden'), { recursive: true })
+      writeFileSync(join(dir, 'src/b.ts'), '﻿export const b = 1\n')
+      writeFileSync(join(dir, 'src/.hidden/a.ts'), 'export const a = 1\n')
+      writeFileSync(join(dir, 'src/style.css'), 'a {}\n')
+      expect(readSources(dir)).toEqual([
+        { path: 'src/.hidden/a.ts', text: 'export const a = 1\n' },
+        { path: 'src/b.ts', text: 'export const b = 1\n' },
+      ])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

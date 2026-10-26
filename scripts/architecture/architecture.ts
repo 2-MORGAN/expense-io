@@ -20,11 +20,11 @@ export interface Analysis {
   graphs: Record<string, string>
 }
 
-/** Les fichiers de code sous `dir`, lus sur le disque, triés ; liens symboliques et dossiers cachés ignorés. */
+/** Les fichiers de code sous `dir`, lus sur le disque, triés, dossiers cachés compris ; liens symboliques ignorés. */
 export function readSources(root: string, dir = 'src'): SourceFile[] {
   const out: SourceFile[] = []
   for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
-    if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
+    if (entry.name === 'node_modules') continue
     const path = `${dir}/${entry.name}`
     if (entry.isDirectory()) out.push(...readSources(root, path))
     else if (entry.isFile() && CODE.test(entry.name))

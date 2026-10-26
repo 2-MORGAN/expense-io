@@ -4,8 +4,8 @@ Deux graphes Mermaid, **générés depuis le code** par `npm run generate:archit
 
 | Fichier | Ce qu'il montre | Ce qui fait échouer le test |
 |---|---|---|
-| [`layers.mmd`](layers.mmd) | Les couches de l'[ADR-002](../adr/ADR-002-architecture-cible.md) (§3.3) et qui importe qui, d'après le code de production de `src/` (tests exclus) | le graphe a dérivé du code ; une flèche que la matrice interdit ; un fichier hors des couches ; un import au chemin calculé ; une exception legacy qui ne sert plus |
-| [`routes.mmd`](routes.mmd) | Chaque méthode de `src/app/api/**/route.ts` et la garde qui la protège | le graphe a dérivé du code ; une méthode sans garde (`CLAUDE.md`, règle 2) ; une route publique déclarée qui n'existe plus |
+| [`layers.mmd`](layers.mmd) | Les couches de l'[ADR-002](../adr/ADR-002-architecture-cible.md) (§3.3) et qui importe qui, d'après le code de production de `src/` (tests exclus) | le graphe a dérivé du code ; une flèche que la matrice interdit, dont tout paquet importé par le cœur sans droit (module de Node compris) ; un fichier hors des couches ; un import au chemin calculé ; une exception legacy qui ne sert plus |
+| [`routes.mmd`](routes.mmd) | Chaque méthode de `src/app/**/route.ts` et la garde qui la protège | le graphe a dérivé du code ; une méthode sans garde qui ouvre le handler (`CLAUDE.md`, règle 2) ; une route publique déclarée qui n'existe plus |
 
 La matrice des couches, les exceptions legacy (`LEGACY_EDGES`) et les routes publiques (`PUBLIC_ROUTES`) sont déclarées dans [`scripts/architecture/layers.ts`](../../scripts/architecture/layers.ts).
 
@@ -13,7 +13,7 @@ La matrice des couches, les exceptions legacy (`LEGACY_EDGES`) et les routes pub
 
 - **Le graphe a dérivé** : un import entre couches ou une route a changé. Lancer `npm run generate:architecture`, relire le diff du `.mmd` et le commiter avec le code. Dans la PR, ce diff montre l'évolution de l'architecture aux relecteurs.
 - **Flèche interdite** : corriger l'import (passer par un cas d'usage, un port, la composition). Régénérer ne suffit pas : la flèche reste rouge et le test échoue toujours.
-- **Route sans garde** : dans le handler, `const actor = requireRole(session, 'rôle')` puis `if (actor instanceof Response) return actor`. Un wrapper comme `withApiErrors('/api/…', async function GET() {…})` se traverse, mais une garde placée dans un helper ou un callback ne se voit pas.
+- **Route sans garde** : la garde ouvre le handler, avant tout autre code : `const session = await auth()`, `const actor = requireRole(session, 'rôle')`, puis `if (actor instanceof Response) return actor` (ou `if (!session?.user?.id) throw …`). Elle peut ouvrir un `try` dont le `catch` sort (return ou throw). `auth` et `requireRole` viennent de `@/lib/auth` et `@/http/requireRole`, et le handler est une fonction ou une `const`. Un wrapper déclaré dans `routes.ts` (`withApiErrors`) se traverse ; une garde placée plus loin, dans une branche, un helper ou un callback ne se voit pas.
 - **Nouvelle couche, nouveau droit** : décision d'architecture, à justifier dans la PR (ADR-002), puis à déclarer dans `layers.ts`.
 - **Exception legacy ou route publique en trop** : la retirer de `layers.ts`. Ces listes ne font que raccourcir, comme les listes `LEGACY_*` de `eslint.config.mjs`.
 
@@ -52,6 +52,7 @@ flowchart TB
   p__40_aws_2d_sdk(["@aws-sdk"])
   p_next(["next"])
   p_next_2d_auth(["next-auth"])
+  p_node_3a_crypto(["node:crypto"])
   p_nodemailer(["nodemailer"])
   p_pg(["pg"])
   p_react(["react"])
@@ -78,6 +79,7 @@ flowchart TB
   m_app_2f_api -.->|"legacy"| m_lib_2f_db
   m_app_2f_api --> m_lib_2f_errors
   m_app_2f_api -.->|"legacy"| m_lib_2f_storage
+  m_application --> p_node_3a_crypto
   m_application --> m_domain
   m_application --> m_ports
   m_components --> p_next
@@ -128,7 +130,7 @@ flowchart TB
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
   class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_db,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_outbox,m_lib_2f_storage infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
-  class p__40_aws_2d_sdk,p_next,p_next_2d_auth,p_nodemailer,p_pg,p_react paquet
+  class p__40_aws_2d_sdk,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react paquet
 ```
 <!-- fin : layers.mmd -->
 
