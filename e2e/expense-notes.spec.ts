@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import { expectApiError, expectNoteShape, type NoteInput } from './support/api'
 import { addUser, expect, signIn, test } from './support/fixtures'
-import { oversizedPng, pdfReceipt, pngReceipt, textFile, type UploadFile } from './support/files'
+import { oversizedPng, pdfReceipt, pngReceipt, receiptForType, textFile, type UploadFile } from './support/files'
 
 async function fillExpenseForm(
   page: Page,
@@ -160,7 +160,7 @@ test.describe('Soumission d’une note de frais — API', () => {
   ] as const) {
     test(`[NDF-07] reçu ${label} (${mimeType}) accepté → 201`, async ({ org, apiAs }) => {
       const api = await apiAs(org.employee)
-      const receipt = { ...pngReceipt(`ndf-07-${label}`), mimeType, name: `recu.${label.toLowerCase()}` }
+      const receipt = receiptForType(`ndf-07-${label}`, mimeType)
       const response = await api.createNote({
         amount: '9.99',
         expenseDate: '2026-10-01',

@@ -1,3 +1,4 @@
+import { validateId } from '@/http/validation'
 import { auth } from '@/lib/auth'
 import { withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
@@ -10,6 +11,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const actor = requireRole(session, 'hr_admin')
     if (actor instanceof Response) return actor
     const { id } = await params
+    validateId(id)
 
     const note = await withUserScope(actor.id, async (client) => {
       const result = await client.query(

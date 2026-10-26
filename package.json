@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run check:ocr-api",
+    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run check:api",
     "prepare": "husky",
     "migrate:up": "node-pg-migrate up --envPath .env",
     "migrate:down": "node-pg-migrate down --envPath .env",
@@ -17,17 +17,20 @@
     "worker": "tsx src/worker/main.ts",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
-    "generate:ocr-api": "openapi-typescript docs/api/ocr.openapi.yaml -o src/types/ocr-api.d.ts",
-    "check:ocr-api": "npm run generate:ocr-api -- --check"
+    "generate:api": "openapi-typescript openapi.yaml -o src/types/api.d.ts && node scripts/generate-api.mjs",
+    "check:api": "redocly lint openapi.yaml && openapi-typescript openapi.yaml -o src/types/api.d.ts --check && node scripts/generate-api.mjs --check && node scripts/check-api.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",
     "@aws-sdk/s3-request-presigner": "^3.1131.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "bcryptjs": "^3.0.3",
     "next": "16.3.5",
     "next-auth": "^5.0.0-beta.32",
     "node-pg-migrate": "^9.0.0",
     "nodemailer": "10.0.16",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -37,6 +40,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@redocly/cli": "^2.71.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^24.13.4",
@@ -50,7 +54,8 @@
     "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "yaml": "^2.9.1"
   },
   "overrides": {
     "nodemailer": "$nodemailer"

@@ -40,7 +40,7 @@ Le worker réutilise le même cas d'usage de suggestion.
 - Images : maximum 40 Mpx, une seule page ; côté long ramené à 2 500 px sans
   agrandissement. `sharp` désactive son cache et utilise un thread de traitement
   dans chaque processus enfant. Un PDF garde le résultat vide historique ;
-  il n'est pas décodé par Tesseract (contrôle de signature `%PDF-`).
+  il n'est pas décodé par Tesseract (signature, parsing de structure et arbre de pages via le validateur partagé).
 - Admission HTTP : 10 demandes au total par processus, uploads inclus, avant
   buffering ; 2 actives et 8 en attente. Les images ne sont décodées que dans
   les processus actifs. La limite ne promet pas un plafond exact de RSS : il
@@ -101,7 +101,7 @@ Le worker réutilise le même cas d'usage de suggestion.
    marquera les travaux trop anciens failed lorsqu'il reprendra.
 6. `GET /api/receipt-analyses/{id}` : 200, état queued/running/succeeded/failed ;
    résultat ou problème imbriqué. Une analyse étrangère, expirée ou inconnue donne
-   le même 404, même pour un autre utilisateur du même tenant. WHERE explicites
+   le même 404, même pour un autre utilisateur du même tenant. Un UUID malformé donne 400. WHERE explicites
    user/company et RLS protègent les lectures.
 7. Polling navigateur toutes les 300 ms, durée totale plafonnée à 75 s ; abort à
    la sortie de page et `finally` réactive le bouton sur toute erreur. La fermeture
@@ -150,9 +150,8 @@ Contrat de l'événement OCR v1 :
 - `sharp` devient une dépendance directe, car utilisé par le moteur. `tsx` est
   une dépendance d'exécution pour le second point d'entrée TypeScript avec les
   alias du dépôt ; cela évite de maintenir une seconde version JS du worker.
-- Le contrat OCR est dans `docs/api/ocr.openapi.yaml`, module à intégrer au contrat
-  global de 2-486. `openapi-typescript` (dev) produit `src/types/ocr-api.d.ts`, utilisé
-  par le client et le sérialiseur HTTP. `npm run generate:ocr-api` régénère ces types ;
+- Le contrat OCR est intégré au contrat global `openapi.yaml` (2-486). `openapi-typescript` (dev) produit `src/types/api.d.ts`, utilisé
+  par le client et le sérialiseur HTTP. `npm run generate:api` régénère ces types ;
   `npm run check` vérifie qu'ils sont à jour. Aucun type de domaine ne dépend du HTTP.
 - Les logs n'exposent ni reçu, ni texte OCR, ni clé S3, ni exception interne.
   Pas de nouvelle infrastructure de métriques ; les compteurs complets T9

@@ -1,0 +1,6 @@
+extends:
+  - minimal
+rules:
+  no-unused-components: off
+  # Application interne même origine : ni serveur public ni contact commercial.
+  no-server-example.com: off

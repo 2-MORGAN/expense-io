@@ -1,3 +1,4 @@
+import { validateId } from '@/http/validation'
 import { auth } from '@/lib/auth'
 import { withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
@@ -10,6 +11,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const actor = requireRole(session, 'manager')
     if (actor instanceof Response) return actor
     const { id } = await params
+    validateId(id)
 
     // Seul le manager direct de l'auteur, dans la même entreprise, obtient le
     // reçu : une note hors de son équipe est traitée comme inexistante.

@@ -1,3 +1,4 @@
+import { validateId } from '@/http/validation'
 import { auth } from '@/lib/auth'
 import { respondError } from '@/lib/errors'
 import { decideExpenseNote } from '@/composition/decisions'
@@ -13,6 +14,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const actor = requireRole(session, 'hr_admin')
     if (actor instanceof Response) return actor
     const { id } = await params
+    validateId(id)
 
     try {
       const note = await decideExpenseNote.execute(id, actor.id, 'approved')

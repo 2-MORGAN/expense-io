@@ -1,10 +1,11 @@
+import { validateId } from './validation'
 import { auth } from '@/lib/auth'
 import { OcrError } from '@/domain/receipt/OcrError'
 import { ocrCapacity, ocrRequests } from '@/composition/ocr'
 import type { ReceiptAnalysis } from '@/ports/ReceiptAnalysisRepository'
 import { readReceipt } from './readReceipt'
 import { ocrProblem } from './ocrProblem'
-import type { components } from '@/types/ocr-api'
+import type { components } from '@/types/api'
 
 export async function suggest(request: Request) {
   let reservation: ReturnType<typeof ocrCapacity.reserve> | undefined
@@ -12,7 +13,7 @@ export async function suggest(request: Request) {
     const session = await auth()
     if (!session?.user?.id) throw new OcrError('AUTHENTICATION_REQUIRED')
     reservation = ocrCapacity.reserve(request.signal)
-    const receipt = await readReceipt(request, reservation.signal)
+    const receipt = await readReceipt(request, reservation.signal, { allowUnsupported: true })
     return await reservation.run(async (signal) => {
       const result = await ocrRequests.suggest(session.user.id, receipt, signal)
       return Response.json(result)
@@ -56,6 +57,7 @@ export async function find(_request: Request, context: { params: Promise<{ id: s
     const session = await auth()
     if (!session?.user?.id) throw new OcrError('AUTHENTICATION_REQUIRED')
     const { id } = await context.params
+    validateId(id)
     return Response.json(analysisDto(await ocrRequests.find(session.user.id, id)), { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) { return ocrProblem(error) }
 }

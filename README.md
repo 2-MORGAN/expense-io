@@ -92,7 +92,7 @@ sort de la machine.
 
 | Commande | Ce qu'elle vérifie | Docker |
 |---|---|---|
-| `npm run check` | lint (règles d'architecture comprises), types, tests unitaires, types OCR générés à jour | non |
+| `npm run check` | lint (règles d'architecture comprises), types, tests unitaires, contrat API valide et types générés à jour | non |
 | `npx playwright test -g "<ID>"` | un scénario E2E désigné par son ID ([`docs/tests/E2E.md`](docs/tests/E2E.md)), sur le serveur de `make dev` s'il tourne | oui |
 | `make test-e2e` | toute la suite E2E de non-régression, environ 3 min | oui |
 | `make verify` | tout ce que vérifie la CI : `npm run check`, build de production, puis la suite E2E | oui |
@@ -122,6 +122,14 @@ capte. La sortie du serveur s'affiche dans le terminal de `make dev`, ou dans la
 console de Playwright quand il démarre lui-même le serveur ; en CI, dans le
 journal du job `e2e`.
 
+## Contrat API
+
+Les 16 opérations métier sont décrites dans [openapi.yaml](openapi.yaml).
+Les types serveur/front sont générés par `npm run generate:api` ;
+`npm run check` contrôle le contrat, les artefacts et la couverture des routes.
+Validation des entrées, outils, compatibilité et transition des erreurs :
+[docs/api/README.md](docs/api/README.md).
+
 ## Contribuer
 
 1. Lire [`CLAUDE.md`](CLAUDE.md). Seules les ADR au statut « Acceptée » font foi ([`docs/adr/`](docs/adr/README.md)).
@@ -141,7 +149,8 @@ journal du job `e2e`.
 | [`docs/adr/`](docs/adr/README.md) | décisions d'architecture, leur statut et le modèle |
 | [`docs/audit/`](docs/audit/) | constats d'audit : sécurité (S), architecture (A), API (Q, B) |
 | [`docs/tests/E2E.md`](docs/tests/E2E.md) | scénarios E2E avec leurs IDs, résultats des exécutions |
-| [`docs/ocr.md`](docs/ocr.md) | OCR : protections, file asynchrone et contrat ([`docs/api/ocr.openapi.yaml`](docs/api/ocr.openapi.yaml)) |
+| [`openapi.yaml`](openapi.yaml), [`docs/api/`](docs/api/README.md) | contrat de l'API (16 opérations) et ses règles d'évolution |
+| [`docs/ocr.md`](docs/ocr.md) | OCR : protections et file asynchrone |
 | `src/` | le code ; où placer quoi : « Où placer le code » dans `CLAUDE.md` |
 | `migrations/` | schéma SQL versionné, seule source de vérité |
 | `e2e/` | tests Playwright |
