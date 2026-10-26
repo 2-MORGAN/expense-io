@@ -34,7 +34,6 @@ export const LEGACY_DB_ACCESS = [
 // 12 à l'origine, 11 depuis la correction de S2 (2-471). La server action
 // d'inscription en est sortie avec les invitations (2-496).
 export const LEGACY_GET_POOL = [
-  'src/app/api/expense-notes/route.ts',
   'src/app/api/hr/users/route.ts',
   'src/app/api/hr/users/[id]/manager/route.ts',
   'src/lib/auth.ts',
