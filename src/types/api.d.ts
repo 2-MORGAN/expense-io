@@ -368,13 +368,6 @@ export interface components {
                 message: string;
             }[];
         };
-        /**
-         * @deprecated
-         * @description Enveloppe historique transitoire ; supprimée après migration 2-485. Aucun détail interne ne fait partie du contrat public.
-         */
-        LegacyError: {
-            error: string;
-        };
         /** Format: uuid */
         Uuid: string;
         /**
@@ -470,6 +463,7 @@ export interface components {
         /** @description Refus explicite ou erreur interne, sans fuite technique */
         Problem: {
             headers: {
+                "X-Request-Id": string;
                 [name: string]: unknown;
             };
             content: {
@@ -479,6 +473,7 @@ export interface components {
         /** @description OCR_UNAVAILABLE, OCR_TIMEOUT ou OCR_OVERLOADED */
         Unavailable: {
             headers: {
+                "X-Request-Id": string;
                 "Retry-After": "5";
                 [name: string]: unknown;
             };
@@ -489,26 +484,27 @@ export interface components {
         /** @description Authentication required. */
         AuthenticationRequired: {
             headers: {
+                "X-Request-Id": string;
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["LegacyError"];
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Internal server error. */
         InternalError: {
             headers: {
+                "X-Request-Id": string;
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["LegacyError"];
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Invalid input; no write or upload. */
         InvalidInput: {
             headers: {
+                "X-Request-Id": string;
                 [name: string]: unknown;
             };
             content: {
@@ -518,30 +514,30 @@ export interface components {
         /** @description Resource not found or not visible; indistinguishable response. */
         ResourceNotFound: {
             headers: {
+                "X-Request-Id": string;
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["LegacyError"];
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Role is not allowed. */
         Forbidden: {
             headers: {
+                "X-Request-Id": string;
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["LegacyError"];
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Resource conflict: ALREADY_DECIDED or INVALID_MANAGER. */
         Conflict: {
             headers: {
+                "X-Request-Id": string;
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["LegacyError"];
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
@@ -638,6 +634,7 @@ export interface operations {
             /** @description Malformed UUID. */
             400: {
                 headers: {
+                    "X-Request-Id": string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -648,6 +645,7 @@ export interface operations {
             /** @description Analyse inconnue, étrangère ou expirée. */
             404: {
                 headers: {
+                    "X-Request-Id": string;
                     [name: string]: unknown;
                 };
                 content: {

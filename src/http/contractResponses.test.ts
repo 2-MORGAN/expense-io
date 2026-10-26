@@ -13,3 +13,16 @@ it('checks the actual response status, content type, body and mandatory headers'
 it('does not mistake a failed analysis for an unsuccessful HTTP lookup', () => {
   expect(() => checkApiResponse('GET', `${url}/${id}`, 200, headers, { id, status: 'failed' })).toThrow('Contract mismatch')
 })
+
+it('requires a problem with matching status and correlation, and rejects extra internal fields', () => {
+  const body = {
+    type: '/problems/internal-error', title: 'Internal server error', status: 500,
+    detail: 'An unexpected error occurred.', code: 'INTERNAL_ERROR', requestId: id,
+    error: 'An unexpected error occurred.',
+  }
+  const problemHeaders = { 'content-type': 'application/problem+json', 'x-request-id': id }
+  expect(() => checkApiResponse('POST', url, 500, problemHeaders, body)).not.toThrow()
+  expect(() => checkApiResponse('POST', url, 500, problemHeaders, { ...body, stack: 'private' })).toThrow('Contract mismatch')
+  expect(() => checkApiResponse('POST', url, 500, { ...problemHeaders, 'x-request-id': '00000000-0000-4000-8000-000000000002' }, body)).toThrow('Problem requestId differs')
+  expect(() => checkApiResponse('POST', url, 500, problemHeaders, { ...body, status: 400 })).toThrow('Problem status differs')
+})

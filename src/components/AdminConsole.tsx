@@ -1,5 +1,7 @@
 'use client'
 
+import { responseErrorMessage } from '@/components/apiError'
+
 import type { ExpenseNote, CompanyUser } from '@/http/dto'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -29,7 +31,7 @@ export function AdminConsole() {
     if (response.ok) {
       setUsers(await response.json())
     } else {
-      setUsersError("Impossible de charger l'annuaire.")
+      setUsersError(await responseErrorMessage(response))
     }
     setUsersLoading(false)
   }, [])
@@ -39,7 +41,7 @@ export function AdminConsole() {
     if (response.ok) {
       setNotes(await response.json())
     } else {
-      setNotesError('Impossible de charger les notes en attente.')
+      setNotesError(await responseErrorMessage(response))
     }
     setNotesLoading(false)
   }, [])
@@ -65,10 +67,7 @@ export function AdminConsole() {
     if (response.ok) {
       await loadUsers()
     } else {
-      const body = await response.json().catch(() => null)
-      setUsersError(
-        typeof body?.error === 'string' ? body.error : "Échec de l'assignation."
-      )
+      setUsersError(await responseErrorMessage(response))
     }
   }
 
@@ -76,7 +75,7 @@ export function AdminConsole() {
     setNotesError(null)
     const response = await fetch(`/api/hr/expense-notes/${id}/receipt-url`)
     if (!response.ok) {
-      setNotesError('Impossible de récupérer le reçu.')
+      setNotesError(await responseErrorMessage(response))
       return
     }
     const { url } = await response.json()
@@ -94,12 +93,7 @@ export function AdminConsole() {
     if (response.ok) {
       await loadNotes()
     } else {
-      const body = await response.json().catch(() => null)
-      setNotesError(
-        typeof body?.error === 'string'
-          ? body.error
-          : 'Échec de la décision sur cette note de frais.'
-      )
+      setNotesError(await responseErrorMessage(response))
     }
   }
 

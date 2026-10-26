@@ -1,3 +1,5 @@
+import { problemResponse } from './problem'
+import { requestContext } from './requestContext'
 import type { Session } from 'next-auth'
 import type { UserRole } from '@/domain/User'
 
@@ -7,10 +9,12 @@ import type { UserRole } from '@/domain/User'
 // Seul point de création : 2-471 et 2-485 ont pour consigne de ne pas en créer.
 export function requireRole(session: Session | null, role?: UserRole): Session['user'] | Response {
   if (!session?.user) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    return problemResponse('AUTHENTICATION_REQUIRED')
   }
   if (role !== undefined && session.user.role !== role) {
-    return Response.json({ error: 'Unauthorized' }, { status: 403 })
+    return problemResponse('FORBIDDEN')
   }
+  const context = requestContext.getStore()
+  if (context) context.userId = session.user.id
   return session.user
 }
