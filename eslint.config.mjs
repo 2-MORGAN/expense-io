@@ -24,15 +24,11 @@ export const LEGACY_DB_ACCESS = [
   'src/app/api/expense-notes/route.ts',
   'src/app/api/expense-notes/[id]/receipt-url/route.ts',
   'src/app/api/hr/expense-notes/route.ts',
-  'src/app/api/hr/expense-notes/[id]/approve/route.ts',
   'src/app/api/hr/expense-notes/[id]/receipt-url/route.ts',
-  'src/app/api/hr/expense-notes/[id]/reject/route.ts',
   'src/app/api/hr/users/route.ts',
   'src/app/api/hr/users/[id]/manager/route.ts',
   'src/app/api/manager/expense-notes/route.ts',
-  'src/app/api/manager/expense-notes/[id]/approve/route.ts',
   'src/app/api/manager/expense-notes/[id]/receipt-url/route.ts',
-  'src/app/api/manager/expense-notes/[id]/reject/route.ts',
 ].map(literal)
 
 // Fichiers des appels à getPool() que 2-481 supprime (ADR-001, annexe B) :
