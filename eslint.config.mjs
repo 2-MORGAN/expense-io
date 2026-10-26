@@ -24,24 +24,20 @@ export const LEGACY_DB_ACCESS = [
   'src/app/api/expense-notes/route.ts',
   'src/app/api/expense-notes/[id]/receipt-url/route.ts',
   'src/app/api/hr/expense-notes/route.ts',
-  'src/app/api/hr/expense-notes/[id]/approve/route.ts',
   'src/app/api/hr/expense-notes/[id]/receipt-url/route.ts',
-  'src/app/api/hr/expense-notes/[id]/reject/route.ts',
   'src/app/api/hr/users/route.ts',
   'src/app/api/hr/users/[id]/manager/route.ts',
   'src/app/api/manager/expense-notes/route.ts',
-  'src/app/api/manager/expense-notes/[id]/approve/route.ts',
   'src/app/api/manager/expense-notes/[id]/receipt-url/route.ts',
-  'src/app/api/manager/expense-notes/[id]/reject/route.ts',
 ].map(literal)
 
-// Fichiers des 12 appels à getPool() que 2-481 supprime (ADR-001, annexe B).
+// Fichiers des appels à getPool() que 2-481 supprime (ADR-001, annexe B) :
+// 12 à l'origine, 11 depuis la correction de S2 (2-471).
 export const LEGACY_GET_POOL = [
   'src/app/actions/auth.ts',
   'src/app/api/expense-notes/route.ts',
   'src/app/api/hr/users/route.ts',
   'src/app/api/hr/users/[id]/manager/route.ts',
-  'src/app/api/manager/expense-notes/[id]/receipt-url/route.ts',
   'src/lib/auth.ts',
 ].map(literal)
 
