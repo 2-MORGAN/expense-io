@@ -1,8 +1,9 @@
 import { withUserScope } from '@/lib/db'
-import type {
-  ExpenseNoteSubmissionRepository,
-  NewExpenseNote,
-  SubmittedExpenseNote,
+import {
+  DuplicateIdempotencyKey,
+  type ExpenseNoteSubmissionRepository,
+  type NewExpenseNote,
+  type SubmittedExpenseNote,
 } from '@/ports/ExpenseNoteSubmissionRepository'
 
 export class PostgresExpenseNoteSubmissionRepository implements ExpenseNoteSubmissionRepository {
@@ -18,14 +19,36 @@ export class PostgresExpenseNoteSubmissionRepository implements ExpenseNoteSubmi
   }
 
   async create(userId: string, note: NewExpenseNote): Promise<SubmittedExpenseNote> {
+    try {
+      return await withUserScope(userId, async (client) => {
+        const inserted = await client.query<SubmittedExpenseNote>(
+          `INSERT INTO expense_notes
+             (id, user_id, amount, expense_date, description, receipt_key, idempotency_key, request_fingerprint)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING *`,
+          [
+            note.id, userId, note.amount, note.expenseDate, note.description, note.receiptKey,
+            note.idempotency?.key ?? null, note.idempotency?.fingerprint ?? null,
+          ]
+        )
+        return inserted.rows[0]
+      })
+    } catch (error) {
+      const violation = error as { code?: string; constraint?: string }
+      if (violation.code === '23505' && violation.constraint === 'expense_notes_user_idempotency_key') {
+        throw new DuplicateIdempotencyKey()
+      }
+      throw error
+    }
+  }
+
+  async findByIdempotencyKey(userId: string, key: string): Promise<SubmittedExpenseNote | null> {
     return withUserScope(userId, async (client) => {
-      const inserted = await client.query<SubmittedExpenseNote>(
-        `INSERT INTO expense_notes (id, user_id, amount, expense_date, description, receipt_key)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING *`,
-        [note.id, userId, note.amount, note.expenseDate, note.description, note.receiptKey]
+      const result = await client.query<SubmittedExpenseNote>(
+        'SELECT * FROM expense_notes WHERE user_id = $1 AND idempotency_key = $2',
+        [userId, key]
       )
-      return inserted.rows[0]
+      return result.rows[0] ?? null
     })
   }
 

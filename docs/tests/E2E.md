@@ -142,6 +142,12 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | NDF-13 | `?sort=` hors liste blanche (colonne inconnue, clause ajoutée, direction invalide) → 200, tri par défaut (faille S1 corrigée) | API |
 | SOUM-01 | Note créée : `receipt_key = receipts/{entreprise}/{id de la note}.ext`, objet présent dans S3 avec son type (2-476, ADR-003 §3) | API |
 | SOUM-02 | Aucune note de l'entreprise sans reçu (clé vide) ni hors du préfixe de son entreprise | API |
+| IDEM-01 | Même `Idempotency-Key`, même contenu : 201 avec la même note, `Idempotent-Replayed: true`, une seule ligne (2-476 étape 2) | API |
+| IDEM-02 | Trois requêtes simultanées de même clé : une seule note | API |
+| IDEM-03 | Même clé, contenu différent : 422 `IDEMPOTENCY_KEY_REUSED`, rien de créé | API |
+| IDEM-04 | Clé qui n'est pas un UUID : 400 `INVALID_IDEMPOTENCY_KEY` | API |
+| IDEM-05 | La clé est propre à l'utilisateur : un collègue avec la même clé crée sa propre note | API |
+| IDEM-06 | Sans en-tête : deux envois identiques créent deux notes (comportement inchangé) | API |
 
 ### Pré-remplissage depuis le reçu (OCR) — `e2e/ocr-suggestion.spec.ts`
 

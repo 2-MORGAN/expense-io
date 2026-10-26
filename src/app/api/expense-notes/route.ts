@@ -5,6 +5,10 @@ import { withUserScope } from '@/lib/db'
 import { respondError } from '@/lib/errors'
 import { readExpenseInput } from '@/http/readExpenseInput'
 import { submitExpenseNote } from '@/composition/submissions'
+import { IdempotencyKeyReused, InvalidIdempotencyKey } from '@/application/SubmitExpenseNote'
+import { OcrError } from '@/domain/receipt/OcrError'
+import { ocrProblem } from '@/http/ocrProblem'
+import { InputError } from '@/http/validation'
 import { toExpenseNoteDto } from '@/http/expenseNote'
 import { requireRole } from '@/http/requireRole'
 
@@ -63,15 +67,22 @@ export async function POST(request: NextRequest) {
     const { amount, expenseDate, description, receipt } = await readExpenseInput(request)
 
     const extension = EXTENSION_BY_MIME[receipt.type] ?? path.extname(receipt.name) ?? ''
-    const note = await submitExpenseNote.execute(actor.id, {
+    const result = await submitExpenseNote.execute(actor.id, {
       amount,
       expenseDate,
       description,
       receipt: { data: Buffer.from(await receipt.arrayBuffer()), mimeType: receipt.type, extension },
+      idempotencyKey: request.headers.get('idempotency-key'),
     })
 
-    return Response.json(toExpenseNoteDto(note), { status: 201 })
+    return Response.json(toExpenseNoteDto(result.note), {
+      status: 201,
+      headers: result.replayed ? { 'Idempotent-Replayed': 'true' } : undefined,
+    })
   } catch (error) {
+    // Mêmes problèmes (RFC 9457) que l'analyse de reçu : 400 et 422 du contrat.
+    if (error instanceof InvalidIdempotencyKey) return respondError(new InputError('INVALID_IDEMPOTENCY_KEY'))
+    if (error instanceof IdempotencyKeyReused) return ocrProblem(new OcrError('IDEMPOTENCY_KEY_REUSED'))
     return respondError(error)
   }
 }

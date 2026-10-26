@@ -222,10 +222,31 @@
       "post": {
         "operationId": "createExpenseNote",
         "summary": "Crée une note avec son reçu pour l’utilisateur connecté.",
-        "description": "Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.",
+        "description": "Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads. The receipt is stored first, then the note is written in one transaction.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Renvoi identique (même montant, date, description et reçu) pour le même utilisateur ; renvoie la note déjà créée, sans doublon. Autre contenu avec la même clé donne 422. Sans en-tête, aucune déduplication."
+          }
+        ],
         "responses": {
           "201": {
-            "description": "Note created",
+            "description": "Note created, or replay of the note already created for this Idempotency-Key",
+            "headers": {
+              "Idempotent-Replayed": {
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                },
+                "description": "Présent uniquement lors d’un rejeu ; aucun reçu ni note n’a été créé."
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -239,6 +260,9 @@
           },
           "401": {
             "$ref": "#/components/responses/AuthenticationRequired"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
