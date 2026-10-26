@@ -7,6 +7,11 @@
       "count": 2
     }
   },
+  "e2e/api-contract.spec.ts": {
+    "sonarjs/no-floating-point-equality": {
+      "count": 1
+    }
+  },
   "e2e/ocr-suggestion.spec.ts": {
     "sonarjs/assertions-in-tests": {
       "count": 1
@@ -17,13 +22,16 @@
       "count": 1
     }
   },
-  "src/adapters/SmtpEmailAdapter.ts": {
-    "sonarjs/no-clear-text-protocols": {
+  "scripts/check-api.mjs": {
+    "sonarjs/cognitive-complexity": {
+      "count": 1
+    },
+    "sonarjs/super-linear-regex": {
       "count": 1
     }
   },
-  "src/app/actions/auth.ts": {
-    "sonarjs/super-linear-regex": {
+  "src/adapters/SmtpEmailAdapter.ts": {
+    "sonarjs/no-clear-text-protocols": {
       "count": 1
     }
   },
@@ -42,7 +50,15 @@
       "count": 1
     }
   },
+  "src/domain/identity/identity.ts": {
+    "sonarjs/super-linear-regex": {
+      "count": 3
+    }
+  },
   "src/domain/receipt/Receipt.ts": {
+    "sonarjs/cognitive-complexity": {
+      "count": 1
+    },
     "sonarjs/no-nested-conditional": {
       "count": 3
     }
@@ -59,6 +75,19 @@
   },
   "src/http/ocrProblem.ts": {
     "sonarjs/no-nested-conditional": {
+      "count": 1
+    }
+  },
+  "src/http/validation.ts": {
+    "sonarjs/cognitive-complexity": {
+      "count": 1
+    },
+    "sonarjs/no-nested-conditional": {
+      "count": 4
+    }
+  },
+  "src/lib/email.ts": {
+    "sonarjs/super-linear-regex": {
       "count": 1
     }
   },

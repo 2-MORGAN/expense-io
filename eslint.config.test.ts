@@ -194,7 +194,7 @@ describe('règles SonarJS', () => {
   it('ne jugent pas les types générés par openapi-typescript', async () => {
     const code = `export interface paths { '/x': { get: never } }`
     expect(await errorRulesFor(code, 'src/types/new.d.ts')).toContain('sonarjs/class-name')
-    expect(await errorRulesFor(code, 'src/types/ocr-api.d.ts')).not.toContain('sonarjs/class-name')
+    expect(await errorRulesFor(code, 'src/types/api.d.ts')).not.toContain('sonarjs/class-name')
   })
 
   it('coupent les règles AWS CDK, sans changer la version de React vue par Next.js', async () => {

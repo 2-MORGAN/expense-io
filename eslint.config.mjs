@@ -142,7 +142,7 @@ const eslintConfig = defineConfig([
     // `plugins` et `rules` du préréglage sont repris : ses `settings`
     // changeraient la version de React vue par les règles de Next.js.
     name: 'expense-io/sonarjs',
-    ignores: ['src/types/ocr-api.d.ts'], // généré par openapi-typescript
+    ignores: ['src/types/api.d.ts'], // généré par openapi-typescript
     plugins: sonarjs.configs.recommended.plugins,
     rules: { ...sonarjs.configs.recommended.rules, ...SONARJS_AWS_CDK_OFF },
   },
