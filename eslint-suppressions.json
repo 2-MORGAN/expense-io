@@ -1,0 +1,70 @@
+{
+  ".claude/hooks/guard-git.mjs": {
+    "sonarjs/cognitive-complexity": {
+      "count": 2
+    },
+    "sonarjs/super-linear-regex": {
+      "count": 2
+    }
+  },
+  "e2e/ocr-suggestion.spec.ts": {
+    "sonarjs/assertions-in-tests": {
+      "count": 1
+    }
+  },
+  "e2e/support/db.ts": {
+    "sonarjs/super-linear-regex": {
+      "count": 1
+    }
+  },
+  "src/adapters/SmtpEmailAdapter.ts": {
+    "sonarjs/no-clear-text-protocols": {
+      "count": 1
+    }
+  },
+  "src/app/actions/auth.ts": {
+    "sonarjs/super-linear-regex": {
+      "count": 1
+    }
+  },
+  "src/app/expenses/page.tsx": {
+    "sonarjs/no-nested-conditional": {
+      "count": 2
+    }
+  },
+  "src/components/AdminConsole.tsx": {
+    "sonarjs/no-nested-conditional": {
+      "count": 2
+    }
+  },
+  "src/components/PendingApprovalsPanel.tsx": {
+    "sonarjs/no-nested-conditional": {
+      "count": 1
+    }
+  },
+  "src/domain/receipt/Receipt.ts": {
+    "sonarjs/no-nested-conditional": {
+      "count": 3
+    }
+  },
+  "src/domain/receipt/parseReceiptText.ts": {
+    "sonarjs/super-linear-regex": {
+      "count": 1
+    }
+  },
+  "src/http/expenseNote.test.ts": {
+    "sonarjs/no-floating-point-equality": {
+      "count": 1
+    }
+  },
+  "src/http/ocrProblem.ts": {
+    "sonarjs/no-nested-conditional": {
+      "count": 1
+    }
+  },
+  "src/utils/validators.ts": {
+    "sonarjs/super-linear-regex": {
+      "count": 1
+    }
+  }
+}

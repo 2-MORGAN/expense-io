@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from 'eslint/config'
 import nextVitals from 'eslint-config-next/core-web-vitals'
 import nextTs from 'eslint-config-next/typescript'
+import sonarjs from 'eslint-plugin-sonarjs'
 
 // Règles d'architecture de CLAUDE.md et des ADR-001 et 002, vérifiées par les
 // règles natives d'ESLint (ADR-005, T6).
@@ -122,9 +123,41 @@ const SQL_TEXT = [
 const DISABLED_TEST_MESSAGE =
   'Un test ne se désactive pas pour faire passer la CI : corriger le code, ou demander si le comportement doit changer (ADR-005 §2).'
 
+// Règles AWS CDK de SonarJS : le dépôt ne décrit pas d'infrastructure AWS en
+// code, elles ne trouveraient rien et allongent le lint.
+const SONARJS_AWS_CDK_OFF = Object.fromEntries(
+  Object.keys(sonarjs.rules)
+    .filter((name) => name.startsWith('aws-'))
+    .map((name) => [`sonarjs/${name}`, 'off'])
+)
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // Règles de SonarQube (SonarJS) : bugs, failles (ReDoS, secrets en dur,
+    // cookies, cryptographie…) et code fragile, vérifiés à chaque commit, push
+    // et CI, sans serveur. Les constats du code existant sont figés dans
+    // eslint-suppressions.json, qui ne fait que raccourcir. Seuls les
+    // `plugins` et `rules` du préréglage sont repris : ses `settings`
+    // changeraient la version de React vue par les règles de Next.js.
+    name: 'expense-io/sonarjs',
+    ignores: ['src/types/ocr-api.d.ts'], // généré par openapi-typescript
+    plugins: sonarjs.configs.recommended.plugins,
+    rules: { ...sonarjs.configs.recommended.rules, ...SONARJS_AWS_CDK_OFF },
+  },
+  {
+    // Comptes de démonstration publics (CLAUDE.md, README) et données de test.
+    name: 'expense-io/sonarjs-test-data',
+    files: ['e2e/**', 'scripts/seed.mjs', 'src/**/*.test.ts'],
+    rules: { 'sonarjs/no-hardcoded-passwords': 'off' },
+  },
+  {
+    // Outils du poste de dev : npm et git lancés par leur nom, depuis le PATH.
+    name: 'expense-io/sonarjs-dev-tools',
+    files: ['.claude/hooks/**', 'scripts/**'],
+    rules: { 'sonarjs/no-os-command-from-path': 'off' },
+  },
   {
     name: 'expense-io/get-pool',
     ignores: ['src/lib/db.ts', ...LEGACY_GET_POOL],
