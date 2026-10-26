@@ -119,7 +119,8 @@ e2e/
 | NDF-09 | Type de reçu non autorisé → 400 « Type de fichier non autorisé pour le reçu » | API |
 | NDF-10 | Reçu > 10 Mio → 400 « Fichier trop volumineux » | API |
 | NDF-11 | `GET /api/expense-notes` : uniquement ses propres notes, plus récentes d'abord | API |
-| NDF-12 | `?sort=amount ASC` / `amount DESC` trie la liste (usage légitime seulement) | API |
+| NDF-12 | `?sort=amount ASC` / `amount DESC` trie la liste | API |
+| NDF-13 | `?sort=` hors liste blanche (colonne inconnue, clause ajoutée, direction invalide) → 200, tri par défaut (faille S1 corrigée) | API |
 
 ### Pré-remplissage depuis le reçu (OCR) — `e2e/ocr-suggestion.spec.ts`
 
@@ -147,6 +148,7 @@ e2e/
 | RECU-05 | `GET /api/manager/expense-notes/:id/receipt-url` : 200 pour une note de son équipe, 404 pour un id inconnu | API |
 | RECU-06 | RH : « Voir le reçu » depuis `/hr` | UI |
 | RECU-07 | `GET /api/hr/expense-notes/:id/receipt-url` : 200 pour un manager racine de l'entreprise ; 404 pour une note d'employé, de manager non racine, d'une autre entreprise ou inconnue | API |
+| RECU-08 | `GET /api/manager/expense-notes/:id/receipt-url` : 404 pour la note d'un employé d'un autre manager, d'une autre entreprise ou du manager lui-même (faille S2 corrigée) | API |
 
 ### Validation ou rejet par le manager — `e2e/manager-approval.spec.ts`
 
@@ -188,6 +190,7 @@ e2e/
 | ORG-06 | `PUT /api/hr/users/:id/manager` → 200 + utilisateur à jour (la visibilité des notes suit) ; `managerId: null` → détachement | API |
 | ORG-07 | Manager invalide (soi-même, employé, RH, inconnu) → 409 « Invalid manager », rien ne change | API |
 | ORG-08 | Cible RH, d'une autre entreprise ou inconnue → 404 « Not found » | API |
+| ORG-09 | `PUT /api/hr/users/:id/manager` vers un manager d'une autre entreprise → 409 « Invalid manager », rattachement inchangé (faille S3 corrigée) | API |
 
 ### Contrôle d'accès et isolation — `e2e/access-control.spec.ts`
 
@@ -202,6 +205,24 @@ e2e/
 | ISO-03 | Un employé d'une autre entreprise ne voit ni les notes ni les reçus | API |
 
 Pour ACL-01 à ACL-04, chaque refus est vérifié **sans effet de bord** (notes toujours `pending`, rattachement inchangé).
+
+### Isolation par la base (RLS) — `e2e/rls-isolation.spec.ts`
+
+Tests d'intégration de base (ADR-001 §5.1, 2-478). Chaque vérification tourne sous le rôle restreint `expense_app` (`SET LOCAL ROLE`), avec le contexte que pose `withUserScope`, dans une transaction annulée. Les témoins vérifient que la même requête voit bien les données de sa propre entreprise. L'application, elle, ne passe sous `expense_app` qu'avec 2-481.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| ISO-07a | `expense_app` n'est ni superuser ni `BYPASSRLS` ; aucun droit sur `users.password_hash` (42501) ni sur `companies` | Base |
+| ISO-07b | Contexte absent ou inconnu → 0 note | Base |
+| ISO-07c | Contexte absent ou inconnu → 0 utilisateur | Base |
+| ISO-07d | RH de B → 0 note et 0 utilisateur de A ; témoin : la RH de A voit la note de son manager racine et ses 3 utilisateurs | Base |
+| ISO-07e | Lien manager inter-entreprises refusé par la clé étrangère (23503) ; posé malgré tout (contrôles désactivés), le manager de B ne voit ni ne tranche la note de A | Base |
+| ISO-07f | Un employé ne change pas le statut de sa propre note (0 ligne) | Base |
+| ISO-07g | Le manager racine trouve les RH de son entreprise, et seulement elles (notification de soumission) | Base |
+| ISO-07h | Rattachement : la RH dans son entreprise seulement, jamais un employé ; changer un rôle est refusé (42501) | Base |
+| ISO-07i | `auth_find_user` rend une seule ligne, par email exact | Base |
+| ISO-07j | Le manager tranche la note de son équipe avec les écritures de la décision : statut, `decided_by`, `decided_at` (2-488) | Base |
+| SIGNUP-09 | `register_user` : panne injectée (email déjà pris, en autocommit) → aucune entreprise créée ; domaine déjà pris → `NULL` | Base |
 
 ### Parcours complet — `e2e/parcours-complet.spec.ts`
 
@@ -301,9 +322,6 @@ Les références renvoient à `CLAUDE.md` (« Dette connue ») et à l'audit API
 
 | Comportement actuel | Réf. |
 |---|---|
-| Injection SQL via `?sort=` (seul un tri légitime est testé, NDF-12) | B1 |
-| Un manager obtient le reçu d'une note hors de son équipe (IDOR) | B2 |
-| Une RH peut rattacher un employé à un manager d'une autre entreprise | B3 |
 | Message interne et stacktrace renvoyés dans les erreurs 500 ; certaines erreurs SQL échappent au `catch` | B4, Q1.3 |
 | Corps JSON invalide ou sans `managerId` sur `PUT …/manager` = détachement silencieux (200) | B7 |
 | Validation stricte B7 : désormais couverte par API-01 à API-04 et les tests unitaires de frontière ; refus avant DB/S3 | 2-486 |
@@ -320,7 +338,7 @@ Quand l'un de ces points est corrigé, ajouter le test correspondant (un bug cor
 - Atomicité de la création note + upload S3 (panne S3 ou base en cours de route), idempotence des réessais (B9) : demande une injection de pannes.
 - Charge et limites de l'OCR : gros fichiers, durée, concurrence (B10). La distinction entre panne de l'OCR et « rien trouvé » n'existe pas (les deux donnent `{}`, B11) ; seul le cas « type non pris en charge → `{}` » est figé.
 - Messages d'erreur de l'UI qui n'apparaissent qu'en cas de panne serveur : « Impossible de charger les notes de frais. », « Impossible de récupérer le reçu. », « Impossible d’analyser ce reçu. », « Échec de l'assignation. ».
-- Policies RLS de PostgreSQL : contournées dans la configuration actuelle (connexion superuser). L'isolation est vérifiée au niveau HTTP (ISO-*, MGR-09, RH-08, ORG-08, RECU-02/07), pas au niveau des policies.
+- Policies RLS de PostgreSQL **sous l'application lancée** : elle se connecte encore en superuser jusqu'à 2-481. Les policies sont vérifiées en base sous `expense_app` (ISO-07, `e2e/rls-isolation.spec.ts`), et l'isolation au niveau HTTP (ISO-01 à 03, MGR-09, RH-08, ORG-08/09, RECU-02/07/08).
 
 ### Hors périmètre de cette suite
 

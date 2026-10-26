@@ -2,23 +2,20 @@ import type { CompanyUser } from '@/http/dto'
 import { auth } from '@/lib/auth'
 import { getPool } from '@/lib/db'
 import { respondError } from '@/lib/errors'
+import { requireRole } from '@/http/requireRole'
 
 export async function GET() {
   try {
     const session = await auth()
-    if (!session?.user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    if (session.user.role !== 'hr_admin') {
-      return Response.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const actor = requireRole(session, 'hr_admin')
+    if (actor instanceof Response) return actor
 
     const result = await getPool().query(
       `SELECT id, name, email, role, manager_id FROM users
        WHERE role IN ('employee', 'manager')
          AND company_id = (SELECT company_id FROM users WHERE id = $1)
        ORDER BY name`,
-      [session.user.id]
+      [actor.id]
     )
     return Response.json(
       result.rows.map((row) => ({

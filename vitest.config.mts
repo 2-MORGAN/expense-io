@@ -7,6 +7,6 @@ export default defineConfig({
   // Alias `@/*` lu dans tsconfig.json, comme pour Next.js.
   resolve: { tsconfigPaths: true },
   test: {
-    include: ['src/**/*.test.ts', 'eslint.config.test.ts'],
+    include: ['src/**/*.test.ts', 'eslint.config.test.ts', '.claude/hooks/*.test.mjs'],
   },
 })
