@@ -159,7 +159,7 @@ const eslintConfig = defineConfig([
   },
   {
     name: 'expense-io/tests',
-    files: ['e2e/**', 'src/**/*.test.ts'],
+    files: ['e2e/**', 'src/**/*.test.ts', 'scripts/**/*.test.ts'],
     rules: {
       'no-restricted-properties': [
         'error',

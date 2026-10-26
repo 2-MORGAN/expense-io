@@ -137,6 +137,14 @@ describe('règles d’architecture', () => {
       )
       expect(messages.join('\n')).toMatch(/'skip' is restricted/)
     })
+
+    it('refusent aussi .only dans les tests de scripts/', async () => {
+      const messages = await messagesFor(
+        `declare const it: Record<string, (...a: unknown[]) => void>\nit.only('a', () => {})`,
+        'scripts/architecture/new.test.ts'
+      )
+      expect(messages.join('\n')).toMatch(/'only' is restricted/)
+    })
   })
 })
 

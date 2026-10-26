@@ -18,7 +18,8 @@
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "generate:api": "openapi-typescript openapi.yaml -o src/types/api.d.ts && node scripts/generate-api.mjs",
-    "check:api": "redocly lint openapi.yaml && openapi-typescript openapi.yaml -o src/types/api.d.ts --check && node scripts/generate-api.mjs --check && node scripts/check-api.mjs"
+    "check:api": "redocly lint openapi.yaml && openapi-typescript openapi.yaml -o src/types/api.d.ts --check && node scripts/generate-api.mjs --check && node scripts/check-api.mjs",
+    "generate:architecture": "tsx scripts/architecture/generate.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",

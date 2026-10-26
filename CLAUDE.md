@@ -84,7 +84,7 @@ src/
 ├── instrumentation.ts       # journalise les erreurs captées par Next.js (onRequestError)
 └── proxy.ts                 # garde de navigation (ne couvre PAS /api)
 migrations/                  # SQL versionné — seule source de vérité du schéma
-scripts/                     # seed.mjs, ensure-bucket.mjs
+scripts/                     # seed.mjs, ensure-bucket.mjs, architecture/ (graphes de docs/architecture)
 ```
 
 Règles de placement pour tout **nouveau** code :
@@ -99,6 +99,8 @@ Règles de placement pour tout **nouveau** code :
 - Réutiliser avant de créer : le module OCR branche déjà ses cas d'usage, ports et adaptateurs. Les classes historiques `ExpenseNote`, `User` et plusieurs utilitaires restent à brancher (voir dette).
 
 `npm run lint` fait respecter une partie de ces règles (`eslint.config.mjs`, ADR-005 T6) : domaine sans infrastructure ; ni SQL ni accès base dans `src/app/` et `src/components/` ; `getPool()` réservé à `src/lib/db.ts` ; pas de SQL interpolé ; pas de test `.only`, `.skip`, `.fixme` ou `.fail`. Le code existant qui enfreint une règle est listé en exception (listes `LEGACY_*`). Ces listes ne font que raccourcir : retirer un fichier dès qu'il est conforme, **ne jamais en ajouter un** pour faire passer le lint.
+
+Les graphes de [`docs/architecture/`](docs/architecture/README.md) complètent le lint. Le test `scripts/architecture/architecture.test.ts` (dans `npm run check`) vérifie la matrice entière des couches (`scripts/architecture/layers.ts`, ADR-002 §3.3) et la garde de chaque méthode de route, puis compare les graphes Mermaid versionnés au code. Un graphe qui a dérivé se régénère avec `npm run generate:architecture` et se commite avec le code. Une flèche interdite ou une route sans garde se corrigent dans le code, jamais en régénérant ni en ajoutant une exception (`LEGACY_EDGES` et `PUBLIC_ROUTES` ne font que raccourcir). Une nouvelle couche ou un nouveau droit se justifient dans la PR.
 
 ## Conventions
 
