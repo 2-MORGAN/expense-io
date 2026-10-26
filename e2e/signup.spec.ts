@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { Page } from '@playwright/test'
 import { uniqueDomain } from './support/db'
 import { AUTH_TIMEOUT, expect, test } from './support/fixtures'
+import { signUpAndVerify } from './support/identity'
 
 const INVALID_SIGNUP_MESSAGE =
   'Nom requis, email invalide, ou mot de passe trop court (8 caractères minimum).'
@@ -26,11 +27,12 @@ async function signUp(
 }
 
 test.describe('Inscription', () => {
-  test('[SIGNUP-01] premier compte d’un domaine → crée l’entreprise et devient RH (connecté, redirigé)', async ({
+  test('[SIGNUP-01] premier compte sans invitation → crée l’entreprise et devient RH, connecté après confirmation de l’email', async ({
     page,
   }) => {
+    // S7 (ADR-001 §3) : connexion seulement après le lien de confirmation.
     const email = `alice@${uniqueDomain('signup-01')}`
-    await signUp(page, { name: 'Alice Fondatrice', email, password: 'motdepasse-solide' })
+    await signUpAndVerify(page, { name: 'Alice Fondatrice', email, password: 'motdepasse-solide' })
 
     await expect(page).toHaveURL(/\/expenses$/, { timeout: AUTH_TIMEOUT })
     const banner = page.getByRole('banner')
@@ -45,32 +47,28 @@ test.describe('Inscription', () => {
     await expect(page.getByText('Aucun employé ou manager dans cette entreprise.')).toBeVisible()
   })
 
-  test('[SIGNUP-02] compte suivant sur le même domaine → employé de la même entreprise, sans manager', async ({
+  test('[SIGNUP-02] compte suivant sur le même domaine, sans invitation → RH de sa propre entreprise, invisible de la première', async ({
     page,
     openPage,
   }) => {
+    // S7 (ADR-001 §3) : le domaine ne regroupe plus personne ; rejoindre une
+    // entreprise passe par une invitation (SIGNUP-08b).
     const domain = uniqueDomain('signup-02')
     const hrPage = await openPage()
-    await signUp(hrPage, { name: 'Alice Fondatrice', email: `alice@${domain}`, password: 'motdepasse-1' })
-    await expect(hrPage).toHaveURL(/\/expenses$/, { timeout: AUTH_TIMEOUT })
+    await signUpAndVerify(hrPage, { name: 'Alice Fondatrice', email: `alice@${domain}`, password: 'motdepasse-1' })
 
-    const employeeEmail = `bob@${domain}`
-    await signUp(page, { name: 'Bob Arrivant', email: employeeEmail, password: 'motdepasse-2' })
-    await expect(page).toHaveURL(/\/expenses$/, { timeout: AUTH_TIMEOUT })
+    const secondEmail = `bob@${domain}`
+    await signUpAndVerify(page, { name: 'Bob Arrivant', email: secondEmail, password: 'motdepasse-2' })
     const banner = page.getByRole('banner')
-    await expect(banner).toContainText(employeeEmail)
-    await expect(banner.getByRole('link', { name: 'RH', exact: true })).toHaveCount(0)
-    await expect(banner.getByRole('link', { name: 'Manager', exact: true })).toHaveCount(0)
+    await expect(banner).toContainText(secondEmail)
+    await expect(banner.getByRole('link', { name: 'RH', exact: true })).toBeVisible()
     await page.goto('/hr')
-    await expect(page.getByRole('heading', { name: 'Accès réservé aux RH' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Organigramme (0)' })).toBeVisible()
 
-    // La RH du domaine voit le nouvel employé, non rattaché.
+    // La première RH ne voit pas ce compte.
     await hrPage.goto('/hr')
-    await expect(hrPage.getByRole('heading', { name: 'Organigramme (1)' })).toBeVisible()
-    const row = hrPage.getByRole('row', { name: /Bob Arrivant/ })
-    await expect(row).toContainText(employeeEmail)
-    await expect(row.getByRole('cell').nth(1)).toHaveText('employee')
-    await expect(row.getByRole('combobox')).toHaveValue('')
+    await expect(hrPage.getByRole('heading', { name: 'Organigramme (0)' })).toBeVisible()
+    await expect(hrPage.getByRole('row', { name: /Bob Arrivant/ })).toHaveCount(0)
   })
 
   test('[SIGNUP-03] email déjà utilisé → « Un compte existe déjà avec cet email. »', async ({
@@ -147,7 +145,8 @@ test.describe('Inscription', () => {
 
   test('[SIGNUP-07] le compte créé permet ensuite de se connecter via /login', async ({ page }) => {
     const email = `carole@${uniqueDomain('signup-07')}`
-    await signUp(page, { name: 'Carole Retour', email, password: 'motdepasse-solide' })
+    // S7 (ADR-001 §3) : email confirmé avant la première connexion.
+    await signUpAndVerify(page, { name: 'Carole Retour', email, password: 'motdepasse-solide' })
     await expect(page).toHaveURL(/\/expenses$/, { timeout: AUTH_TIMEOUT })
     await page.getByRole('banner').getByRole('button', { name: 'Se déconnecter' }).click()
     await expect(page).toHaveURL(/\/login$/)
