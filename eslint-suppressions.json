@@ -36,6 +36,9 @@
     }
   },
   "src/app/expenses/page.tsx": {
+    "sonarjs/cognitive-complexity": {
+      "count": 1
+    },
     "sonarjs/no-nested-conditional": {
       "count": 2
     }
@@ -68,13 +71,21 @@
       "count": 1
     }
   },
-  "src/http/expenseNote.test.ts": {
-    "sonarjs/no-floating-point-equality": {
+  "src/http/contractResponses.ts": {
+    "sonarjs/cognitive-complexity": {
       "count": 1
     }
   },
-  "src/http/ocrProblem.ts": {
+  "src/http/errors.ts": {
+    "sonarjs/cognitive-complexity": {
+      "count": 1
+    },
     "sonarjs/no-nested-conditional": {
+      "count": 3
+    }
+  },
+  "src/http/expenseNote.test.ts": {
+    "sonarjs/no-floating-point-equality": {
       "count": 1
     }
   },
