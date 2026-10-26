@@ -119,7 +119,8 @@ e2e/
 | NDF-09 | Type de reçu non autorisé → 400 « Type de fichier non autorisé pour le reçu » | API |
 | NDF-10 | Reçu > 10 Mio → 400 « Fichier trop volumineux » | API |
 | NDF-11 | `GET /api/expense-notes` : uniquement ses propres notes, plus récentes d'abord | API |
-| NDF-12 | `?sort=amount ASC` / `amount DESC` trie la liste (usage légitime seulement) | API |
+| NDF-12 | `?sort=amount ASC` / `amount DESC` trie la liste | API |
+| NDF-13 | `?sort=` hors liste blanche (colonne inconnue, clause ajoutée, direction invalide) → 200, tri par défaut (faille S1 corrigée) | API |
 
 ### Pré-remplissage depuis le reçu (OCR) — `e2e/ocr-suggestion.spec.ts`
 
@@ -147,6 +148,7 @@ e2e/
 | RECU-05 | `GET /api/manager/expense-notes/:id/receipt-url` : 200 pour une note de son équipe, 404 pour un id inconnu | API |
 | RECU-06 | RH : « Voir le reçu » depuis `/hr` | UI |
 | RECU-07 | `GET /api/hr/expense-notes/:id/receipt-url` : 200 pour un manager racine de l'entreprise ; 404 pour une note d'employé, de manager non racine, d'une autre entreprise ou inconnue | API |
+| RECU-08 | `GET /api/manager/expense-notes/:id/receipt-url` : 404 pour la note d'un employé d'un autre manager, d'une autre entreprise ou du manager lui-même (faille S2 corrigée) | API |
 
 ### Validation ou rejet par le manager — `e2e/manager-approval.spec.ts`
 
@@ -188,6 +190,7 @@ e2e/
 | ORG-06 | `PUT /api/hr/users/:id/manager` → 200 + utilisateur à jour (la visibilité des notes suit) ; `managerId: null` → détachement | API |
 | ORG-07 | Manager invalide (soi-même, employé, RH, inconnu) → 409 « Invalid manager », rien ne change | API |
 | ORG-08 | Cible RH, d'une autre entreprise ou inconnue → 404 « Not found » | API |
+| ORG-09 | `PUT /api/hr/users/:id/manager` vers un manager d'une autre entreprise → 409 « Invalid manager », rattachement inchangé (faille S3 corrigée) | API |
 
 ### Contrôle d'accès et isolation — `e2e/access-control.spec.ts`
 
@@ -301,9 +304,6 @@ Les références renvoient à `CLAUDE.md` (« Dette connue ») et à l'audit API
 
 | Comportement actuel | Réf. |
 |---|---|
-| Injection SQL via `?sort=` (seul un tri légitime est testé, NDF-12) | B1 |
-| Un manager obtient le reçu d'une note hors de son équipe (IDOR) | B2 |
-| Une RH peut rattacher un employé à un manager d'une autre entreprise | B3 |
 | Message interne et stacktrace renvoyés dans les erreurs 500 ; certaines erreurs SQL échappent au `catch` | B4, Q1.3 |
 | Corps JSON invalide ou sans `managerId` sur `PUT …/manager` = détachement silencieux (200) | B7 |
 | Validation laxiste : `12abc` accepté comme 12, date invalide → 500, fichier vide accepté, type MIME déclaratif non vérifié | B7 |
@@ -320,7 +320,7 @@ Quand l'un de ces points est corrigé, ajouter le test correspondant (un bug cor
 - Atomicité de la création note + upload S3 (panne S3 ou base en cours de route), idempotence des réessais (B9) : demande une injection de pannes.
 - Charge et limites de l'OCR : gros fichiers, durée, concurrence (B10). La distinction entre panne de l'OCR et « rien trouvé » n'existe pas (les deux donnent `{}`, B11) ; seul le cas « type non pris en charge → `{}` » est figé.
 - Messages d'erreur de l'UI qui n'apparaissent qu'en cas de panne serveur : « Impossible de charger les notes de frais. », « Impossible de récupérer le reçu. », « Impossible d’analyser ce reçu. », « Échec de l'assignation. ».
-- Policies RLS de PostgreSQL : contournées dans la configuration actuelle (connexion superuser). L'isolation est vérifiée au niveau HTTP (ISO-*, MGR-09, RH-08, ORG-08, RECU-02/07), pas au niveau des policies.
+- Policies RLS de PostgreSQL : contournées dans la configuration actuelle (connexion superuser). L'isolation est vérifiée au niveau HTTP (ISO-*, MGR-09, RH-08, ORG-08/09, RECU-02/07/08), pas au niveau des policies.
 
 ### Hors périmètre de cette suite
 

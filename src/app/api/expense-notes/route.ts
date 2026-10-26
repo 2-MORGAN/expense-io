@@ -17,6 +17,24 @@ const EXTENSION_BY_MIME: Record<string, string> = {
   'application/pdf': '.pdf',
 }
 
+// ORDER BY n'accepte pas de paramètre positionnel pour un nom de colonne : le
+// tri demandé (`?sort=<colonne> [ASC|DESC]`) est donc lu dans une liste
+// blanche, et seules ces expressions fixes atteignent le SQL. Toute autre
+// valeur donne le tri par défaut.
+const SORTABLE_COLUMNS = ['created_at', 'amount', 'expense_date', 'description', 'status']
+const DEFAULT_ORDER_BY = 'created_at DESC'
+
+function orderByFor(sort: string | null): string {
+  const match = /^(\w+)(?:\s+(asc|desc))?$/i.exec(sort?.trim() ?? '')
+  // Casse ignorée, comme pour un identifiant SQL non cité.
+  const column = match?.[1].toLowerCase()
+  if (!column || !SORTABLE_COLUMNS.includes(column)) {
+    return DEFAULT_ORDER_BY
+  }
+  const direction = match?.[2]?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
+  return `${column} ${direction}`
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
@@ -24,14 +42,11 @@ export async function GET(request: NextRequest) {
     if (actor instanceof Response) return actor
 
     const url = new URL(request.url)
-    // Le tri est construit dynamiquement plutôt que via une valeur liée :
-    // ORDER BY n'accepte pas de paramètre positionnel pour un nom de colonne
-    // en SQL standard, donc ce fragment est concaténé directement.
-    const sort = url.searchParams.get('sort') || 'created_at DESC'
+    const orderBy = orderByFor(url.searchParams.get('sort'))
 
     return withUserScope(actor.id, async (client) => {
       const result = await client.query(
-        `SELECT * FROM expense_notes WHERE user_id = $1 ORDER BY ${sort}`,
+        `SELECT * FROM expense_notes WHERE user_id = $1 ORDER BY ${orderBy}`,
         [actor.id]
       )
       return Response.json(result.rows.map(toExpenseNoteDto))

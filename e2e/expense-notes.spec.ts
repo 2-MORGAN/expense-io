@@ -245,8 +245,6 @@ test.describe('Soumission d’une note de frais — API', () => {
     org,
     apiAs,
   }) => {
-    // Usage légitime du paramètre ; l'injection SQL connue (dette B1) n'est
-    // volontairement PAS figée ici.
     const api = await apiAs(org.employee)
     await api.submitNote({ amount: '30', description: 'Trente' })
     await api.submitNote({ amount: '10', description: 'Dix' })
@@ -256,5 +254,25 @@ test.describe('Soumission d’une note de frais — API', () => {
     expect(ascending.map((note) => note.amount)).toEqual([10, 20, 30])
     const descending = await api.notes({ sort: 'amount DESC' })
     expect(descending.map((note) => note.amount)).toEqual([30, 20, 10])
+  })
+
+  test('[NDF-13] ?sort= hors liste blanche : tri par défaut, la valeur n’atteint pas le SQL', async ({
+    org,
+    apiAs,
+  }) => {
+    // Faille S1 (audit WS1) : seul « <colonne autorisée> [ASC|DESC] » est
+    // retenu ; toute autre valeur donne le tri par défaut (plus récentes d'abord).
+    const api = await apiAs(org.employee)
+    await api.submitNote({ amount: '30', description: 'Trente' })
+    await api.submitNote({ amount: '10', description: 'Dix' })
+    await api.submitNote({ amount: '20', description: 'Vingt' })
+
+    for (const sort of ['montant ASC', 'amount ASC, description', 'amount SIDEWAYS']) {
+      const notes = await api.notes({ sort })
+      expect(notes.map((note) => note.amount), sort).toEqual([20, 10, 30])
+    }
+    // Formes légitimes toujours acceptées : sans direction (ASC), casse libre.
+    expect((await api.notes({ sort: 'amount' })).map((note) => note.amount)).toEqual([10, 20, 30])
+    expect((await api.notes({ sort: 'Amount desc' })).map((note) => note.amount)).toEqual([30, 20, 10])
   })
 })
