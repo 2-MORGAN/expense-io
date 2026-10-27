@@ -52,6 +52,7 @@ Si `npm run migrate:up` échoue sur une erreur d'authentification de l'utilisate
 | Base d'administration pour les fixtures | `E2E_DATABASE_URL=postgres://…`, le propriétaire dans `.env.example` (par défaut : `DATABASE_URL`). L'application testée se connecte sous `expense_app`, son worker sous `expense_worker` (2-481) ; le code de `src/` importé par les specs (outbox, worker) passe par cette connexion d'administration |
 | Chromium déjà installé (CI sans téléchargement) | `E2E_CHROMIUM_PATH=/chemin/vers/chrome` |
 | Mailpit ailleurs que sur `http://localhost:8025` | `MAILPIT_URL=http://hôte:8025` |
+| Couverture de code du serveur, du worker et des scripts pendant la suite | `npm run test:e2e:coverage` (script Node `scripts/coverage/e2e.mjs`, macOS, Linux et Windows) → `coverage-e2e-report/index.html`. Démarre son propre serveur (arrêter `make dev`) et lui laisse le temps d'écrire sa couverture à l'arrêt ; le code exécuté dans le navigateur n'est pas mesuré. Lire les **branches** : les lignes sont gonflées |
 | Intégration continue | `.github/workflows/ci.yml` lance l'équivalent de `make test-e2e` sur chaque PR, en 2 shards (`--shard=1/2` et `--shard=2/2`) dont le job `e2e` fusionne les rapports. `CI=1` : pas de `test.only`, 1 nouvel essai, 2 workers par shard, serveur toujours démarré par Playwright |
 
 Sous PowerShell, une variable se définit ainsi : `$env:E2E_BASE_URL="http://localhost:3100"; npm run test:e2e`.

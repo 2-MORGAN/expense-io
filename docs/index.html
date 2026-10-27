@@ -440,7 +440,9 @@ npm run dev                   <span class="c"># next dev et le worker, ensemble 
       <h3>Premières vérifications</h3>
 <pre class="cmd"><code>npm run check                     <span class="c"># lint, types, tests unitaires, contrat, graphes et doc : sans Docker</span>
 npx playwright test -g "NDF-06"   <span class="c"># un scénario E2E par son ID, sur le serveur de make dev</span>
-make test-e2e                     <span class="c"># toute la suite E2E (Docker requis)</span></code></pre>
+make test-e2e                     <span class="c"># toute la suite E2E (Docker requis)</span>
+npm run test:coverage             <span class="c"># couverture des tests unitaires → coverage/index.html</span>
+npm run test:e2e:coverage         <span class="c"># couverture E2E : serveur, worker, scripts → coverage-e2e-report/ (arrêter make dev avant)</span></code></pre>
     </section>
 
     <!-- ===================================================== Produit -->
@@ -1980,6 +1982,7 @@ flowchart TB
   checkJob["check&lt;br/&gt;lint, SonarJS, types, Vitest,&lt;br/&gt;contrat, graphes, doc,&lt;br/&gt;oasdiff (sans rupture), build"]
   e2eJob["e2e&lt;br/&gt;Playwright en 2 shards&lt;br/&gt;Postgres, LocalStack, Mailpit"]
   mainBranch[("main&lt;br/&gt;squash, historique linéaire")]
+  coverage["Couverture à la demande&lt;br/&gt;test:coverage (Vitest v8)&lt;br/&gt;test:e2e:coverage (c8)"]
 
   subgraph claude["Claude Code : .claude/settings.json"]
     direction TB
@@ -1988,6 +1991,7 @@ flowchart TB
   end
 
   change --&gt; commit --&gt; push --&gt; pr --&gt; ci
+  change -.-&gt;|"où sont les trous ?"| coverage
   ci --&gt; checkJob &amp; e2eJob
   checkJob &amp; e2eJob --&gt;|"obligatoires"| mainBranch
   guardHook -.-&gt; commit
@@ -1996,7 +2000,7 @@ flowchart TB
   classDef local fill:#dbeafe,stroke:#2563eb,color:#111827
   classDef ciJob fill:#dcfce7,stroke:#16a34a,color:#111827
   classDef hook fill:#ede9fe,stroke:#7c3aed,color:#111827
-  class commit,push,pr local
+  class commit,push,pr,coverage local
   class checkJob,e2eJob ciJob
   class guardHook,stopHook hook
 </pre>
@@ -2026,6 +2030,7 @@ flowchart TB
             <tr><td><code>git commit</code></td><td>hook pre-commit : ESLint avec cache</td><td>≈ 3 s</td></tr>
             <tr><td><code>git push</code></td><td>hook pre-push : <code>npm run check</code></td><td>≈ 35 s</td></tr>
             <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI)</td><td>≈ 3 min pour la suite</td></tr>
+            <tr><td>Couverture, à la demande</td><td><code>npm run test:coverage</code> (unitaires, Vitest v8) ; <code>npm run test:e2e:coverage</code> (E2E : serveur Next.js, worker et scripts, c8). Aucun seuil bloquant (<a href="#adr-005">ADR-005</a>) ; citer les branches, les lignes E2E sont gonflées</td><td>≈ 20 s ; suite E2E + rapport</td></tr>
             <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, oasdiff sur les PR, build) et <code>e2e</code> (2 shards), obligatoires</td><td>≈ 1 min et 3 min 30</td></tr>
             <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
           </tbody>
