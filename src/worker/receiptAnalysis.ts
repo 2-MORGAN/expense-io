@@ -42,8 +42,9 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 
 /**
  * Supprime de S3 les reçus des analyses terminées, puis les analyses expirées
- * (24 h) et leurs événements. Lit `receipt_analyses` sans contexte utilisateur :
- * à adapter avec la bascule sur les rôles restreints (2-481, ADR-001).
+ * (24 h) et leurs événements. Le listage et la purge, qui portent sur toutes
+ * les entreprises, passent par des fonctions `SECURITY DEFINER` étroites ;
+ * `markDeleted` écrit sous l'utilisateur de l'analyse (2-481, ADR-001).
  */
 export async function runReceiptCleanup(signal: AbortSignal): Promise<void> {
   while (!signal.aborted) {

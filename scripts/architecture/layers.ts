@@ -74,7 +74,8 @@ export const LAYERS: readonly Layer[] = [
   { path: 'src/components', group: 'entrees', may: UI },
   { path: 'src/http', group: 'entrees', may: HTTP_ENTRY },
   { path: 'src/proxy', group: 'entrees', may: ['src/lib/auth', 'next', 'next-auth'] },
-  { path: 'src/instrumentation', group: 'entrees', may: ['src/lib/log', 'next'] },
+  // Contrôle du rôle de base au démarrage du serveur (2-481).
+  { path: 'src/instrumentation', group: 'entrees', may: ['src/lib/dbRole', 'src/lib/log', 'next'] },
   { path: 'src/types', group: 'entrees', may: ['next-auth'] },
   // Le worker est un processus à part, adaptateur entrant de l'outbox : il
   // fait aussi sa propre composition (ADR-003).
@@ -87,6 +88,7 @@ export const LAYERS: readonly Layer[] = [
       'src/composition',
       'src/domain',
       'src/lib/db',
+      'src/lib/dbRole',
       'src/lib/email',
       'src/lib/log',
       'src/lib/outbox',
@@ -152,6 +154,8 @@ export const LAYERS: readonly Layer[] = [
   // Échec de connexion d'un email non vérifié (2-496), partagé avec l'action de connexion.
   { path: 'src/lib/authErrors', group: 'infra', may: ['next-auth'] },
   { path: 'src/lib/db', group: 'infra', may: ['src/lib/log', 'pg'] },
+  // Refus de démarrer sous un rôle qui contourne la RLS (S4, 2-481).
+  { path: 'src/lib/dbRole', group: 'infra', may: ['src/lib/db', 'src/lib/log'] },
   // Fabrique de l'adaptateur SMTP (2-484).
   { path: 'src/lib/email', group: 'infra', may: ['src/adapters', 'src/lib/log', 'src/ports'] },
   // Réponses d'erreur HTTP : peut reprendre celles de src/http (ADR-004).

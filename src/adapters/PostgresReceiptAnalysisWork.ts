@@ -62,11 +62,11 @@ export class PostgresReceiptAnalysisWork implements ReceiptAnalysisWorkPort {
     })
   }
 
+  /** Toutes entreprises : fonction `SECURITY DEFINER` étroite (2-481). */
   async cleanupCandidates() {
     return withSystemTransaction(async (client) => (await client.query<{
       id: string; receipt_key: string; user_id: string
-    }>(`SELECT id, receipt_key, user_id FROM receipt_analyses
-        WHERE status IN ('succeeded', 'failed') AND receipt_deleted = false LIMIT 20`)).rows)
+    }>('SELECT id, receipt_key, user_id FROM receipt_cleanup_candidates(20)')).rows)
   }
 
   async markDeleted(id: string, userId: string) {
@@ -76,13 +76,10 @@ export class PostgresReceiptAnalysisWork implements ReceiptAnalysisWorkPort {
     })
   }
 
+  /** Toutes entreprises : fonction `SECURITY DEFINER` étroite (2-481). */
   async purgeExpired() {
     await withSystemTransaction(async (client) => {
-      await client.query(
-        `DELETE FROM outbox_events WHERE type = 'receipt.analysis.requested' AND status IN ('sent', 'dead')
-         AND payload->>'analysisId' IN (SELECT id::text FROM receipt_analyses WHERE expires_at < now() AND receipt_deleted)`
-      )
-      await client.query('DELETE FROM receipt_analyses WHERE expires_at < now() AND receipt_deleted')
+      await client.query('SELECT purge_expired_receipt_analyses()')
     })
   }
 }

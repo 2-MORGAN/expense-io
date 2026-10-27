@@ -86,7 +86,12 @@ sort de la machine.
 
 ### Variables d'environnement
 
-[`.env.example`](.env.example) fait foi ; `make dev` le copie en `.env`.
+[`.env.example`](.env.example) fait foi ; `make dev` le copie en `.env` et y
+génère les mots de passe des rôles de base. Chaque processus a son rôle
+PostgreSQL (2-481) : l'application `expense_app` (`DATABASE_URL`), le worker
+`expense_worker` (`WORKER_DATABASE_URL`), les migrations et le seed le
+propriétaire (`MIGRATION_DATABASE_URL`). `npm run migrate:up` pose sur la base
+les mots de passe lus dans `.env` : rien à échanger entre postes.
 
 ## Vérifier
 
@@ -175,7 +180,8 @@ make clean     # arrête les conteneurs et supprime les données locales
 
 | Symptôme | Cause et solution |
 |---|---|
-| `npm run migrate:up` : erreur d'authentification de l'utilisateur `expense` (code `28P01`) | Un autre PostgreSQL occupe le port 5433 (`netstat -ano \| findstr :5433` sous Windows). L'arrêter, ou exposer le conteneur sur un autre port et y faire pointer `DATABASE_URL` |
+| `npm run migrate:up` : erreur d'authentification de l'utilisateur `expense` (code `28P01`) | Un autre PostgreSQL occupe le port 5433 (`netstat -ano \| findstr :5433` sous Windows). L'arrêter, ou exposer le conteneur sur un autre port et y faire pointer les variables `*DATABASE_URL` |
+| Avertissement `db.role.bypasses_rls` au démarrage, ou `MIGRATION_DATABASE_URL absent` | `.env` antérieur à 2-481 : reprendre les quatre variables `*DATABASE_URL` de `.env.example`, puis `npm run migrate:up` |
 | `npm run check` échoue juste après un pull | Une dépendance a changé : `npm install` |
 | Lint : erreur `sonarjs/…` | Règle de SonarQube : corriger le code. Les constats du code existant sont figés dans `eslint-suppressions.json`, qui ne fait que raccourcir ([`CLAUDE.md`](CLAUDE.md), « Où placer le code ») |
 | Lint : « There are suppressions left that do not occur anymore » | Un constat figé a été corrigé : `npx eslint --prune-suppressions`, puis commiter `eslint-suppressions.json` avec la correction |

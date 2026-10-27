@@ -25,20 +25,15 @@ export const LEGACY_DB_ACCESS = [
   'src/app/api/expense-notes/[id]/receipt-url/route.ts',
   'src/app/api/hr/expense-notes/route.ts',
   'src/app/api/hr/expense-notes/[id]/receipt-url/route.ts',
-  'src/app/api/hr/users/route.ts',
-  'src/app/api/hr/users/[id]/manager/route.ts',
   'src/app/api/manager/expense-notes/route.ts',
   'src/app/api/manager/expense-notes/[id]/receipt-url/route.ts',
 ].map(literal)
 
-// Fichiers des appels à getPool() que 2-481 supprime (ADR-001, annexe B) :
-// 12 à l'origine, 11 depuis la correction de S2 (2-471). La server action
-// d'inscription en est sortie avec les invitations (2-496).
-export const LEGACY_GET_POOL = [
-  'src/app/api/hr/users/route.ts',
-  'src/app/api/hr/users/[id]/manager/route.ts',
-  'src/lib/auth.ts',
-].map(literal)
+
+// Fichiers des appels à getPool() hors de src/lib/db.ts (ADR-001, annexe B) :
+// 12 à l'origine, aucun depuis la bascule sur le rôle restreint (2-481). La
+// liste reste, vide, pour que la règle n'admette plus d'exception.
+export const LEGACY_GET_POOL = []
 
 // S1 : tri concaténé dans ORDER BY, jusqu'à sa correction (WS1).
 export const LEGACY_SQL_INTERPOLATION = ['src/app/api/expense-notes/route.ts']
@@ -48,6 +43,28 @@ const GET_POOL_IMPORT = {
   importNames: ['getPool'],
   message:
     'getPool() ne pose pas le contexte utilisateur dont dépend la RLS : il est réservé à src/lib/db.ts (ADR-001). Passer par withUserScope().',
+}
+
+// Transaction sans contexte utilisateur : la RLS n'y borne rien à une
+// entreprise. Réservée par conception (ADR-001, point de coordination avec
+// l'ADR-003, 2-481) au worker et à l'outbox, et aux lectures faites avant
+// toute session, qui n'appellent que des fonctions SECURITY DEFINER
+// (connexion, inscription). Ce n'est pas une liste LEGACY_* : elle ne se
+// vide pas.
+export const SYSTEM_TRANSACTION_ALLOWED = [
+  'src/lib/outbox.ts',
+  'src/worker/**',
+  'src/adapters/PostgresReceiptAnalysisWork.ts',
+  'src/adapters/PostgresAccountRegistry.ts',
+  'src/lib/auth.ts',
+  'e2e/**',
+]
+
+const SYSTEM_TRANSACTION_IMPORT = {
+  group: ['**/lib/db', './db'],
+  importNames: ['withSystemTransaction'],
+  message:
+    'withSystemTransaction() ne pose aucun contexte : la RLS ne borne rien à une entreprise. Réservée au worker et à l’outbox (ADR-001). Passer par withUserScope().',
 }
 
 const DB_ACCESS_IMPORT = {
@@ -160,6 +177,13 @@ const eslintConfig = defineConfig([
   {
     name: 'expense-io/get-pool',
     ignores: ['src/lib/db.ts', ...LEGACY_GET_POOL],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [GET_POOL_IMPORT, SYSTEM_TRANSACTION_IMPORT] }],
+    },
+  },
+  {
+    name: 'expense-io/system-transaction-allowed',
+    files: SYSTEM_TRANSACTION_ALLOWED,
     rules: {
       'no-restricted-imports': ['error', { patterns: [GET_POOL_IMPORT] }],
     },

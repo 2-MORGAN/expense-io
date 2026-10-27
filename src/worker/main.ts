@@ -1,5 +1,6 @@
 import { config } from 'dotenv'
-import { closePool } from '@/lib/db'
+import { closePool, configureDatabase } from '@/lib/db'
+import { checkDatabaseRole } from '@/lib/dbRole'
 import { buildHandlers } from '@/worker/handlers'
 import { describeError, log } from '@/worker/log'
 import { processNextEvent, type OutboxHandlers } from '@/worker/processNextEvent'
@@ -19,11 +20,19 @@ async function main(): Promise<void> {
     throw new Error('WORKER_POLL_INTERVAL_MS must be a positive number of milliseconds')
   }
 
-  if (!process.env.DATABASE_URL) {
-    log('error', 'worker.config', { error: 'DATABASE_URL is not set' })
+  // Rôle `expense_worker` (2-481) : il lit et met à jour l'outbox de toutes
+  // les entreprises, ce que le rôle de l'application ne peut pas. En
+  // développement, un `.env` antérieur retombe sur `DATABASE_URL` (le
+  // contrôle du rôle l'avertit).
+  const databaseUrl = process.env.WORKER_DATABASE_URL
+    ?? (process.env.NODE_ENV === 'production' ? undefined : process.env.DATABASE_URL)
+  if (!databaseUrl) {
+    log('error', 'worker.config', { error: 'WORKER_DATABASE_URL is not set' })
     process.exitCode = 1
     return
   }
+  configureDatabase(databaseUrl, 'expense-worker')
+  await checkDatabaseRole('worker')
 
   // Configuration incomplète en production (APP_URL, SMTP_HOST) : le worker
   // refuse de démarrer plutôt que d'échouer à chaque email (2-484).

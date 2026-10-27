@@ -40,12 +40,12 @@ const s3 = new S3Client({
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
   },
 })
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+// Rôle du worker (2-481) : il ne lit les clés que par `referenced_receipt_keys`.
+const pool = new Pool({ connectionString: process.env.WORKER_DATABASE_URL ?? process.env.DATABASE_URL })
 
 const isReferenced = async (keys) => {
   const { rows } = await pool.query(
-    `SELECT receipt_key FROM expense_notes WHERE receipt_key = ANY($1::text[])
-     UNION SELECT receipt_key FROM receipt_analyses WHERE receipt_key = ANY($1::text[])`,
+    'SELECT receipt_key FROM referenced_receipt_keys($1::text[]) AS receipt_key',
     [keys]
   )
   return new Set(rows.map((row) => row.receipt_key))

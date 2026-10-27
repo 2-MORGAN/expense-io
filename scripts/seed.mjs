@@ -23,7 +23,8 @@ if (!domain) {
   throw new Error(`Email RH invalide : "${hrEmail}"`)
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+// Le seed écrit des comptes et des entreprises : rôle propriétaire (ADR-001, annexe B).
+const pool = new Pool({ connectionString: process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL })
 
 // Un PNG 1x1 valide (pas juste des octets arbitraires) : "voir le reçu"
 // affiche une vraie image dans le navigateur plutôt qu'un fichier corrompu.
