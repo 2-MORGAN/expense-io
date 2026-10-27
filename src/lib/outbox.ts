@@ -127,3 +127,37 @@ export async function recordFailure(
     [id, update.status, lastError, delaySeconds]
   )
 }
+
+export interface OutboxTypeStats {
+  type: string
+  pending: number
+  dead: number
+  /** Âge en secondes de l'événement `pending` le plus ancien, `null` s'il n'y en a pas. */
+  oldestPendingAgeSeconds: number | null
+}
+
+/**
+ * État de l'outbox par type d'événement (ADR-003 §6, Q5) : nombre
+ * d'événements en attente et morts (DLQ), âge du plus ancien en attente. Lu
+ * par le worker (`expense_worker`), qui voit toutes les entreprises.
+ */
+export async function outboxStats(): Promise<OutboxTypeStats[]> {
+  return withSystemTransaction(async (client) => {
+    const result = await client.query<{ type: string; pending: string; dead: string; oldest: number | null }>(
+      `SELECT type,
+              count(*) FILTER (WHERE status = 'pending') AS pending,
+              count(*) FILTER (WHERE status = 'dead') AS dead,
+              extract(epoch FROM now() - min(created_at) FILTER (WHERE status = 'pending'))::float8 AS oldest
+       FROM outbox_events
+       WHERE status IN ('pending', 'dead')
+       GROUP BY type
+       ORDER BY type`
+    )
+    return result.rows.map((row) => ({
+      type: row.type,
+      pending: Number(row.pending),
+      dead: Number(row.dead),
+      oldestPendingAgeSeconds: row.oldest === null ? null : Math.floor(row.oldest),
+    }))
+  })
+}
