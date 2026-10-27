@@ -4,19 +4,52 @@ import { Pool, types, type PoolClient } from 'pg'
 // plutôt qu'un objet Date JS calé sur le fuseau local.
 types.setTypeParser(1082, (value: string) => value)
 
+interface PoolTarget {
+  connectionString?: string
+  applicationName: string
+}
+
 declare global {
   var __pgPool: Pool | undefined
+  var __pgPoolTarget: PoolTarget | undefined
+}
+
+// Par défaut, la connexion de l'application (`expense_app`, 2-481).
+// `application_name` désigne le processus dans `pg_stat_activity` (ISO-11).
+const WEB_TARGET: PoolTarget = { applicationName: 'expense-web' }
+
+/**
+ * Connexion d'un autre processus que l'application, avant le premier
+ * `getPool()` : le worker sous `expense_worker`, les tests E2E sous le rôle
+ * propriétaire. Une seule cible par processus.
+ */
+export function configureDatabase(connectionString: string, applicationName: string): void {
+  const current = global.__pgPoolTarget
+  if (global.__pgPool && (current?.connectionString !== connectionString || current?.applicationName !== applicationName)) {
+    throw new Error('configureDatabase must be called before the first getPool()')
+  }
+  global.__pgPoolTarget = { connectionString, applicationName }
 }
 
 export function getPool(): Pool {
   if (!global.__pgPool) {
-    const connectionString = process.env.DATABASE_URL
+    const target = global.__pgPoolTarget ?? WEB_TARGET
+    const connectionString = target.connectionString ?? process.env.DATABASE_URL
     if (!connectionString) {
       throw new Error('DATABASE_URL is not set')
     }
-    global.__pgPool = new Pool({ connectionString, max: 20 })
+    global.__pgPool = new Pool({ connectionString, application_name: target.applicationName, max: 20 })
   }
   return global.__pgPool
+}
+
+/** Attributs du rôle de la connexion, pour le contrôle au démarrage (`src/lib/dbRole.ts`). */
+export async function currentDatabaseRole(): Promise<{ name: string; superuser: boolean; bypassRls: boolean }> {
+  const result = await getPool().query<{ name: string; superuser: boolean; bypass_rls: boolean }>(
+    'SELECT rolname AS name, rolsuper AS superuser, rolbypassrls AS bypass_rls FROM pg_roles WHERE rolname = current_user'
+  )
+  const row = result.rows[0]
+  return { name: row.name, superuser: row.superuser, bypassRls: row.bypass_rls }
 }
 
 /**

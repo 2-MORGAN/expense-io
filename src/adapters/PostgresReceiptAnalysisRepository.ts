@@ -68,9 +68,10 @@ export class PostgresReceiptAnalysisRepository implements ReceiptAnalysisReposit
         if (previous.rows[0].fingerprint !== input.fingerprint) throw new OcrError('IDEMPOTENCY_KEY_REUSED')
         return dto(previous.rows[0])
       }
-      // La RLS ne doit pas réduire le décompte aux seuls travaux du demandeur.
+      // La RLS ne doit pas réduire le décompte aux seuls travaux du demandeur :
+      // fonction SECURITY DEFINER qui ne rend que le nombre (2-481).
       const pending = await client.query<{ count: string }>(
-        `SELECT count(*) FROM outbox_events WHERE type = 'receipt.analysis.requested' AND status = 'pending'`
+        'SELECT pending_receipt_analyses() AS count'
       )
       if (Number(pending.rows[0].count) >= 10) throw new OcrError('OCR_OVERLOADED')
       await client.query(

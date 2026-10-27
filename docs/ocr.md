@@ -143,10 +143,11 @@ Contrat de l'événement OCR v1 :
 - Exécuter depuis la racine du projet, avec `scripts/ocr-engine.mjs`, `tessdata/`
   et les dépendances de production. Les plateformes sans processus enfants ne
   conviennent pas à cet adaptateur ; le port permet un autre moteur.
-- Le worker utilise `DATABASE_URL`, comme l'application. Le rôle dédié
-  `expense_worker` et l'adaptation du nettoyage (qui lit `receipt_analyses` sans
-  contexte utilisateur) arrivent avec la bascule 2-481 (ADR-001, point de
-  coordination).
+- Le worker se connecte sous `expense_worker` (`WORKER_DATABASE_URL`, 2-481) et
+  refuse de démarrer en production sous un rôle superuser ou `BYPASSRLS`. Le
+  nettoyage liste les analyses terminées et purge les expirées par des fonctions
+  `SECURITY DEFINER` étroites ; il écrit `receipt_deleted` sous l'utilisateur de
+  l'analyse (ADR-001, point de coordination).
 - `sharp` devient une dépendance directe, car utilisé par le moteur. `tsx` est
   une dépendance d'exécution pour le second point d'entrée TypeScript avec les
   alias du dépôt ; cela évite de maintenir une seconde version JS du worker.

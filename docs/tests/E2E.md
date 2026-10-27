@@ -49,7 +49,7 @@ Si `npm run migrate:up` échoue sur une erreur d'authentification de l'utilisate
 | Mode interactif (pas à pas) | `npx playwright test --ui` |
 | Rapport HTML, avec trace et capture des échecs | `npx playwright show-report` |
 | Cibler un serveur déjà démarré (ex. build de prod) | `npm run build`, `AUTH_TRUST_HOST=true npx next start -p 3100`, puis `E2E_BASE_URL=http://localhost:3100 npm run test:e2e` |
-| Base d'administration distincte pour les fixtures | `E2E_DATABASE_URL=postgres://…` (par défaut : `DATABASE_URL` de `.env`) |
+| Base d'administration pour les fixtures | `E2E_DATABASE_URL=postgres://…`, le propriétaire dans `.env.example` (par défaut : `DATABASE_URL`). L'application testée se connecte sous `expense_app`, son worker sous `expense_worker` (2-481) ; le code de `src/` importé par les specs (outbox, worker) passe par cette connexion d'administration |
 | Chromium déjà installé (CI sans téléchargement) | `E2E_CHROMIUM_PATH=/chemin/vers/chrome` |
 | Mailpit ailleurs que sur `http://localhost:8025` | `MAILPIT_URL=http://hôte:8025` |
 | Intégration continue | `.github/workflows/ci.yml` lance l'équivalent de `make test-e2e` sur chaque PR, en 2 shards (`--shard=1/2` et `--shard=2/2`) dont le job `e2e` fusionne les rapports. `CI=1` : pas de `test.only`, 1 nouvel essai, 2 workers par shard, serveur toujours démarré par Playwright |
@@ -255,7 +255,7 @@ Pour ACL-01 à ACL-04, chaque refus est vérifié **sans effet de bord** (notes 
 
 ### Isolation par la base (RLS) — `e2e/rls-isolation.spec.ts`
 
-Tests d'intégration de base (ADR-001 §5.1, 2-478). Chaque vérification tourne sous le rôle restreint `expense_app` (`SET LOCAL ROLE`), avec le contexte que pose `withUserScope`, dans une transaction annulée. Les témoins vérifient que la même requête voit bien les données de sa propre entreprise. L'application, elle, ne passe sous `expense_app` qu'avec 2-481.
+Tests d'intégration de base (ADR-001 §5.1, 2-478). Chaque vérification tourne sous le rôle restreint `expense_app` (`SET LOCAL ROLE`), avec le contexte que pose `withUserScope`, dans une transaction annulée. Les témoins vérifient que la même requête voit bien les données de sa propre entreprise. Depuis 2-481, l'application lancée se connecte elle aussi sous `expense_app` (ISO-11).
 
 | ID | Scénario | Niveau |
 |---|---|---|
@@ -270,6 +270,18 @@ Tests d'intégration de base (ADR-001 §5.1, 2-478). Chaque vérification tourne
 | ISO-07i | `auth_find_user` rend une seule ligne, par email exact | Base |
 | ISO-07j | Le manager tranche la note de son équipe avec les écritures de la décision : statut, `decided_by`, `decided_at` (2-488) | Base |
 | SIGNUP-09 | `register_user` : panne injectée (email déjà pris, en autocommit) → aucune entreprise créée ; même domaine → deuxième entreprise distincte, RH non vérifiées, email de vérification demandé dans la même transaction (S7) | Base |
+
+### Rôles de connexion — `e2e/db-roles.spec.ts`
+
+Bascule sur les rôles restreints (ADR-001 §3 point 7 et point de coordination avec l'ADR-003, 2-481). ISO-10 tourne en base, sous `SET LOCAL ROLE`, dans une transaction annulée, comme ISO-07 ; ISO-11 observe l'application et le worker lancés.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| ISO-10a | `expense_worker` peut se connecter, n'est ni superuser ni `BYPASSRLS` ; aucun droit sur `users.password_hash`, `companies`, `expense_notes`, ni l'`INSERT` dans l'outbox | Base |
+| ISO-10b | Le worker lit et met à jour les événements de deux entreprises ; sans contexte il ne voit aucun utilisateur, sous l'entreprise de l'événement (`scopeToCompany`) seulement les siens | Base |
+| ISO-10c | Policy d'insertion de l'outbox : sous le contexte d'un employé de A, événement pour A accepté, pour B refusé (42501) ; l'application ne lit pas l'outbox (42501) | Base |
+| ISO-10d | `receipt_cleanup_candidates`, `purge_expired_receipt_analyses` et `referenced_receipt_keys` : exécutables par le worker, refusées à l'application (42501) ; l'application lit seulement le nombre d'analyses OCR en attente (`pending_receipt_analyses`) | Base |
+| ISO-11 | Après une requête authentifiée, `pg_stat_activity` montre les connexions `expense-web` sous `expense_app` et `expense-worker` sous `expense_worker` | Base + HTTP |
 
 ### Session et rôle à jour — `e2e/session-roles.spec.ts`
 
@@ -425,7 +437,7 @@ B8 (deux décisions simultanées pouvant toutes deux réussir) n'est plus dans c
 - Atomicité de la création note + upload S3 (panne S3 ou base en cours de route), idempotence des réessais (B9) : demande une injection de pannes.
 - Charge et limites de l'OCR : gros fichiers, durée, concurrence (B10). La distinction entre panne de l'OCR et « rien trouvé » n'existe pas (les deux donnent `{}`, B11) ; seul le cas « type non pris en charge → `{}` » est figé.
 - Messages d'erreur de l'UI qui n'apparaissent qu'en cas de panne serveur : « Impossible de charger les notes de frais. », « Impossible de récupérer le reçu. », « Impossible d’analyser ce reçu. », « Échec de l'assignation. ».
-- Policies RLS de PostgreSQL **sous l'application lancée** : elle se connecte encore en superuser jusqu'à 2-481. Les policies sont vérifiées en base sous `expense_app` (ISO-07, `e2e/rls-isolation.spec.ts`), et l'isolation au niveau HTTP (ISO-01 à 03, MGR-09, RH-08, ORG-08/09, RECU-02/07/08).
+- Droits des rôles restreints **pour le code du worker importé dans les specs** (`outbox-worker`, `ocr-outbox`, `notifications`) : ces specs l'exécutent sous la connexion d'administration, elles vérifient la mécanique de l'outbox. Les droits de `expense_worker` sont vérifiés par ISO-10 et par le worker lancé avec l'application (ISO-11, emails des parcours NOTIF et OCR).
 
 ### Hors périmètre de cette suite
 

@@ -38,7 +38,8 @@ const csvCell = (value) => {
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+// Nettoyage ponctuel sous le rôle propriétaire (ADR-001, annexe B).
+const pool = new Pool({ connectionString: process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL })
 try {
   const { rows } = await pool.query(
     `SELECT e.id, e.status, e.amount, e.expense_date, e.description, e.created_at,

@@ -45,6 +45,28 @@ const GET_POOL_IMPORT = {
     'getPool() ne pose pas le contexte utilisateur dont dépend la RLS : il est réservé à src/lib/db.ts (ADR-001). Passer par withUserScope().',
 }
 
+// Transaction sans contexte utilisateur : la RLS n'y borne rien à une
+// entreprise. Réservée par conception (ADR-001, point de coordination avec
+// l'ADR-003, 2-481) au worker et à l'outbox, et aux lectures faites avant
+// toute session, qui n'appellent que des fonctions SECURITY DEFINER
+// (connexion, inscription). Ce n'est pas une liste LEGACY_* : elle ne se
+// vide pas.
+export const SYSTEM_TRANSACTION_ALLOWED = [
+  'src/lib/outbox.ts',
+  'src/worker/**',
+  'src/adapters/PostgresReceiptAnalysisWork.ts',
+  'src/adapters/PostgresAccountRegistry.ts',
+  'src/lib/auth.ts',
+  'e2e/**',
+]
+
+const SYSTEM_TRANSACTION_IMPORT = {
+  group: ['**/lib/db', './db'],
+  importNames: ['withSystemTransaction'],
+  message:
+    'withSystemTransaction() ne pose aucun contexte : la RLS ne borne rien à une entreprise. Réservée au worker et à l’outbox (ADR-001). Passer par withUserScope().',
+}
+
 const DB_ACCESS_IMPORT = {
   group: ['pg', '**/lib/db'],
   message:
@@ -155,6 +177,13 @@ const eslintConfig = defineConfig([
   {
     name: 'expense-io/get-pool',
     ignores: ['src/lib/db.ts', ...LEGACY_GET_POOL],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [GET_POOL_IMPORT, SYSTEM_TRANSACTION_IMPORT] }],
+    },
+  },
+  {
+    name: 'expense-io/system-transaction-allowed',
+    files: SYSTEM_TRANSACTION_ALLOWED,
     rules: {
       'no-restricted-imports': ['error', { patterns: [GET_POOL_IMPORT] }],
     },

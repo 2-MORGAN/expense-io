@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import bcrypt from 'bcryptjs'
 import { Pool } from 'pg'
+import { configureDatabase } from '@/lib/db'
 import { databaseUrl } from './env'
 
 // Préparation des données de test.
@@ -37,6 +38,12 @@ export const TEST_PASSWORD = 'e2e-mot-de-passe'
 // Coût bcrypt réduit pour la rapidité : `bcrypt.compare` lit le coût dans le
 // hash, la connexion applicative fonctionne à l'identique.
 const TEST_PASSWORD_HASH = bcrypt.hashSync(TEST_PASSWORD, 4)
+
+// Le code de src/ importé par les specs (outbox, worker) se connecte comme
+// les fixtures, sous le rôle propriétaire : ces specs vérifient la mécanique,
+// les droits des rôles restreints sont vérifiés par ISO-07, ISO-10 et ISO-11
+// (2-481).
+configureDatabase(databaseUrl(), 'expense-e2e')
 
 let pool: Pool | undefined
 

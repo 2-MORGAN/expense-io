@@ -98,6 +98,12 @@ L'ADR-003 introduit trois traitements hors requête HTTP qui portent sur toutes 
   4. l'usage de `withSystemTransaction` (transaction sans contexte utilisateur, PR #15) **réservé au worker et à l'outbox** par une règle de lint, sur le modèle de `getPool()`.
 - **2-478 (RLS sur `users`)** : la policy doit laisser un manager racine trouver les RH de son entreprise au moment de soumettre une note (`enqueueSubmitted`), ou cette recherche passe par une fonction `SECURITY DEFINER` étroite. Sinon, aucun événement n'est écrit et la RH n'est jamais notifiée, sans erreur. Un test le couvre.
 
+**Mise à jour 2-481 (bascule).** Les quatre points ci-dessus sont livrés (migration `1793500000000_roles-connexion-worker.sql`, tests ISO-10 et ISO-11). Un écart : pas de rôle de réconciliation `BYPASSRLS`. Les quatre lectures qui portent sur toutes les entreprises passent par des fonctions `SECURITY DEFINER` étroites, pour la raison retenue au point 4 de la mise en œuvre (une fonction étroite plutôt qu'un rôle de connexion `BYPASSRLS`) : un rôle et un mot de passe de moins à exploiter, et une surface réduite à quatre requêtes.
+
+- `receipt_cleanup_candidates` et `purge_expired_receipt_analyses` : nettoyage des analyses OCR par le worker ;
+- `referenced_receipt_keys` : réconciliation des reçus orphelins, exécutée sous `expense_worker` ;
+- `pending_receipt_analyses` : garde-fou de capacité de l'OCR, lu par l'application ; il ne rend qu'un nombre.
+
 ## 3. Question 2 — Comment identifier l'entreprise ?
 
 ### Constat

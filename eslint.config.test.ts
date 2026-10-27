@@ -95,6 +95,24 @@ describe('règles d’architecture', () => {
     })
   })
 
+  describe('withSystemTransaction() (2-481)', () => {
+    const code = `import { withSystemTransaction } from '@/lib/db'\nexport const x = withSystemTransaction`
+
+    it('est refusé hors du worker, de l’outbox et des lectures avant session', async () => {
+      const messages = await messagesFor(code, 'src/adapters/NewRepository.ts')
+      expect(messages.join('\n')).toMatch(/withSystemTransaction\(\) ne pose aucun contexte/)
+    })
+
+    it.each(['src/worker/new.ts', 'src/lib/outbox.ts', 'src/adapters/PostgresAccountRegistry.ts'])(
+      'reste permis dans %s, où getPool() reste refusé',
+      async (path) => {
+        expect(await messagesFor(code, path)).toEqual([])
+        const pool = await messagesFor(`import { getPool } from '@/lib/db'\nexport const x = getPool`, path)
+        expect(pool.join('\n')).toMatch(/getPool\(\)/)
+      }
+    )
+  })
+
   describe('domaine (src/domain)', () => {
     it.each([
       ['pg', `import { Pool } from 'pg'`],

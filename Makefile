@@ -11,8 +11,14 @@ help: ## Affiche cette aide
 install: ## Installe les dépendances npm
 	npm install
 
-env: ## Crée .env depuis .env.example si absent, génère AUTH_SECRET si besoin
-	@if [ ! -f .env ]; then cp .env.example .env; echo ".env créé depuis .env.example"; fi
+env: ## Crée .env depuis .env.example si absent, avec des mots de passe de base aléatoires
+	@if [ ! -f .env ]; then \
+		cp .env.example .env; \
+		node -e "const fs=require('fs'),c=require('crypto');let s=fs.readFileSync('.env','utf8');for(const p of ['expense-app-local','expense-worker-local'])s=s.split(p).join(c.randomBytes(18).toString('hex'));fs.writeFileSync('.env',s)"; \
+		echo ".env créé depuis .env.example (mots de passe des rôles de base générés)"; \
+	elif ! grep -q '^MIGRATION_DATABASE_URL=' .env; then \
+		echo ".env antérieur à 2-481 : reprendre les quatre variables *DATABASE_URL de .env.example, puis npm run migrate:up." >&2; \
+	fi
 
 up: env ## Démarre Postgres + LocalStack + Mailpit (Docker) et attend qu'ils soient prêts
 	$(COMPOSE) up -d

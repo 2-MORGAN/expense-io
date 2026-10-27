@@ -47,6 +47,7 @@ flowchart TB
   m_lib_2f_auth["lib/auth"]
   m_lib_2f_authErrors["lib/authErrors"]
   m_lib_2f_db["lib/db"]
+  m_lib_2f_dbRole["lib/dbRole"]
   m_lib_2f_email["lib/email"]
   m_lib_2f_errors["lib/errors"]
   m_lib_2f_log["lib/log"]
@@ -115,6 +116,7 @@ flowchart TB
   m_http --> m_ports
   m_http --> m_types
   m_instrumentation --> p_next
+  m_instrumentation --> m_lib_2f_dbRole
   m_instrumentation --> m_lib_2f_log
   m_lib_2f_auth --> p_next_2d_auth
   m_lib_2f_auth --> m_lib_2f_authErrors
@@ -122,6 +124,8 @@ flowchart TB
   m_lib_2f_auth --> m_lib_2f_sessionUser
   m_lib_2f_authErrors --> p_next_2d_auth
   m_lib_2f_db --> p_pg
+  m_lib_2f_dbRole --> m_lib_2f_db
+  m_lib_2f_dbRole --> m_lib_2f_log
   m_lib_2f_email --> m_adapters
   m_lib_2f_email --> m_ports
   m_lib_2f_errors --> m_http
@@ -143,6 +147,7 @@ flowchart TB
   m_worker --> m_composition
   m_worker --> m_domain
   m_worker --> m_lib_2f_db
+  m_worker --> m_lib_2f_dbRole
   m_worker --> m_lib_2f_email
   m_worker --> m_lib_2f_log
   m_worker --> m_lib_2f_outbox
@@ -154,7 +159,7 @@ flowchart TB
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
   class m_application,m_domain,m_generated,m_ports,m_utils coeur
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
-  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_db,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_tokens infra
+  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_tokens infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
   class p__40_aws_2d_sdk,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react,p_sharp paquet
 ```
