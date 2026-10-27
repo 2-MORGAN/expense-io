@@ -46,3 +46,8 @@ next-env.d.ts
 
 # Claude Code : réglages personnels ; les réglages partagés sont dans .claude/settings.json
 .claude/settings.local.json
+
+# Couverture de tests
+/coverage
+/coverage-e2e
+/coverage-e2e-report

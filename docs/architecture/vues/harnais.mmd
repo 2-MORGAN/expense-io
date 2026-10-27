@@ -10,6 +10,7 @@ flowchart TB
   checkJob["check<br/>lint, SonarJS, types, Vitest,<br/>contrat, graphes, doc,<br/>oasdiff (sans rupture), build"]
   e2eJob["e2e<br/>Playwright en 2 shards<br/>Postgres, LocalStack, Mailpit"]
   mainBranch[("main<br/>squash, historique linéaire")]
+  coverage["Couverture à la demande<br/>test:coverage (Vitest v8)<br/>test:e2e:coverage (c8)"]
 
   subgraph claude["Claude Code : .claude/settings.json"]
     direction TB
@@ -18,6 +19,7 @@ flowchart TB
   end
 
   change --> commit --> push --> pr --> ci
+  change -.->|"où sont les trous ?"| coverage
   ci --> checkJob & e2eJob
   checkJob & e2eJob -->|"obligatoires"| mainBranch
   guardHook -.-> commit
@@ -26,6 +28,6 @@ flowchart TB
   classDef local fill:#dbeafe,stroke:#2563eb,color:#111827
   classDef ciJob fill:#dcfce7,stroke:#16a34a,color:#111827
   classDef hook fill:#ede9fe,stroke:#7c3aed,color:#111827
-  class commit,push,pr local
+  class commit,push,pr,coverage local
   class checkJob,e2eJob ciJob
   class guardHook,stopHook hook

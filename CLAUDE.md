@@ -30,6 +30,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 | Tests unitaires (Vitest) | `npm run test:unit` · `npx vitest` (relance à chaque modification) — fichier `*.test.ts` à côté du code testé, exemple : `src/utils/validators.test.ts` |
 | Lint, types et tests unitaires d'un coup (ce que lance la CI avant le build) | `npm run check` |
 | Tests E2E de non-régression (Playwright) | `make test-e2e` · `npm run test:e2e` — voir `docs/tests/E2E.md` |
+| Couverture de code (à la demande, sans seuil bloquant : ADR-005) | unitaires : `npm run test:coverage` → `coverage/index.html` (interface : `npm run test:coverage:ui`) · E2E, serveur et worker compris : `npm run test:e2e:coverage` → `coverage-e2e-report/index.html` (Docker requis, ne réutilise pas le serveur de `make dev`, à arrêter avant) ; citer les **branches**, les lignes E2E sont gonflées |
 | Migrations | `npm run migrate:up` · `npm run migrate:down` |
 | Seed (idempotent) / bucket | `npm run seed` · `npm run ensure-bucket` |
 | Reçus orphelins sur S3 (2-476) | `npm run reconcile:orphan-receipts` (dry-run) · `npm run reconcile:orphan-receipts -- --execute` |

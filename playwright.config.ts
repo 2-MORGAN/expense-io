@@ -13,6 +13,13 @@ import { BASE_URL } from './e2e/support/env'
 // téléchargement des navigateurs Playwright).
 const chromiumExecutablePath = process.env.E2E_CHROMIUM_PATH
 
+// `npm run test:e2e:coverage` : serveur et worker démarrés par Playwright (un
+// serveur réutilisé ne serait pas mesuré), arrêtés par un signal et non SIGKILL
+// pour que chaque processus écrive sa couverture en sortant. SIGINT et non
+// SIGTERM : Playwright signale tout le groupe, puis `scripts/dev.mjs` relaie un
+// SIGTERM au worker ; deux SIGTERM le tueraient avant l'écriture (`once`).
+const measuringCoverage = !!process.env.NODE_V8_COVERAGE
+
 export default defineConfig({
   testDir: './e2e',
   globalSetup: './e2e/global-setup.ts',
@@ -48,8 +55,9 @@ export default defineConfig({
     : {
         command: 'npm run dev',
         url: `${BASE_URL}/login`,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: !process.env.CI && !measuringCoverage,
         timeout: 180_000,
+        ...(measuringCoverage ? { gracefulShutdown: { signal: 'SIGINT' as const, timeout: 90_000 } } : {}),
         // Sortie d'erreur affichée par défaut (journal JSON des erreurs) ; en CI,
         // la sortie standard aussi : requêtes servies et journal du worker
         // (ADR-005 §5).
