@@ -191,11 +191,6 @@ export const LEGACY_EDGES: readonly LegacyEdge[] = [
     to: 'src/lib/storage',
     why: 'upload et URL pré-signées appelés depuis les routes, au lieu d’un port (ADR-002 §3.3)',
   },
-  {
-    from: 'src/http',
-    to: 'src/adapters',
-    why: 'readReceipt et readExpenseInput appellent inspectReceipt (2-486) au lieu d’un port ou de la composition (ADR-002 §3.3)',
-  },
 ]
 
 // Méthodes de route servies sans garde, par nature : `MÉTHODE /chemin`.
