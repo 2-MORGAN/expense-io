@@ -1,7 +1,8 @@
 # Intégration continue d'Expense.io. Décision et justification :
 # docs/adr/ADR-005-harnais-de-validation.md (§3).
 #
-# - check : lint, types, tests unitaires et build de production, sans
+# - check : lint, types, tests unitaires, absence de rupture du contrat
+#           d'API (oasdiff, sur les PR) et build de production, sans
 #           infrastructure ;
 # - e2e   : suite Playwright de docs/tests/E2E.md, contre `next dev` comme
 #           `make test-e2e`, avec Postgres, LocalStack et Mailpit lancés depuis
@@ -55,6 +56,16 @@ jobs:
       - run: npm ci
       - name: Lint, types et tests unitaires
         run: npm run check
+      # Rupture du contrat d'API par rapport à la branche visée (ADR-004 §7,
+      # oasdiff). Une rupture voulue : ADR acceptée, label `rupture-contrat`
+      # sur la PR, puis relancer ce job.
+      - name: Contrat d'API sans rupture (oasdiff)
+        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'rupture-contrat')
+        env:
+          OASDIFF_FORMAT: githubactions
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          bash scripts/check-api-breaking.sh "origin/${{ github.base_ref }}"
       # Même configuration qu'un poste de dev : .env créé depuis .env.example.
       - run: make env
       - name: Build de production

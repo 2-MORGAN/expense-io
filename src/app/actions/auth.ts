@@ -3,7 +3,7 @@
 import { AuthError, CredentialsSignin } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { signIn, signOut } from '@/lib/auth'
-import { EMAIL_NOT_VERIFIED } from '@/lib/authErrors'
+import { EMAIL_NOT_VERIFIED, TOO_MANY_ATTEMPTS } from '@/lib/authErrors'
 import { MIN_PASSWORD_LENGTH } from '@/application/SignUp'
 import { signUp } from '@/composition/identity'
 
@@ -69,6 +69,10 @@ export async function login(
   } catch (error) {
     if (error instanceof CredentialsSignin && error.code === EMAIL_NOT_VERIFIED) {
       return { error: 'Confirmez votre adresse email avant de vous connecter.', unverified: true }
+    }
+    // Limite de tentatives (AUTH-11) : même message que l'adresse ait un compte ou non.
+    if (error instanceof CredentialsSignin && error.code === TOO_MANY_ATTEMPTS) {
+      return { error: 'Trop de tentatives de connexion. Réessayez dans quelques minutes.' }
     }
     if (error instanceof AuthError) {
       return { error: 'Email ou mot de passe incorrect.' }

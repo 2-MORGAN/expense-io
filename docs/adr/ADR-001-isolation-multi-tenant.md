@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Acceptée** le 20 octobre 2026 par le PO (Florent). Proposée le 18 octobre. **Précisée le 23/10** : mise en œuvre du point de coordination avec l'ADR-003 (voir ce point) |
+| Statut | **Acceptée** le 20 octobre 2026 par le PO (Florent). Proposée le 18 octobre. **Précisée le 23/10** : mise en œuvre du point de coordination avec l'ADR-003 (voir ce point). **Mise à jour du 27/10** : secret vérifié au démarrage et limite de tentatives livrés (§4) |
 | Auteur | Amalraj Soupramanien (WS1 Sécurité) |
 | Date | 18 octobre 2026 |
 | Ticket | 2-380 (jalon J3 « ADR validées ») |
@@ -171,6 +171,12 @@ Auth.js v5 (la brique achetée) gère sessions, jetons, cookies (`httpOnly`, `sa
 3. **Limite de tentatives** : contrôle dans `authorize()`, seul point commun à la server action `/login` et à `/api/auth/callback/credentials`, **avant** `bcrypt.compare` (qui protège aussi le CPU). Dans l'interface, message dédié via une sous-classe de `CredentialsSignin` ; sur l'appel direct à l'API, **429** + `Retry-After` (cours 3) en enveloppant le handler. Compteurs dans une table PostgreSQL sans RLS, écrite seulement en cas d'échec ; écartés : la mémoire de l'instance (perdue, non partagée) et Redis (nouvelle dépendance, nouveau point de panne). Par email soumis, qu'il existe ou non (pas d'énumération), par exemple 10 échecs en 15 minutes puis délai temporaire, jamais de blocage définitif ; seuil large par adresse IP, jamais remis à zéro par une connexion réussie ; seuils réglables par variables d'environnement.
 4. **Énumération** : `bcrypt.compare` sur un hash factice pour un email inconnu. Le message d'inscription « Un compte existe déjà », figé par SIGNUP-03, est un risque accepté.
 
+**Mise à jour du 27/10/2026 (livré).**
+
+- **Point 1, secret** : `src/lib/authSecret.ts`, appelé par `instrumentation.ts` avant le contrôle du rôle de base. Secret absent, de moins de 32 caractères ou égal à la valeur d'exemple → refus de démarrer en production, avertissement en développement (CONF-01, tests unitaires). `make env` génère `AUTH_SECRET`. **Rotation** : la décision ci-dessus est conservée (pas de `AUTH_SECRET_1..n`) ; la procédure est écrite dans `.env.example` et le README : remplacer la valeur, redémarrer, toutes les sessions sont invalidées.
+- **Point 3, limite de tentatives** : table `login_attempts` (migration `1793600000000`), lue et écrite **uniquement** par deux fonctions `SECURITY DEFINER` (`login_attempts_for`, `record_login_failure`) : `expense_app` n'a aucun droit direct sur la table, qui ne garde que l'empreinte SHA-256 de l'email ou de l'IP. Seuils par défaut : 10 échecs par email et 100 par IP (première entrée de `X-Forwarded-For`) sur 15 minutes, réglables (`LOGIN_*`). Contrôle dans `authorize()` avant `bcrypt.compare` ; message dédié sur `/login` ; **429** `application/problem+json` + `Retry-After` sur `/api/auth/callback/credentials`, en enveloppant le handler POST d'Auth.js. Aucune opération du contrat OpenAPI ne change. Tests AUTH-11a à d.
+- **Point 4, énumération** : un email inconnu passe par `bcrypt.compare` sur une empreinte factice de même coût.
+
 Proposé, à faire valider par le PO : un `session_version` lu avec le rôle, sans requête de plus, pour « déconnecter partout » ; une limite sur l'inscription.
 
 ## 5. Question 4 — Comment le prouver ?
@@ -238,13 +244,13 @@ Ordre : correctifs indépendants de l'ADR d'abord, puis par dépendance ; la bas
 | Erreurs sans détail interne, identifiant de corrélation | S6 | Non | ERR-01 |
 | Contrôle équipe et entreprise sur le reçu manager | S2 | Non | ISO-04, ISO-05 |
 | Contrôle d'entreprise du manager cible | S3 | Non | ISO-06 |
-| Secret en environnement, vérification au démarrage, rotation, `make env` | S5 | Oui | CONF-01, AUTH-* verts |
+| Secret en environnement, vérification au démarrage, rotation, `make env` — **livré le 27/10** | S5 | Oui | CONF-01, AUTH-* verts |
 | Migration : rôles, policies `company_id`, RLS `users`, clé étrangère composite, fonctions `SECURITY DEFINER`, index — **sans changer la connexion** | S3, S4 | Oui | ISO-07 (sous rôle restreint) |
 | Création de note selon l'ADR-003 (T2 de WS3) et seed adapté | S4, S8 | Oui | ISO-08, RECU-* |
 | Rôle et entreprise relus via `withUserScope`, session de 8 h d'inactivité | S9 | Oui | AUTH-10 |
 | Suppression des 12 `getPool()` sur données tenant | S4 | Oui | Suite complète, garde-fou |
 | **Bascule de `DATABASE_URL` sur `expense_app`**, contrôle du rôle au démarrage | S4 | Oui | Suite complète sous `expense_app`, ISO-09 |
-| Limite de tentatives, comparaison bcrypt constante | Hors S1-S9 | Oui | AUTH-11 |
+| Limite de tentatives, comparaison bcrypt constante — **livré le 27/10** | Hors S1-S9 | Oui | AUTH-11 |
 | Rôles `expense_worker` et de réconciliation, policy `INSERT` de l'outbox (si retenu avec WS3) | S4 | Oui | Tests d'intégration ADR-005 |
 | Création atomique de l'entreprise et de sa RH | S7 | Oui | Test d'intégration avec panne injectée ; SIGNUP-01 vert |
 | Invitations, extension de `NotificationPort`, vérification d'email du créateur, migration de `email_domain` | S7 | Oui | SIGNUP-08 et suivants ; SIGNUP-01/02/07 et FLOW-01 mis à jour |

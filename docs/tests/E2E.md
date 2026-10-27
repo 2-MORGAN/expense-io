@@ -294,6 +294,17 @@ S9 (ADR-001 §4, 2-496) : le rôle est relu en base à chaque lecture de session
 | AUTH-10c | Compte supprimé en base → API **401**, page protégée redirigée vers `/login` | API + UI |
 | AUTH-10d | Cookie de session : expiration 8 h après la dernière requête (et non 30 jours) | UI |
 
+### Limite de tentatives de connexion — `e2e/login-throttle.spec.ts`
+
+ADR-001 §4 point 3 : 10 échecs par email sur 15 minutes (valeurs par défaut, réglables par l'environnement), puis refus jusqu'à la fin de la fenêtre. Compteurs dans `login_attempts`, par empreinte SHA-256 de l'adresse.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| AUTH-11a | 10 échecs sur `/api/auth/callback/credentials` → l'appel suivant, même avec le bon mot de passe, répond **429** `application/problem+json`, code `TOO_MANY_LOGIN_ATTEMPTS`, `Retry-After` ≤ 15 min ; la table ne contient que l'empreinte de l'adresse | API + Base |
+| AUTH-11b | Même compte sur `/login` → « Trop de tentatives de connexion. Réessayez dans quelques minutes. », reste sur `/login` ; un autre compte se connecte normalement | UI + API |
+| AUTH-11c | Fenêtre expirée (forcée en base) → la connexion redevient possible : jamais de blocage définitif | API + Base |
+| AUTH-11d | Email sans compte : limité de la même façon (pas d'énumération) | API |
+
 ### Parcours complet — `e2e/parcours-complet.spec.ts`
 
 | ID | Scénario | Niveau |
@@ -324,6 +335,14 @@ Les tests appellent directement `withUserScope`, `PgEventOutbox` et `processNext
 | OUTBOX-08 | Type sans handler : laissé « pending » pour le worker qui le connaît | Intégration |
 | OUTBOX-09 | Worker arrêté pendant le traitement : la prise en charge compte l'essai et pose un bail de 5 min ; un événement dont le dernier essai n'a jamais fini et qui a épuisé ses essais passe « dead » sans rejouer le handler | Intégration |
 | OUTBOX-10 | Prise en charge périmée (bail expiré, un autre worker a repris l'événement) : la phase 2 ne lance pas le handler et ne modifie rien | Intégration |
+
+### Observabilité — `e2e/observability.spec.ts`
+
+ADR-003 §6 : état de l'outbox que le worker journalise chaque minute (`outbox.stats`). La métrique `ocr_requests_total{outcome}` est couverte par les tests unitaires de `src/http/ocrHandlers.test.ts` (ligne de journal, non visible depuis Playwright).
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| OBS-01 | `outboxStats()` par type : 2 en attente, 1 mort, 1 envoyé ignoré ; âge du plus ancien en attente ≥ 120 s, sans compter l'événement mort plus ancien | Intégration |
 
 ### Notifications — `e2e/notifications.spec.ts`
 

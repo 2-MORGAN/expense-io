@@ -3,7 +3,7 @@ SHELL := /bin/bash
 
 COMPOSE := docker compose
 
-.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-e2e verify
+.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-e2e verify api-breaking reconcile
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -11,11 +11,11 @@ help: ## Affiche cette aide
 install: ## Installe les dépendances npm
 	npm install
 
-env: ## Crée .env depuis .env.example si absent, avec des mots de passe de base aléatoires
+env: ## Crée .env depuis .env.example si absent, avec un AUTH_SECRET et des mots de passe de base aléatoires
 	@if [ ! -f .env ]; then \
 		cp .env.example .env; \
-		node -e "const fs=require('fs'),c=require('crypto');let s=fs.readFileSync('.env','utf8');for(const p of ['expense-app-local','expense-worker-local'])s=s.split(p).join(c.randomBytes(18).toString('hex'));fs.writeFileSync('.env',s)"; \
-		echo ".env créé depuis .env.example (mots de passe des rôles de base générés)"; \
+		node -e "const fs=require('fs'),c=require('crypto');let s=fs.readFileSync('.env','utf8');for(const p of ['expense-app-local','expense-worker-local'])s=s.split(p).join(c.randomBytes(18).toString('hex'));s=s.split('changeme-generate-a-real-secret-for-non-local-use').join(c.randomBytes(32).toString('base64url'));fs.writeFileSync('.env',s)"; \
+		echo ".env créé depuis .env.example (AUTH_SECRET et mots de passe des rôles de base générés)"; \
 	elif ! grep -q '^MIGRATION_DATABASE_URL=' .env; then \
 		echo ".env antérieur à 2-481 : reprendre les quatre variables *DATABASE_URL de .env.example, puis npm run migrate:up." >&2; \
 	fi
@@ -72,6 +72,13 @@ test-unit: ## Tests unitaires Vitest (sans Docker)
 
 test-e2e: up migrate ensure-bucket ## Tests E2E Playwright (démarre Docker, migre ; lance ou réutilise le serveur de dev)
 	npm run test:e2e
+
+api-breaking: ## Contrat d'API sans rupture par rapport à origin/main (oasdiff, comme la CI)
+	git fetch --no-tags --depth=1 origin main
+	bash scripts/check-api-breaking.sh origin/main
+
+reconcile: ## Reçus orphelins sur S3 : rapport (dry-run) ; tâche quotidienne dans ops/cron/
+	npm run reconcile:orphan-receipts
 
 verify: env ## Ce que vérifie la CI : lint, types, tests unitaires, build de production, puis E2E (Docker requis)
 	npm run check
