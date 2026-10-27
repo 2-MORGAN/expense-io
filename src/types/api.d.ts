@@ -351,6 +351,7 @@ export interface components {
             error?: components["schemas"]["Problem"];
         } & (unknown & unknown);
         /**
+         * @description Problème RFC 9457. Chaque code n'existe qu'avec un statut HTTP (catalogue d'ADR-004 §3.1) : les contrôles du contrat refusent par exemple FORBIDDEN avec 400.
          * @example {
          *       "type": "/problems/validation-error",
          *       "title": "Validation failed",
@@ -387,7 +388,7 @@ export interface components {
                 /** @description Public English message; never includes the submitted value. */
                 message: string;
             }[];
-        };
+        } & (unknown & unknown & unknown & unknown & unknown & unknown & unknown & unknown);
         /** Format: uuid */
         Uuid: string;
         /**

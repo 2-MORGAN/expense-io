@@ -676,6 +676,106 @@ components:
     Problem:
       type: object
       additionalProperties: false
+      description: "Problème RFC 9457. Chaque code n'existe qu'avec un statut HTTP (catalogue d'ADR-004 §3.1) : les
+        contrôles du contrat refusent par exemple FORBIDDEN avec 400."
+      allOf:
+        - if:
+            required:
+              - code
+            properties:
+              code:
+                enum:
+                  - INVALID_JSON
+                  - VALIDATION_ERROR
+                  - RECEIPT_TOO_LARGE
+                  - RECEIPT_TYPE_NOT_ALLOWED
+                  - IMAGE_TOO_LARGE
+                  - INVALID_IDEMPOTENCY_KEY
+                  - INVALID_EMAIL
+          then:
+            properties:
+              status:
+                const: 400
+        - if:
+            required:
+              - code
+            properties:
+              code:
+                enum:
+                  - AUTHENTICATION_REQUIRED
+          then:
+            properties:
+              status:
+                const: 401
+        - if:
+            required:
+              - code
+            properties:
+              code:
+                enum:
+                  - FORBIDDEN
+          then:
+            properties:
+              status:
+                const: 403
+        - if:
+            required:
+              - code
+            properties:
+              code:
+                enum:
+                  - RESOURCE_NOT_FOUND
+          then:
+            properties:
+              status:
+                const: 404
+        - if:
+            required:
+              - code
+            properties:
+              code:
+                enum:
+                  - ALREADY_DECIDED
+                  - INVALID_MANAGER
+          then:
+            properties:
+              status:
+                const: 409
+        - if:
+            required:
+              - code
+            properties:
+              code:
+                enum:
+                  - IDEMPOTENCY_KEY_REUSED
+          then:
+            properties:
+              status:
+                const: 422
+        - if:
+            required:
+              - code
+            properties:
+              code:
+                enum:
+                  - INTERNAL_ERROR
+          then:
+            properties:
+              status:
+                const: 500
+        - if:
+            required:
+              - code
+            properties:
+              code:
+                enum:
+                  - OCR_UNAVAILABLE
+                  - OCR_TIMEOUT
+                  - OCR_OVERLOADED
+          then:
+            properties:
+              status:
+                const: 503
       required:
         - type
         - title

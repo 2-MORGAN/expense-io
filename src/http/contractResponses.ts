@@ -19,13 +19,15 @@ export function checkApiResponse(method: string, url: string, status: number, he
   const mediaType = headers['content-type']?.split(';')[0].trim()
   const schema = response.content?.[mediaType]
   if (!schema) throw new Error(`Undocumented Content-Type: ${method} ${path} → ${status} ${mediaType}`)
-  const validate = compileContractSchema(schema.schema)
-  if (!validate(body)) throw new Error(`Contract mismatch: ${method} ${path} → ${status}: ${JSON.stringify(validate.errors)}`)
+  // Corrélation avant le schéma : le message le plus précis d'abord. Le schéma
+  // vérifie ensuite que le code va avec ce statut (Problem, ADR-004 §3.1).
   if (mediaType === 'application/problem+json') {
-    const problem = body as { status: number; requestId: string }
-    if (problem.status !== status) throw new Error('Problem status differs from HTTP status')
+    const problem = body as { status?: unknown; requestId?: unknown } | null
+    if (problem?.status !== status) throw new Error('Problem status differs from HTTP status')
     if (problem.requestId !== headers['x-request-id']) throw new Error('Problem requestId differs from X-Request-Id')
   }
+  const validate = compileContractSchema(schema.schema)
+  if (!validate(body)) throw new Error(`Contract mismatch: ${method} ${path} → ${status}: ${JSON.stringify(validate.errors)}`)
   for (const [name, spec] of Object.entries(response.headers ?? {})) {
     const value = headers[name.toLowerCase()]
     if (spec.required && value === undefined) throw new Error(`Missing response header: ${name}`)
