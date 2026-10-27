@@ -7,7 +7,10 @@ const children = [
 ]
 // Délai avant SIGKILL à l'arrêt. `npm run test:e2e:coverage` l'allonge : chaque
 // processus écrit sa couverture en sortant, ce qui prend plusieurs secondes.
-const exitTimeoutMs = Number(process.env.DEV_EXIT_TIMEOUT_MS ?? 5000)
+// Une valeur absente ou invalide garde 5 s : `Number('abc')` donnerait NaN,
+// et un délai NaN déclencherait le SIGKILL tout de suite.
+const requestedExitTimeoutMs = Number(process.env.DEV_EXIT_TIMEOUT_MS)
+const exitTimeoutMs = Number.isFinite(requestedExitTimeoutMs) && requestedExitTimeoutMs > 0 ? requestedExitTimeoutMs : 5000
 let closing = false
 function close(code = 0) {
   if (closing) return
