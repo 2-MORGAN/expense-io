@@ -152,6 +152,10 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | CLEAN-02 | `clean-notes-without-receipt` sans `--execute` : rapport seul, rien de modifié | API |
 | CLEAN-03 | `--execute --out` : CSV de toutes les notes sans reçu, suppression des seules notes `pending`, notes décidées conservées, autre entreprise intacte | API |
 | CLEAN-04 | `--execute` sans `--out` : refusé, rien supprimé | API |
+| REC-01 | `reconcile-orphan-receipts` sans `--execute` : liste l'orphelin, ne supprime rien (2-476 bonus) | API |
+| REC-02 | `--execute` : supprime l'orphelin, garde le reçu d'une note | API |
+| REC-03 | Délai de 24 h : un objet récent n'est jamais supprimé, même avec `--execute` | API |
+| REC-04 | Un objet sous le préfixe d'une autre entreprise n'est pas touché (`--company`) | API |
 
 ### Pré-remplissage depuis le reçu (OCR) — `e2e/ocr-suggestion.spec.ts`
 
