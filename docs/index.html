@@ -744,8 +744,8 @@ flowchart LR
           <tbody>
             <tr><td><code>src/app/api/**/route.ts</code> et <code>src/http/</code></td><td>authentifier (<code>requireRole</code>), valider l'entrée selon le contrat, appeler un cas d'usage, formater la réponse (DTO, <code>problem+json</code>)</td><td>SQL, règle métier, appel direct à <code>lib/storage</code></td></tr>
             <tr><td><code>src/app/actions/</code>, pages</td><td>server actions (inscription, connexion, déconnexion) ; une page serveur peut appeler un cas d'usage par <code>src/composition</code></td><td>SQL, droits ; <code>src/composition</code> depuis un fichier <code>'use client'</code></td></tr>
-            <tr><td><code>src/application/</code></td><td>cas d'usage : enchaîner les étapes (<code>SubmitExpenseNote</code>, <code>DecideExpenseNote</code>, <code>SignUp</code>, <code>InviteEmployee</code>, OCR…)</td><td>toute infrastructure : seulement domaine, ports et <code>node:crypto</code></td></tr>
-            <tr><td><code>src/domain/</code></td><td>règles pures : qui peut décider, transitions, lecture d'un ticket (<code>parseReceiptText</code>), identité, notifications</td><td><code>pg</code>, <code>next</code>, <code>aws-sdk</code>, <code>auth</code>, toute autre couche</td></tr>
+            <tr><td><code>src/application/</code></td><td>cas d'usage : enchaîner les étapes (<code>SubmitExpenseNote</code>, <code>DecideExpenseNote</code>, <code>ListExpenseNotes</code>, <code>GetReceiptUrl</code>, <code>SignUp</code>, <code>InviteEmployee</code>, OCR…)</td><td>toute infrastructure : seulement domaine, ports et <code>node:crypto</code></td></tr>
+            <tr><td><code>src/domain/</code></td><td>règles pures : qui peut décider, qui voit quel reçu (<code>canViewReceipt</code>), tri des listes (<code>parseNoteSort</code>), transitions, lecture d'un ticket (<code>parseReceiptText</code>), identité, notifications</td><td><code>pg</code>, <code>next</code>, <code>aws-sdk</code>, <code>auth</code>, toute autre couche</td></tr>
             <tr><td><code>src/ports/</code></td><td>interfaces : stockage, OCR, outbox, notifications, repositories</td><td>une implémentation</td></tr>
             <tr><td><code>src/adapters/</code>, <code>src/lib/</code></td><td>implémentations : PostgreSQL par <code>withUserScope()</code>, S3, SMTP, Tesseract ; session, journal, outbox</td><td>règle métier</td></tr>
             <tr><td><code>src/composition/</code></td><td>assemble cas d'usage et adaptateurs, une fois par processus</td><td>logique propre</td></tr>
@@ -762,7 +762,9 @@ flowchart LR
           <tbody>
             <tr><td><code>ExpenseNoteSubmissionRepository</code></td><td><code>PostgresExpenseNoteSubmissionRepository</code></td><td><code>SubmitExpenseNote</code></td></tr>
             <tr><td><code>ExpenseNoteDecisionRepository</code></td><td><code>PostgresExpenseNoteDecisionRepository</code></td><td><code>DecideExpenseNote</code></td></tr>
-            <tr><td><code>ReceiptStoragePort</code></td><td><code>S3ReceiptAdapter</code></td><td>soumission, analyses, worker</td></tr>
+            <tr><td><code>ExpenseNoteListRepository</code></td><td><code>PostgresExpenseNoteListRepository</code> (tri par table de requêtes fixes)</td><td><code>ListExpenseNotes</code></td></tr>
+            <tr><td><code>ReceiptAccessRepository</code></td><td><code>PostgresReceiptAccessRepository</code></td><td><code>GetReceiptUrl</code></td></tr>
+            <tr><td><code>ReceiptStoragePort</code></td><td><code>S3ReceiptAdapter</code></td><td>soumission, URL de reçu, analyses, worker</td></tr>
             <tr><td><code>ReceiptInspector</code></td><td><code>inspectReceipt</code> (signature, format réel, décodage)</td><td>validation des reçus à la création</td></tr>
             <tr><td><code>OcrPort</code></td><td><code>TesseractOcrAdapter</code> (processus enfant)</td><td><code>SuggestReceiptFields</code></td></tr>
             <tr><td><code>OcrExecutionPort</code></td><td><code>PostgresOcrExecution</code> (verrous transactionnels : deux moteurs par base)</td><td><code>OcrRequests</code>, <code>ProcessReceiptAnalysis</code></td></tr>
@@ -852,8 +854,6 @@ flowchart TB
   m_app_2f_api --&gt; m_domain
   m_app_2f_api --&gt; m_http
   m_app_2f_api --&gt; m_lib_2f_auth
-  m_app_2f_api -.-&gt;|"legacy"| m_lib_2f_db
-  m_app_2f_api -.-&gt;|"legacy"| m_lib_2f_storage
   m_app_2f_verify_2d_email --&gt; p_next
   m_app_2f_verify_2d_email --&gt; m_composition
   m_application --&gt; p_node_3a_crypto
@@ -922,7 +922,6 @@ flowchart TB
   m_worker --&gt; m_lib_2f_outbox
   m_worker --&gt; m_lib_2f_tokens
   m_worker --&gt; m_ports
-  linkStyle 26,27 stroke:#ea580c,stroke-width:2px,color:#ea580c
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
   class m_app,m_app_2f_actions,m_app_2f_api,m_app_2f_verify_2d_email,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
@@ -1812,12 +1811,15 @@ flowchart TB
   adr1["ADR-001 · Isolation multi-tenant&lt;br/&gt;RLS, invitations, Auth.js"]
   adr3["ADR-003 · OCR, soumission, notifications&lt;br/&gt;upload d'abord, outbox, worker"]
   adr4["ADR-004 · Contrat d'API&lt;br/&gt;OpenAPI, RFC 9457, codes stables"]
+  adr6["ADR-006 · Stratégie de migration&lt;br/&gt;Strangler Fig, Branch by Abstraction"]
 
   adr2 --&gt;|"module de permissions"| adr1
   adr2 --&gt;|"ports, worker = adaptateur entrant"| adr3
   adr1 &lt;--&gt;|"clés S3 par tenant, rôles du worker"| adr3
   adr4 &lt;--&gt;|"202 + polling, 503, Idempotency-Key"| adr3
-  adr5 -.-&gt;|"vérifie : E2E, lint, contrat"| adr1 &amp; adr2 &amp; adr3 &amp; adr4
+  adr6 --&gt;|"comment atteindre la cible"| adr2
+  adr6 --&gt;|"façade : contrat inchangé"| adr4
+  adr5 -.-&gt;|"vérifie : E2E, lint, contrat"| adr1 &amp; adr2 &amp; adr3 &amp; adr4 &amp; adr6
 
   classDef securite fill:#fee2e2,stroke:#dc2626,color:#111827
   classDef archi fill:#dbeafe,stroke:#2563eb,color:#111827
@@ -1825,7 +1827,7 @@ flowchart TB
   classDef api fill:#dcfce7,stroke:#16a34a,color:#111827
   classDef qualite fill:#ede9fe,stroke:#7c3aed,color:#111827
   class adr1 securite
-  class adr2 archi
+  class adr2,adr6 archi
   class adr3 asynchrone
   class adr4 api
   class adr5 qualite
@@ -1867,10 +1869,10 @@ flowchart TB
             <li>B8 : décision atomique, 409 à la seconde ; B16 : <code>decided_by</code> et <code>decided_at</code>.</li>
           </ul>
           <h4>Livré</h4>
-          <ul class="pills"><li>2-487, 2-488 · garde commune et cas d'usage de décision (PR #22)</li><li>graphe des couches vérifié (PR #31, #35)</li></ul>
+          <ul class="pills"><li>2-487, 2-488 · garde commune et cas d'usage de décision (PR #22)</li><li>graphe des couches vérifié (PR #31, #35)</li><li>2-536 · listes et URL de reçu par cas d'usage (PR #40, <a href="#adr-006">ADR-006</a>)</li></ul>
           <h4>Reste à faire</h4>
           <ul>
-            <li>Sortir le SQL des routes de lecture et les URL de reçu vers des cas d'usage (flèches orange du <a href="#graphe-couches">graphe</a>).</li>
+            <li>Plus rien sur les routes : aucune n'accède à la base ni à <code>lib/storage</code>, le <a href="#graphe-couches">graphe</a> n'a plus de flèche orange.</li>
           </ul>
         </article>
 
@@ -1928,6 +1930,24 @@ flowchart TB
           <h4>Reste à faire</h4>
           <ul>
             <li><code>CODEOWNERS</code> pour les fichiers du harnais ; points ouverts de l'ADR.</li>
+          </ul>
+        </article>
+
+        <article class="card adr blue" id="adr-006">
+          <header><span class="num">ADR-006</span><span class="tag tag-todo">Proposée</span></header>
+          <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-006-strategie-de-migration.md">Stratégie de migration du code legacy</a></h3>
+          <p class="meta">Amalraj Soupramanien (WS1) · proposée le 27/10/2026, à faire accepter par le PO</p>
+          <h4>Décide</h4>
+          <ul>
+            <li>Code des routes : esprit Strangler Fig, une famille de routes par étape, derrière un contrat HTTP inchangé (chemins et <code>openapi.yaml</code>).</li>
+            <li>Dépendance externe (OCR → IA, stockage, email, facturation) : Branch by Abstraction par les ports ; l'interrupteur arrive avec le second adaptateur.</li>
+            <li>Big Bang écarté. Migration terminée quand les listes <code>LEGACY_*</code> et <code>LEGACY_EDGES</code> sont vides.</li>
+          </ul>
+          <h4>Livré</h4>
+          <ul class="pills"><li>2-536 · URL de reçu et listes par cas d'usage, exceptions legacy vidées (PR #40)</li></ul>
+          <h4>Reste à faire</h4>
+          <ul>
+            <li>Acceptation par le PO.</li>
           </ul>
         </article>
 
@@ -2061,8 +2081,8 @@ flowchart TB
       <p class="section-lead">À ne pas reproduire, et à ne pas « corriger au passage » dans une PR sans rapport : chaque point a son ticket ou son ADR.</p>
       <div class="grid two">
         <div class="card yellow">
-          <h4><span class="tag tag-todo">architecture</span> SQL dans des routes</h4>
-          <p>Les routes de lecture listées dans <code>LEGACY_DB_ACCESS</code> font encore leur SQL, et les routes d'URL de reçu appellent <code>lib/storage</code> : ce sont les flèches orange du <a href="#graphe-couches">graphe des couches</a>.</p>
+          <h4><span class="tag tag-todo">architecture</span> Règle d'accès à deux endroits</h4>
+          <p>Plus aucune route ne fait de SQL (<a href="#adr-006">ADR-006</a>). Mais « qui voit quoi » vit dans le domaine pour une note (<code>decideExpenseNote</code>, <code>canViewReceipt</code>) et dans le <code>WHERE</code> des listes (<code>PostgresExpenseNoteListRepository</code>) : les faire évoluer ensemble.</p>
         </div>
         <div class="card yellow">
           <h4><span class="tag tag-todo">exploitation</span> Tâches et observabilité</h4>

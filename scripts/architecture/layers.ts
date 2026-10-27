@@ -196,19 +196,9 @@ export const PACKAGES: readonly ExternalPackage[] = [
 ]
 
 // Flèches que la matrice interdit mais que le code a encore : dessinées en
-// orange, tolérées jusqu'à leur correction.
-export const LEGACY_EDGES: readonly LegacyEdge[] = [
-  {
-    from: 'src/app/api',
-    to: 'src/lib/db',
-    why: 'SQL dans les routes (LEGACY_DB_ACCESS) : chacune en sort en passant par un cas d’usage (2-488, ADR-002 §6)',
-  },
-  {
-    from: 'src/app/api',
-    to: 'src/lib/storage',
-    why: 'upload et URL pré-signées appelés depuis les routes, au lieu d’un port (ADR-002 §3.3)',
-  },
-]
+// orange, tolérées jusqu'à leur correction. Vide depuis la migration des
+// dernières routes par cas d'usage (ADR-006, 2-536) ; elle ne se remplit plus.
+export const LEGACY_EDGES: readonly LegacyEdge[] = []
 
 // Méthodes de route servies sans garde, par nature : `MÉTHODE /chemin`.
 export const PUBLIC_ROUTES: readonly string[] = [

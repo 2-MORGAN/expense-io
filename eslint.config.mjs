@@ -14,20 +14,10 @@ import sonarjs from 'eslint-plugin-sonarjs'
 // dernier bloc qui s'applique au fichier : les blocs `domain` et
 // `routes-and-ui` reprennent donc les interdits globaux qui les concernent.
 
-// Un segment dynamique de Next.js ([id]) se lirait comme une classe de
-// caractères dans un motif glob.
-const literal = (path) => path.replace(/[[\]]/g, '\\$&')
-
-// Routes et server actions qui accèdent encore à la base. Chacune sort de la
-// liste quand elle passe par un cas d'usage (2-488, ADR-002 §6).
-export const LEGACY_DB_ACCESS = [
-  'src/app/api/expense-notes/route.ts',
-  'src/app/api/expense-notes/[id]/receipt-url/route.ts',
-  'src/app/api/hr/expense-notes/route.ts',
-  'src/app/api/hr/expense-notes/[id]/receipt-url/route.ts',
-  'src/app/api/manager/expense-notes/route.ts',
-  'src/app/api/manager/expense-notes/[id]/receipt-url/route.ts',
-].map(literal)
+// Routes et server actions qui accédaient encore à la base : 13 à la création
+// du lint, aucune depuis la migration des routes par cas d'usage (ADR-006,
+// 2-536). La liste reste, vide, pour que la règle n'admette plus d'exception.
+export const LEGACY_DB_ACCESS = []
 
 
 // Fichiers des appels à getPool() hors de src/lib/db.ts (ADR-001, annexe B) :
@@ -35,8 +25,9 @@ export const LEGACY_DB_ACCESS = [
 // liste reste, vide, pour que la règle n'admette plus d'exception.
 export const LEGACY_GET_POOL = []
 
-// S1 : tri concaténé dans ORDER BY, jusqu'à sa correction (WS1).
-export const LEGACY_SQL_INTERPOLATION = ['src/app/api/expense-notes/route.ts']
+// S1 : tri concaténé dans ORDER BY. Aucun fichier depuis que le tri passe par
+// une table de requêtes fixes (ADR-006, 2-536) ; la liste reste, vide.
+export const LEGACY_SQL_INTERPOLATION = []
 
 const GET_POOL_IMPORT = {
   group: ['**/lib/db', './db'],

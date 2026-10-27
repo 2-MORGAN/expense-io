@@ -1,4 +1,5 @@
 import { OcrError } from '@/domain/receipt/OcrError'
+import { ReceiptNotVisible } from '@/domain/expense/ReceiptAccess'
 import { ExpenseNoteAlreadyDecided, ExpenseNoteNotVisible } from '@/domain/validation/DecideExpenseNote'
 import { log, logError } from '@/lib/log'
 import { InputError } from './validation'
@@ -7,7 +8,7 @@ import { requestContext } from './requestContext'
 
 export function respondError(error: unknown): Response {
   if (error instanceof InputError) return problemResponse(error.code, { errors: error.errors, legacy: error.legacy })
-  const code: ProblemCode = error instanceof ExpenseNoteNotVisible ? 'RESOURCE_NOT_FOUND'
+  const code: ProblemCode = error instanceof ExpenseNoteNotVisible || error instanceof ReceiptNotVisible ? 'RESOURCE_NOT_FOUND'
     : error instanceof ExpenseNoteAlreadyDecided ? 'ALREADY_DECIDED'
       : error instanceof OcrError ? error.code : 'INTERNAL_ERROR'
   // These two OCR refusals historically used their English public detail in error.

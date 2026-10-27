@@ -76,11 +76,11 @@ src/
 │   ├── actions/auth.ts      # server actions signup/login/logout
 │   └── {expenses,manager,hr,login,signup}/page.tsx
 ├── components/              # composants React (AdminConsole, PendingApprovalsPanel, NavItem)
-├── application/             # cas d'usage OCR synchrones et asynchrones
-├── composition/             # branchement des ports et adaptateurs OCR
+├── application/             # cas d'usage : soumission, décision, listes, URL de reçu, identité, OCR
+├── composition/             # branchement des cas d'usage sur leurs adaptateurs
 ├── http/                    # transport et problèmes HTTP du module OCR
 ├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts, log.ts (journal JSON)
-├── domain/                  # ExpenseNote.ts, User.ts   (entités métier)
+├── domain/                  # règles pures : expense/ (tri, accès au reçu), validation/ (décision), identity/, receipt/ (OCR), ExpenseNote.ts, User.ts
 ├── ports/                   # stockage, OCR, analyses, exécution et outbox
 ├── adapters/                # S3, Tesseract isolé, SMTP, notifications et persistance PostgreSQL
 ├── utils/                   # validators.ts, format.ts
@@ -101,7 +101,7 @@ Règles de placement pour tout **nouveau** code :
 - **Accès base** → via `withUserScope()` de `src/lib/db.ts`, jamais `getPool().query` direct pour des données tenant.
 - **Schéma** → nouvelle migration dans `migrations/` (horodatée, jamais d'édition d'une migration existante), avec `down`.
 - **UI** → `src/components/` ; les pages restent minces.
-- Réutiliser avant de créer : le module OCR branche déjà ses cas d'usage, ports et adaptateurs. Les classes historiques `ExpenseNote`, `User` et plusieurs utilitaires restent à brancher (voir dette).
+- Réutiliser avant de créer : chaque route passe déjà par un cas d'usage de `src/application/`, branché dans `src/composition/` (ADR-006). Les utilitaires de `src/utils/` restent inutilisés (voir dette).
 
 `npm run lint` fait respecter une partie de ces règles (`eslint.config.mjs`, ADR-005 T6) : domaine sans infrastructure ; ni SQL ni accès base dans `src/app/` et `src/components/` ; `getPool()` réservé à `src/lib/db.ts` ; pas de SQL interpolé ; pas de test `.only`, `.skip`, `.fixme` ou `.fail`. Le code existant qui enfreint une règle est listé en exception (listes `LEGACY_*`). Ces listes ne font que raccourcir : retirer un fichier dès qu'il est conforme, **ne jamais en ajouter un** pour faire passer le lint.
 
@@ -162,7 +162,7 @@ Les graphes de [`docs/architecture/`](docs/architecture/README.md) complètent l
 
 Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 
-- Classes métier historiques encore inutilisées ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes. Le module OCR utilise désormais domaine, cas d'usage, ports et adaptateurs.
+- `src/utils/` (`validators.ts`, `format.ts`) n'est importé par aucun code : la validation passe par les schémas du contrat (2-486). Les contrôles de rôle des routes API passent tous par `requireRole()` (2-487) ; seules les pages `/manager` et `/hr` refont le leur, pour l'affichage. Toutes les routes passent par un cas d'usage (ADR-006, 2-536) ; la règle « qui voit quoi » vit dans le domaine pour une note et dans le `WHERE` des listes (`PostgresExpenseNoteListRepository`) : les garder alignées.
 - Création de NDF : reçu stocké d'abord puis une seule transaction (2-476 étape 1, `SubmitExpenseNote`) ; renvoi sans doublon par `Idempotency-Key` (étape 2, colonnes `idempotency_key` et `request_fingerprint`) ; nettoyage de l'existant (étape 3) : contrainte `CHECK (receipt_key <> '')` posée `NOT VALID` par migration, puis `npm run clean:notes-without-receipt` (dry-run par défaut ; `-- --execute --out <dossier>` exporte en CSV, supprime les notes `pending` sans reçu, garde les décidées pour la RH et valide la contrainte quand il n'en reste plus). Réconciliation des objets orphelins (bonus) : `npm run reconcile:orphan-receipts` (dry-run par défaut ; `-- --execute` supprime les objets de `receipts/` non référencés par une note ni une analyse OCR et vieux de plus de 24 h), à planifier une fois par jour après un premier dry-run relu. Les bornes OCR et son parcours asynchrone, branché sur le socle commun de l'outbox (2-484), sont décrits dans `docs/ocr.md`.
 - Contrat global dans `openapi.yaml`, types et JSON de validation générés (2-486). Erreurs communes sans détail interne et traductions front (2-485), logger serveur de 2-490 réutilisé.
 

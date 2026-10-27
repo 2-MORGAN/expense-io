@@ -1,10 +1,8 @@
 import { validateId } from '@/http/validation'
 import { auth } from '@/lib/auth'
-import { withUserScope } from '@/lib/db'
 import { withApiErrors } from '@/http/withApiErrors'
-import { problemResponse } from '@/http/problem'
+import { getReceiptUrl } from '@/composition/receiptUrls'
 import { requireRole } from '@/http/requireRole'
-import { getReceiptUrl } from '@/lib/storage'
 
 export const GET = withApiErrors('/api/hr/expense-notes/[id]/receipt-url', async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -13,20 +11,7 @@ export const GET = withApiErrors('/api/hr/expense-notes/[id]/receipt-url', async
   const { id } = await params
   validateId(id)
 
-  const note = await withUserScope(actor.id, async (client) => {
-    const result = await client.query(
-      `SELECT en.receipt_key FROM expense_notes en
-       JOIN users u ON u.id = en.user_id
-       WHERE en.id = $1 AND u.role = 'manager' AND u.manager_id IS NULL
-         AND u.company_id = (SELECT company_id FROM users WHERE id = $2)`,
-      [id, actor.id]
-    )
-    return result.rows[0]
-  })
-  if (!note) {
-    return problemResponse('RESOURCE_NOT_FOUND')
-  }
-
-  const url = await getReceiptUrl(note.receipt_key)
+  // Notes des managers racine de l'entreprise seulement ; sinon 404.
+  const url = await getReceiptUrl.execute(id, actor.id, 'company')
   return Response.json({ url })
 })

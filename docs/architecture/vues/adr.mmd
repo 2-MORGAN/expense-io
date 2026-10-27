@@ -7,12 +7,15 @@ flowchart TB
   adr1["ADR-001 · Isolation multi-tenant<br/>RLS, invitations, Auth.js"]
   adr3["ADR-003 · OCR, soumission, notifications<br/>upload d'abord, outbox, worker"]
   adr4["ADR-004 · Contrat d'API<br/>OpenAPI, RFC 9457, codes stables"]
+  adr6["ADR-006 · Stratégie de migration<br/>Strangler Fig, Branch by Abstraction"]
 
   adr2 -->|"module de permissions"| adr1
   adr2 -->|"ports, worker = adaptateur entrant"| adr3
   adr1 <-->|"clés S3 par tenant, rôles du worker"| adr3
   adr4 <-->|"202 + polling, 503, Idempotency-Key"| adr3
-  adr5 -.->|"vérifie : E2E, lint, contrat"| adr1 & adr2 & adr3 & adr4
+  adr6 -->|"comment atteindre la cible"| adr2
+  adr6 -->|"façade : contrat inchangé"| adr4
+  adr5 -.->|"vérifie : E2E, lint, contrat"| adr1 & adr2 & adr3 & adr4 & adr6
 
   classDef securite fill:#fee2e2,stroke:#dc2626,color:#111827
   classDef archi fill:#dbeafe,stroke:#2563eb,color:#111827
@@ -20,7 +23,7 @@ flowchart TB
   classDef api fill:#dcfce7,stroke:#16a34a,color:#111827
   classDef qualite fill:#ede9fe,stroke:#7c3aed,color:#111827
   class adr1 securite
-  class adr2 archi
+  class adr2,adr6 archi
   class adr3 asynchrone
   class adr4 api
   class adr5 qualite

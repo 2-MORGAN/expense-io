@@ -97,8 +97,6 @@ flowchart TB
   m_app_2f_api --> m_domain
   m_app_2f_api --> m_http
   m_app_2f_api --> m_lib_2f_auth
-  m_app_2f_api -.->|"legacy"| m_lib_2f_db
-  m_app_2f_api -.->|"legacy"| m_lib_2f_storage
   m_app_2f_verify_2d_email --> p_next
   m_app_2f_verify_2d_email --> m_composition
   m_application --> p_node_3a_crypto
@@ -167,7 +165,6 @@ flowchart TB
   m_worker --> m_lib_2f_outbox
   m_worker --> m_lib_2f_tokens
   m_worker --> m_ports
-  linkStyle 26,27 stroke:#ea580c,stroke-width:2px,color:#ea580c
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
   class m_app,m_app_2f_actions,m_app_2f_api,m_app_2f_verify_2d_email,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
