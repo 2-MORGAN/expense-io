@@ -5,7 +5,7 @@ import {
   isDecidedPayload,
   isSubmittedPayload,
 } from '@/domain/Notification'
-import { findCompanyRecipients } from '@/lib/notifications'
+import { findCompanyRecipients } from '@/adapters/PgNotificationEvents'
 import type { OutboxEvent } from '@/lib/outbox'
 import type { NotificationPort, Recipient } from '@/ports/NotificationPort'
 import { log } from '@/worker/log'

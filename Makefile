@@ -43,7 +43,7 @@ ensure-bucket: ## Crée le bucket S3 "receipts" s'il n'existe pas déjà
 seed: ## Peuple une base de démonstration navigable (RH, manager, employé, notes de frais)
 	npm run seed
 
-worker: ## Lance le worker de l'outbox (emails, puis OCR), dans un second terminal après make dev
+worker: ## Lance le worker de l'outbox seul (make dev le lance déjà avec le serveur)
 	npm run worker
 
 dev: install up migrate ensure-bucket seed ## Tout lancer : install, Docker, migrations, bucket, seed, puis le serveur de dev

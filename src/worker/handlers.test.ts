@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { appUrlFromEnv, buildHandlers } from '@/worker/handlers'
+import { appUrlFromEnv } from '@/lib/email'
+import { buildHandlers } from '@/worker/handlers'
 
 describe('appUrlFromEnv', () => {
   it('refuse une production sans APP_URL', () => {
@@ -25,7 +26,9 @@ describe('buildHandlers', () => {
     expect(() => buildHandlers({ NODE_ENV: 'production', SMTP_HOST: 'smtp.example.com' })).toThrow('APP_URL is not set')
   })
 
-  it('construit les handlers de notification en développement', () => {
-    expect(Object.keys(buildHandlers({}))).toEqual(['expense_note.submitted', 'expense_note.decided'])
+  it('déclare les handlers de notification en développement', () => {
+    expect(Object.keys(buildHandlers({}))).toEqual(
+      expect.arrayContaining(['expense_note.submitted', 'expense_note.decided'])
+    )
   })
 })

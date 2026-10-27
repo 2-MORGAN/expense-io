@@ -4,6 +4,7 @@
 // vrai reçu uploadé) — pour qu'il n'y ait aucune étape manuelle (signup,
 // promotion de rôle, soumission d'une note) avant de pouvoir naviguer.
 // Idempotent : relançable sans dupliquer les comptes ni les notes.
+import { randomUUID } from 'node:crypto'
 import bcrypt from 'bcryptjs'
 import { config as loadEnv } from 'dotenv'
 import { Pool } from 'pg'
@@ -43,16 +44,23 @@ const s3 = new S3Client({
 const bucket = process.env.S3_BUCKET ?? 'receipts'
 
 async function resolveCompany() {
+  // Le domaine n'est plus unique (S7, 2-496) : l'entreprise de démo est celle
+  // de la RH de démo, sinon la première créée sur ce domaine.
+  const existing = await pool.query(
+    `SELECT c.id FROM companies c
+     LEFT JOIN users u ON u.company_id = c.id AND u.email = $2
+     WHERE c.email_domain = $1
+     ORDER BY u.id IS NULL, c.created_at
+     LIMIT 1`,
+    [domain, hrEmail]
+  )
+  if (existing.rows[0]) return existing.rows[0].id
   const companyName = domain.split('.')[0]
   const inserted = await pool.query(
-    `INSERT INTO companies (name, email_domain) VALUES ($1, $2)
-     ON CONFLICT (email_domain) DO NOTHING
-     RETURNING id`,
+    'INSERT INTO companies (name, email_domain) VALUES ($1, $2) RETURNING id',
     [companyName, domain]
   )
-  if (inserted.rows[0]) return inserted.rows[0].id
-  const existing = await pool.query('SELECT id FROM companies WHERE email_domain = $1', [domain])
-  return existing.rows[0].id
+  return inserted.rows[0].id
 }
 
 async function upsertUser(email, name, password, role, companyId, managerId = null) {
@@ -80,18 +88,19 @@ async function seedExpenseNote(userId, description, amount) {
   )
   if (existing.rows[0]) return
 
-  const inserted = await pool.query(
-    `INSERT INTO expense_notes (user_id, amount, expense_date, description, receipt_key)
-     VALUES ($1, $2, CURRENT_DATE, $3, '')
-     RETURNING id, receipt_seq`,
-    [userId, amount, description]
-  )
-  const { id, receipt_seq: receiptSeq } = inserted.rows[0]
-  const receiptKey = `receipts/${receiptSeq}.png`
+  // Même ordre que l'application (ADR-003 §3) : reçu d'abord, puis la note
+  // avec sa clé en une seule requête, jamais de note sans reçu.
+  const id = randomUUID()
+  const company = await pool.query('SELECT company_id FROM users WHERE id = $1', [userId])
+  const receiptKey = `receipts/${company.rows[0].company_id}/${id}.png`
   await s3.send(
     new PutObjectCommand({ Bucket: bucket, Key: receiptKey, Body: RECEIPT_PNG, ContentType: 'image/png' })
   )
-  await pool.query('UPDATE expense_notes SET receipt_key = $1 WHERE id = $2', [receiptKey, id])
+  await pool.query(
+    `INSERT INTO expense_notes (id, user_id, amount, expense_date, description, receipt_key)
+     VALUES ($1, $2, $3, CURRENT_DATE, $4, $5)`,
+    [id, userId, amount, description, receiptKey]
+  )
   console.log(`Note de frais "${description}" créée pour ${userId} (${id}).`)
 }
 

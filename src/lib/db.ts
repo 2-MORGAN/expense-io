@@ -70,17 +70,35 @@ export async function withSavepoint<T>(client: PoolClient, fn: () => Promise<T>)
 }
 
 /**
+ * Pose le contexte lu par les policies RLS pour la transaction en cours :
+ * l'utilisateur, puis son entreprise et son rôle, lus en base depuis sa
+ * ligne (visible par la policy de `users` grâce à l'id). Jamais pris du
+ * client. Utilisateur inconnu : entreprise et rôle restent vides, les
+ * policies ne laissent rien voir.
+ */
+export async function setUserContext(client: PoolClient, userId: string): Promise<void> {
+  await client.query("SELECT set_config('app.current_user_id', $1, true)", [userId])
+  await client.query(
+    `SELECT set_config('app.current_company_id', coalesce(company_id::text, ''), true),
+            set_config('app.current_role', coalesce(role, ''), true)
+     FROM (SELECT NULL) AS none
+     LEFT JOIN users ON users.id = $1`,
+    [userId]
+  )
+}
+
+/**
  * Pose le contexte utilisateur pour la durée de la transaction — l'isolation
  * entre utilisateurs et entre entreprises est garantie par PostgreSQL (Row
- * Level Security, voir migrations/), ce helper ne fait qu'exposer l'id
- * courant aux policies.
+ * Level Security, voir migrations/), ce helper ne fait qu'exposer
+ * l'utilisateur courant, son entreprise et son rôle aux policies.
  */
 export async function withUserScope<T>(
   userId: string,
   fn: (client: PoolClient) => Promise<T>
 ): Promise<T> {
   return withSystemTransaction(async (client) => {
-    await client.query("SELECT set_config('app.current_user_id', $1, true)", [userId])
+    await setUserContext(client, userId)
     return fn(client)
   })
 }

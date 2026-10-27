@@ -1,15 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { responseErrorMessage } from '@/components/apiError'
 
-interface ExpenseNote {
-  id: string
-  userId: string
-  amount: number
-  expenseDate: string
-  description: string
-  createdAt: string
-}
+import type { ExpenseNote } from '@/http/dto'
+import { useCallback, useEffect, useState } from 'react'
 
 const currencyFormatter = new Intl.NumberFormat('fr-FR', {
   style: 'currency',
@@ -29,7 +23,7 @@ export function PendingApprovalsPanel() {
     if (response.ok) {
       setNotes(await response.json())
     } else {
-      setError('Impossible de charger les notes en attente.')
+      setError(await responseErrorMessage(response))
     }
     setLoading(false)
   }, [])
@@ -43,7 +37,7 @@ export function PendingApprovalsPanel() {
     setError(null)
     const response = await fetch(`/api/manager/expense-notes/${id}/receipt-url`)
     if (!response.ok) {
-      setError('Impossible de récupérer le reçu.')
+      setError(await responseErrorMessage(response))
       return
     }
     const { url } = await response.json()
@@ -61,12 +55,7 @@ export function PendingApprovalsPanel() {
     if (response.ok) {
       await loadPending()
     } else {
-      const body = await response.json().catch(() => null)
-      setError(
-        typeof body?.error === 'string'
-          ? body.error
-          : "Échec de la décision sur cette note de frais."
-      )
+      setError(await responseErrorMessage(response))
     }
   }
 

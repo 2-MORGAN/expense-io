@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Acceptée** le 20 octobre 2026 par le PO (Florent). Proposée le 18 octobre |
+| Statut | **Acceptée** le 20 octobre 2026 par le PO (Florent). Proposée le 18 octobre. **Précisée le 23/10** : mise en œuvre du point de coordination avec l'ADR-003 (voir ce point) |
 | Auteur | Amalraj Soupramanien (WS1 Sécurité) |
 | Date | 18 octobre 2026 |
 | Ticket | 2-380 (jalon J3 « ADR validées ») |
@@ -87,6 +87,16 @@ L'ADR-003 introduit trois traitements hors requête HTTP qui portent sur toutes 
 - le worker traite chaque événement dans sa propre transaction, après avoir posé l'entreprise de l'événement : il ne lit `users` que dans cette entreprise. Le payload fige destinataires et description, le worker n'a donc pas besoin de lire `expense_notes` ;
 - la réconciliation tourne sous un rôle dédié en lecture seule (`BYPASSRLS`, `SELECT (receipt_key)`), pas sous le superuser ; le nettoyage ponctuel, sous le rôle propriétaire ;
 - le seed écrit la clé de reçu dès l'`INSERT`, pour rester compatible avec la contrainte `CHECK (receipt_key <> '')` de l'ADR-003.
+
+**Mise à jour du 23/10 (PO), après la revue des PR #13, #15 et #16.** La policy d'insertion sur `outbox_events` est livrée avec la table (PR #15) ; le reste du point est porté par la bascule :
+
+- **En attendant 2-481**, le worker se connecte avec le rôle propriétaire, comme toute l'application : risque accepté, il n'élargit aucun accès tant que la bascule n'a pas eu lieu.
+- **2-481 doit livrer**, en plus de la bascule de l'application :
+  1. le rôle `expense_worker` et ses policies `SELECT` / `UPDATE` sur `outbox_events`, avec un test de la policy d'insertion (vérifiée seulement à la main dans la PR #15) ;
+  2. le **nettoyage des analyses OCR** (PR #13) adapté : il liste aujourd'hui `receipt_analyses` sans contexte. Le listage passe par le rôle de réconciliation en lecture seule, les écritures sous le contexte de l'utilisateur de l'analyse ;
+  3. la **vérification du rôle au démarrage du worker** (ni superuser ni `BYPASSRLS`), comme pour l'application ;
+  4. l'usage de `withSystemTransaction` (transaction sans contexte utilisateur, PR #15) **réservé au worker et à l'outbox** par une règle de lint, sur le modèle de `getPool()`.
+- **2-478 (RLS sur `users`)** : la policy doit laisser un manager racine trouver les RH de son entreprise au moment de soumettre une note (`enqueueSubmitted`), ou cette recherche passe par une fonction `SECURITY DEFINER` étroite. Sinon, aucun événement n'est écrit et la RH n'est jamais notifiée, sans erreur. Un test le couvre.
 
 ## 3. Question 2 — Comment identifier l'entreprise ?
 

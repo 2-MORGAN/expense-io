@@ -1,0 +1,969 @@
+# Source de vérité HTTP — ADR-004, ticket 2-486. Modifier avant le code.
+openapi: 3.1.0
+info:
+  title: Expense.io API
+  version: 1.1.0
+  description: "Contrat HTTP des 17 opérations métier (Auth.js exclu). ADR-004 : URL stables, pas de pagination.
+    Toutes les erreurs métier utilisent application/problem+json (2-485), avec un code stable et un requestId.
+    Le membre error historique reste déprécié pour compatibilité, sans détail interne. Les permissions documentées ne dispensent
+    pas des contrôles de sécurité ADR-001."
+security:
+  - session: []
+paths:
+  /api/expense-notes/receipt-suggestion:
+    post:
+      operationId: suggestReceiptFields
+      summary: Analyse synchrone conservée pour compatibilité
+      requestBody:
+        $ref: "#/components/requestBodies/Receipt"
+      responses:
+        "200":
+          description: Suggestion, éventuellement vide (PDF ou aucun champ reconnu)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptSuggestion"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+      tags:
+        - OCR
+  /api/receipt-analyses:
+    post:
+      operationId: launchReceiptAnalysis
+      summary: Enregistre durablement une analyse, avant de répondre 202
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Rejeu identique pendant 24 h ; autre contenu avec la même clé donne 422.
+      requestBody:
+        $ref: "#/components/requestBodies/Receipt"
+      responses:
+        "202":
+          description: Analyse acceptée, ou rejeu d'une analyse existante
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+              description: URL relative de suivi
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisAccepted"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+      tags:
+        - OCR
+  /api/receipt-analyses/{id}:
+    get:
+      operationId: getReceiptAnalysis
+      summary: Consulte sa propre analyse, conservée pendant 24 h
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: État courant ; une analyse failed reste un GET réussi
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptAnalysis"
+        "400":
+          description: Malformed UUID.
+          headers:
+            X-Request-Id: &requestIdHeader
+              required: true
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/problem+json: &a2
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          description: Analyse inconnue, étrangère ou expirée.
+          headers:
+            X-Request-Id: *requestIdHeader
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+      tags:
+        - OCR
+  /api/expense-notes:
+    get:
+      operationId: listExpenseNotes
+      summary: Toutes les notes de l’utilisateur connecté, sans pagination.
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExpenseNote"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      parameters:
+        - name: sort
+          in: query
+          schema:
+            type: string
+          description: "Tri historique. Tris légitimes : created_at, amount, expense_date, description, status, avec
+            ASC/DESC. Défaut created_at DESC. La sécurisation par liste blanche est portée par 2-471 ; aucune
+            expression SQL arbitraire ne constitue un usage garanti."
+      tags:
+        - Expenses and organisation
+    post:
+      operationId: createExpenseNote
+      summary: Crée une note avec son reçu pour l’utilisateur connecté.
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads. The receipt is stored first, then the note is written in one transaction.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Renvoi identique (même montant, date, description et reçu) pour le même utilisateur ; renvoie la
+            note déjà créée, sans doublon. Autre contenu avec la même clé donne 422. Sans en-tête, aucune déduplication.
+      responses:
+        "201":
+          description: Note created, or replay of the note already created for this Idempotency-Key
+          headers:
+            Idempotent-Replayed:
+              schema:
+                type: string
+                const: "true"
+              description: Présent uniquement lors d’un rejeu ; aucun reçu ni note n’a été créé.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseNote"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CreateExpenseNote"
+      tags:
+        - Expenses and organisation
+  /api/expense-notes/{id}/receipt-url:
+    get:
+      operationId: getOwnReceiptUrl
+      summary: Reçu d’une note appartenant à l’utilisateur.
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptUrl"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/ResourceNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      parameters:
+        - &a1
+          name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      tags:
+        - Expenses and organisation
+  /api/manager/expense-notes:
+    get:
+      operationId: listManagerExpenseNotes
+      summary: "Manager direct : notes pending, liste complète triée par created_at ASC."
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExpenseNote"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      tags:
+        - Expenses and organisation
+  /api/manager/expense-notes/{id}/approve:
+    post:
+      operationId: approveManagerExpenseNote
+      summary: "Manager direct : approve, uniquement si pending."
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseNote"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ResourceNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      parameters:
+        - *a1
+      tags:
+        - Expenses and organisation
+  /api/manager/expense-notes/{id}/reject:
+    post:
+      operationId: rejectManagerExpenseNote
+      summary: "Manager direct : reject, uniquement si pending."
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseNote"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ResourceNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      parameters:
+        - *a1
+      tags:
+        - Expenses and organisation
+  /api/manager/expense-notes/{id}/receipt-url:
+    get:
+      operationId: getManagerReceiptUrl
+      summary: "Manager direct : accès au reçu après vérification de visibilité."
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptUrl"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ResourceNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      parameters:
+        - *a1
+      tags:
+        - Expenses and organisation
+  /api/hr/expense-notes:
+    get:
+      operationId: listHrExpenseNotes
+      summary: "RH : managers racines de son entreprise : notes pending, liste complète triée par created_at ASC."
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExpenseNote"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      tags:
+        - Expenses and organisation
+  /api/hr/expense-notes/{id}/approve:
+    post:
+      operationId: approveHrExpenseNote
+      summary: "RH : managers racines de son entreprise : approve, uniquement si pending."
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseNote"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ResourceNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      parameters:
+        - *a1
+      tags:
+        - Expenses and organisation
+  /api/hr/expense-notes/{id}/reject:
+    post:
+      operationId: rejectHrExpenseNote
+      summary: "RH : managers racines de son entreprise : reject, uniquement si pending."
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseNote"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ResourceNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      parameters:
+        - *a1
+      tags:
+        - Expenses and organisation
+  /api/hr/expense-notes/{id}/receipt-url:
+    get:
+      operationId: getHrReceiptUrl
+      summary: "RH : managers racines de son entreprise : accès au reçu après vérification de visibilité."
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptUrl"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ResourceNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      parameters:
+        - *a1
+      tags:
+        - Expenses and organisation
+  /api/hr/users:
+    get:
+      operationId: listCompanyUsers
+      summary: "RH : employés et managers de son entreprise, triés par nom, sans pagination."
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompanyUser"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      tags:
+        - Expenses and organisation
+  /api/hr/users/{id}/manager:
+    put:
+      operationId: setUserManager
+      summary: "RH : rattacher ou détacher explicitement le manager d’un utilisateur."
+      description: Session required. Session and role are checked before structural validation; malformed input is
+        rejected before writes/uploads.
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyUser"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ResourceNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      parameters:
+        - *a1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetManager"
+      tags:
+        - Expenses and organisation
+  /api/hr/invitations:
+    post:
+      operationId: inviteEmployee
+      summary: "RH : inviter un salarié à rejoindre son entreprise (S7, ADR-001 §3)."
+      description: Session required, hr_admin only. The invitation belongs to the caller's company, read in the
+        database. An address is trimmed and lower-cased before use. Inviting an address that already has a pending
+        invitation in the same company returns that invitation with a new expiry and invalidates the previous link.
+        The email itself is sent asynchronously through the outbox.
+      responses:
+        "201":
+          description: Invitation created or renewed; email queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvitation"
+      tags:
+        - Expenses and organisation
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: authjs.session-token
+      description: Cookie Auth.js ; préfixe __Secure- en HTTPS selon sa configuration.
+  requestBodies:
+    Receipt:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: "#/components/schemas/ReceiptInput"
+  responses:
+    Problem:
+      description: Refus explicite ou erreur interne, sans fuite technique
+      headers:
+        X-Request-Id: *requestIdHeader
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unavailable:
+      description: OCR_UNAVAILABLE, OCR_TIMEOUT ou OCR_OVERLOADED
+      headers:
+        X-Request-Id: *requestIdHeader
+        Retry-After:
+          required: true
+          schema:
+            type: string
+            const: "5"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    AuthenticationRequired:
+      description: Authentication required.
+      headers:
+        X-Request-Id: *requestIdHeader
+      content:
+        application/problem+json: *a2
+    InternalError:
+      description: Internal server error.
+      headers:
+        X-Request-Id: *requestIdHeader
+      content:
+        application/problem+json: *a2
+    InvalidInput:
+      description: Invalid input; no write or upload.
+      headers:
+        X-Request-Id: *requestIdHeader
+      content:
+        application/problem+json: *a2
+    ResourceNotFound:
+      description: Resource not found or not visible; indistinguishable response.
+      headers:
+        X-Request-Id: *requestIdHeader
+      content:
+        application/problem+json: *a2
+    Forbidden:
+      description: Role is not allowed.
+      headers:
+        X-Request-Id: *requestIdHeader
+      content:
+        application/problem+json: *a2
+    Conflict:
+      description: "Resource conflict: ALREADY_DECIDED or INVALID_MANAGER."
+      headers:
+        X-Request-Id: *requestIdHeader
+      content:
+        application/problem+json: *a2
+  schemas:
+    ReceiptSuggestion:
+      type: object
+      additionalProperties: false
+      properties:
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        expenseDate:
+          $ref: "#/components/schemas/CivilDate"
+        description:
+          type: string
+          minLength: 1
+          maxLength: 60
+          description: Nom du commerçant lu en tête du reçu, proposé comme description (ajout compatible, 1.1.0).
+      examples:
+        - amount: 42.5
+          expenseDate: 2026-10-11
+          description: Restaurant le Test
+        - {}
+    AnalysisAccepted:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        status: &a3
+          type: string
+          enum:
+            - queued
+            - running
+            - succeeded
+            - failed
+    ReceiptAnalysis:
+      type: object
+      required:
+        - id
+        - status
+      additionalProperties: false
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        status: *a3
+        result: &a4
+          $ref: "#/components/schemas/ReceiptSuggestion"
+        error: &a5
+          $ref: "#/components/schemas/Problem"
+      allOf:
+        - if:
+            properties:
+              status:
+                const: succeeded
+          then:
+            required:
+              - result
+            properties:
+              result: *a4
+        - if:
+            properties:
+              status:
+                const: failed
+          then:
+            required:
+              - error
+            properties:
+              error: *a5
+    Problem:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - detail
+        - code
+        - requestId
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - RECEIPT_TOO_LARGE
+            - RECEIPT_TYPE_NOT_ALLOWED
+            - IMAGE_TOO_LARGE
+            - OCR_UNAVAILABLE
+            - OCR_TIMEOUT
+            - OCR_OVERLOADED
+            - AUTHENTICATION_REQUIRED
+            - RESOURCE_NOT_FOUND
+            - INVALID_IDEMPOTENCY_KEY
+            - IDEMPOTENCY_KEY_REUSED
+            - INTERNAL_ERROR
+            - INVALID_JSON
+            - FORBIDDEN
+            - ALREADY_DECIDED
+            - INVALID_MANAGER
+            - INVALID_EMAIL
+        requestId:
+          type: string
+          format: uuid
+        error:
+          type: string
+          deprecated: true
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - field
+              - code
+              - message
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+                enum:
+                  - REQUIRED
+                  - INVALID_UUID
+                  - INVALID_AMOUNT
+                  - INVALID_DATE
+                  - INVALID_TYPE
+                  - UNKNOWN_FIELD
+                  - DUPLICATE_FIELD
+                  - EMPTY_FILE
+              message:
+                type: string
+                description: Public English message; never includes the submitted value.
+      examples:
+        - type: /problems/validation-error
+          title: Validation failed
+          status: 400
+          detail: The request does not satisfy the API contract.
+          code: VALIDATION_ERROR
+          requestId: 00000000-0000-4000-8000-000000000001
+          error: Champs invalides
+          errors:
+            - field: amount
+              code: INVALID_AMOUNT
+              message: The field does not satisfy the API contract.
+    Uuid:
+      type: string
+      format: uuid
+    ExpenseNote:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - userId
+        - amount
+        - expenseDate
+        - description
+        - receiptKey
+        - status
+        - createdAt
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        userId:
+          $ref: "#/components/schemas/Uuid"
+        amount:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+        expenseDate:
+          $ref: "#/components/schemas/CivilDate"
+        description:
+          type: string
+          minLength: 1
+          pattern: \S
+        receiptKey:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - rejected
+        createdAt:
+          type: string
+          format: date-time
+          pattern: Z$
+      examples:
+        - id: 00000000-0000-4000-8000-000000000001
+          userId: 00000000-0000-4000-8000-000000000002
+          amount: 12.5
+          expenseDate: 2024-02-29
+          description: Repas client
+          receiptKey: receipts/1.pdf
+          status: pending
+          createdAt: 2026-10-23T12:00:00.000Z
+    CompanyUser:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - email
+        - role
+        - managerId
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum:
+            - employee
+            - manager
+        managerId:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+      examples:
+        - id: 00000000-0000-4000-8000-000000000001
+          name: Marie Manager
+          email: marie@example.org
+          role: manager
+          managerId: null
+    ReceiptUrl:
+      type: object
+      additionalProperties: false
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: URL S3 présignée, valable au plus 300 secondes.
+    Receipt:
+      type: string
+      format: binary
+      description: "Fichier non vide, 10 Mio maximum. Création : PNG/JPEG/WebP/PDF, type et structure vérifiés. OCR
+        : PDF valide → résultat vide ; images analysées limitées à 40 Mpx et réduites à 2500 px. Un type non
+        analysable reste une suggestion vide après contrôle de présence et taille."
+      x-maxBytes: 10485760
+      x-multipartOverheadBytes: 65536
+      x-mediaTypes:
+        - image/png
+        - image/jpeg
+        - image/webp
+        - application/pdf
+      x-ocrMaxPixels: 40000000
+      x-ocrMaxSide: 2500
+    CreateExpenseNote:
+      type: object
+      additionalProperties: false
+      required:
+        - amount
+        - expenseDate
+        - description
+        - receipt
+      properties:
+        amount:
+          type: string
+          pattern: ^[0-9]{1,8}(?:\.[0-9]{1,2})?$
+          not:
+            pattern: ^0+(?:\.0{1,2})?$
+          description: Décimal complet > 0, point comme séparateur, au plus 2 décimales, maximum 99999999.99. Sans
+            arrondi ni conversion permissive.
+          examples:
+            - "12"
+            - "12.5"
+            - "12.50"
+        expenseDate:
+          $ref: "#/components/schemas/CivilDate"
+        description:
+          type: string
+          minLength: 1
+          pattern: \S
+        receipt:
+          $ref: "#/components/schemas/Receipt"
+    ReceiptInput:
+      type: object
+      additionalProperties: false
+      required:
+        - receipt
+      properties:
+        receipt:
+          $ref: "#/components/schemas/Receipt"
+    SetManager:
+      type: object
+      additionalProperties: false
+      required:
+        - managerId
+      properties:
+        managerId:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+          description: "null détache explicitement ; absent, JSON malformé ou mauvais type donne 400 sans écriture. UUID
+            bien formé mais manager non admissible : 409."
+      examples:
+        - managerId: 00000000-0000-4000-8000-000000000001
+        - managerId: null
+    CreateInvitation:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          description: Adresse du salarié invité, sans espaces autour ; mise en minuscules par le serveur.
+      examples:
+        - email: salarie@example.org
+    Invitation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - email
+        - expiresAt
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        email:
+          type: string
+          format: email
+        expiresAt:
+          type: string
+          format: date-time
+          description: Fin de validité du lien, 7 jours après la dernière invitation.
+      examples:
+        - id: 00000000-0000-4000-8000-000000000001
+          email: salarie@example.org
+          expiresAt: 2026-11-02T10:00:00.000Z
+    CivilDate:
+      type: string
+      format: date
+      pattern: ^(?!0000)\d{4}-\d{2}-\d{2}$
+      description: Date civile réelle du calendrier grégorien, année 0001 à 9999 (PostgreSQL n’accepte pas l’année
+        zéro), sans fuseau ni interdiction des dates futures.
+      examples:
+        - 2024-02-29
+        - 2026-10-23
+servers:
+  - url: /
+    description: Même origine que le frontend
+tags:
+  - name: OCR
+    description: Suggestion synchrone et analyses asynchrones.
+  - name: Expenses and organisation
+    description: Notes, décisions et organisation de l’entreprise.

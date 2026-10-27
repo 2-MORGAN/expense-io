@@ -1,0 +1,4 @@
+# ESLint avec cache : un retour en quelques secondes, la garantie reste la CI
+# (ADR-005 §3). Cache rangé dans node_modules : un `npm run lint` sans cache,
+# comme celui du pre-push, supprime le fichier par défaut `.eslintcache`.
+npm run lint -- --cache --cache-location node_modules/.cache/eslint/

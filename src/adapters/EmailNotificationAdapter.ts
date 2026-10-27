@@ -19,7 +19,10 @@ export class EmailNotificationAdapter implements NotificationPort {
     private readonly email: EmailPort,
     appUrl: string
   ) {
-    this.appUrl = appUrl.replace(/\/+$/, '')
+    // Sans regex (temps linéaire, constat SonarJS super-linear-regex).
+    let url = appUrl
+    while (url.endsWith('/')) url = url.slice(0, -1)
+    this.appUrl = url
   }
 
   async notifySubmitted(

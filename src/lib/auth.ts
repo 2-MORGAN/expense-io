@@ -2,14 +2,19 @@ import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { getPool } from '@/lib/db'
+import { EmailNotVerified } from '@/lib/authErrors'
+import { loadSessionUser } from '@/lib/sessionUser'
 
-// Généré une fois pour ce projet — pas besoin de le régénérer à chaque
-// déploiement.
-const AUTH_SECRET = 'e29f9c3b6a1d4e7f8021c5b6d4a9f0e3c7b8a2d1f6e5c4b3a2918273645fabcd'
+// Session de 8 h d'inactivité (S9, ADR-001 §4) : une journée de travail. Elle
+// borne aussi la durée pendant laquelle un cookie volé reste utilisable.
+// Chaque requête repousse l'échéance (jeton réémis par Auth.js).
+export const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: AUTH_SECRET,
-  session: { strategy: 'jwt' },
+  // Secret de signature des sessions : uniquement par l'environnement
+  // (`.env.example`). Absent, Auth.js refuse de démarrer (MissingSecret).
+  secret: process.env.AUTH_SECRET,
+  session: { strategy: 'jwt', maxAge: SESSION_MAX_AGE_SECONDS },
   pages: {
     signIn: '/login',
   },
@@ -30,23 +35,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: string
           password_hash: string
           role: 'employee' | 'manager' | 'hr_admin'
-        }>('SELECT id, email, password_hash, role FROM users WHERE email = $1', [email])
+          email_verified_at: Date | null
+        }>('SELECT id, email, password_hash, role, email_verified_at FROM users WHERE email = $1', [
+          email,
+        ])
         const user = result.rows[0]
         if (!user) return null
 
         const passwordMatches = await bcrypt.compare(password, user.password_hash)
         if (!passwordMatches) return null
+        // Créateur d'entreprise qui n'a pas encore confirmé son email (S7).
+        if (!user.email_verified_at) throw new EmailNotVerified()
 
         return { id: user.id, email: user.email, role: user.role }
       },
     }),
   ],
   callbacks: {
+    // S9 : le rôle n'est pas figé dans le jeton, il est relu en base à chaque
+    // lecture de session. `null` (compte supprimé) fait effacer le cookie par
+    // Auth.js, comme une erreur de base (échec fermé, ADR-001 §4).
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.role = user.role
-      }
+      if (user) token.id = user.id
+      if (typeof token.id !== 'string') return null
+      const current = await loadSessionUser(token.id)
+      if (!current) return null
+      token.role = current.role
       return token
     },
     async session({ session, token }) {

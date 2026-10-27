@@ -13,4 +13,9 @@ describe('nextAttemptAfterFailure', () => {
     expect(nextAttemptAfterFailure(3, 3)).toEqual({ status: 'pending', delaySeconds: 1800 })
     expect(nextAttemptAfterFailure(4, 3)).toEqual({ status: 'dead' })
   })
+  it('délais propres au type (OCR : 1 s puis 5 s) et 2 relances', () => {
+    expect(nextAttemptAfterFailure(1, 2, [1, 5])).toEqual({ status: 'pending', delaySeconds: 1 })
+    expect(nextAttemptAfterFailure(2, 2, [1, 5])).toEqual({ status: 'pending', delaySeconds: 5 })
+    expect(nextAttemptAfterFailure(3, 2, [1, 5])).toEqual({ status: 'dead' })
+  })
 })

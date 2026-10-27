@@ -33,11 +33,13 @@ Sans `make`, par exemple dans PowerShell (le Makefile exige `make` et `bash`) :
 
 ```bash
 cp .env.example .env    # une seule fois, si .env n'existe pas encore
-docker compose up -d
+docker compose up -d --wait   # attend que Postgres et LocalStack soient prêts, comme `make up`
 npm run migrate:up
 npm run ensure-bucket
 npm run test:e2e
 ```
+
+Si `npm run migrate:up` échoue sur une erreur d'authentification de l'utilisateur `expense` (code `28P01`), un PostgreSQL installé sur le poste occupe sans doute déjà le port 5433 (`netstat -ano | findstr :5433` sous Windows). Arrêter ce service le temps des tests, ou exposer le Postgres de Docker sur un autre port et y faire pointer `DATABASE_URL`.
 
 ### Options utiles
 
@@ -80,13 +82,32 @@ e2e/
 
 | ID | Scénario | Niveau |
 |---|---|---|
-| SIGNUP-01 | Premier compte d'un domaine : crée l'entreprise, devient RH (lien « RH », organigramme vide), connecté et redirigé vers `/expenses` | UI |
-| SIGNUP-02 | Compte suivant sur le même domaine : employé de la même entreprise, sans manager, visible par la RH ; `/hr` lui est refusé | UI |
+| SIGNUP-01 | Premier compte sans invitation : crée l'entreprise, devient RH ; page « Vérifiez votre boîte mail », lien de confirmation reçu (Mailpit), puis connexion → `/expenses`, lien « RH », organigramme vide (S7, ADR-001 §3) | UI |
+| SIGNUP-02 | Compte suivant sur le même domaine, sans invitation : RH de sa propre entreprise (organigramme vide), invisible de la première RH (S7 : le domaine ne regroupe plus personne) | UI |
 | SIGNUP-03 | Email déjà utilisé → « Un compte existe déjà avec cet email. » | UI |
 | SIGNUP-04 | Nom composé d'espaces → message de validation serveur | UI |
 | SIGNUP-05 | Email sans point dans le domaine (accepté par le HTML) → message de validation serveur | UI |
 | SIGNUP-06 | Mot de passe < 8 caractères : bloqué par le navigateur (`minlength`), et refusé par le serveur si on contourne | UI |
-| SIGNUP-07 | Le compte créé permet de se reconnecter via `/login` | UI |
+| SIGNUP-07 | Le compte créé (email confirmé) permet de se reconnecter via `/login` | UI |
+
+### Invitations et vérification d'email — `e2e/invitations.spec.ts`
+
+S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les liens sont lus dans Mailpit (`e2e/support/identity.ts`) ; le worker lancé par `npm run dev` envoie les emails.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| SIGNUP-08a | Deux inscriptions sans invitation sur le même domaine → deux entreprises distinctes, chacune avec sa RH, aucune ne voit l'autre | UI + Base |
+| SIGNUP-08b | Invitation envoyée depuis `/hr` → lien reçu → formulaire « Vous rejoignez … », email imposé → employé de l'entreprise de la RH, connecté, visible dans son organigramme | UI |
+| SIGNUP-08c | Invitation expirée : refusée à la soumission (formulaire ouvert avant l'expiration) et à l'ouverture du lien ; aucun compte créé | UI |
+| SIGNUP-08d | Invitation déjà utilisée → lien refusé | UI |
+| SIGNUP-08e | Jeton d'invitation présenté avec une autre adresse (champ en lecture seule contourné) → refusé, aucun compte créé | UI |
+| SIGNUP-10 | Créateur non vérifié : connexion refusée avec « Confirmez votre adresse email avant de vous connecter. » (mauvais mot de passe : message générique) ; lien → « Email confirmé », connexion ; lien à usage unique | UI |
+| SIGNUP-11a | Inscription non confirmée sur une adresse, puis invitation de la RH pour cette adresse : l'invité rejoint l'entreprise de la RH, l'entreprise fantôme est supprimée | UI + base |
+| SIGNUP-11b | Adresse déjà vérifiée : l'invitation est refusée (« Un compte existe déjà avec cet email. »), le compte existant reste intact | UI + base |
+| SIGNUP-12 | Nouvelle inscription sur une adresse non confirmée : remplace l'ancienne (nouvel id, ancienne entreprise supprimée), ancien lien invalide, seul le nouveau mot de passe fonctionne | UI + base |
+| SIGNUP-13 | Renvoi de l'email de vérification depuis `/signup/verify` (lien depuis la connexion refusée) : nouveau lien valide, ancien invalide ; même message pour une adresse inconnue ou déjà vérifiée, sans email | UI |
+| INV-01 | `POST /api/hr/invitations` : 401 sans session, 403 employé et manager, 400 `INVALID_EMAIL`, 201 `{ id, email, expiresAt }` (adresse normalisée) ; relance de la même adresse → même invitation, nouvel email, ancien lien invalide | API |
+| INV-02 | Sous `expense_app` : invitation visible de la RH de son entreprise seulement (ni RH d'une autre entreprise, ni employé, ni manager) ; insertion pour une autre entreprise ou par un employé refusée (42501) | Base |
 
 ### Connexion et session — `e2e/auth.spec.ts`
 
@@ -117,7 +138,24 @@ e2e/
 | NDF-09 | Type de reçu non autorisé → 400 « Type de fichier non autorisé pour le reçu » | API |
 | NDF-10 | Reçu > 10 Mio → 400 « Fichier trop volumineux » | API |
 | NDF-11 | `GET /api/expense-notes` : uniquement ses propres notes, plus récentes d'abord | API |
-| NDF-12 | `?sort=amount ASC` / `amount DESC` trie la liste (usage légitime seulement) | API |
+| NDF-12 | `?sort=amount ASC` / `amount DESC` trie la liste | API |
+| NDF-13 | `?sort=` hors liste blanche (colonne inconnue, clause ajoutée, direction invalide) → 200, tri par défaut (faille S1 corrigée) | API |
+| SOUM-01 | Note créée : `receipt_key = receipts/{entreprise}/{id de la note}.ext`, objet présent dans S3 avec son type (2-476, ADR-003 §3) | API |
+| SOUM-02 | Aucune note de l'entreprise sans reçu (clé vide) ni hors du préfixe de son entreprise | API |
+| IDEM-01 | Même `Idempotency-Key`, même contenu : 201 avec la même note, `Idempotent-Replayed: true`, une seule ligne (2-476 étape 2) | API |
+| IDEM-02 | Trois requêtes simultanées de même clé : une seule note | API |
+| IDEM-03 | Même clé, contenu différent : 422 `IDEMPOTENCY_KEY_REUSED`, rien de créé | API |
+| IDEM-04 | Clé qui n'est pas un UUID : 400 `INVALID_IDEMPOTENCY_KEY` | API |
+| IDEM-05 | La clé est propre à l'utilisateur : un collègue avec la même clé crée sa propre note | API |
+| IDEM-06 | Sans en-tête : deux envois identiques créent deux notes (comportement inchangé) | API |
+| CLEAN-01 | La base refuse une note sans reçu (`receipt_key = ''`), à l'insertion comme à la mise à jour (2-476 étape 3) | API |
+| CLEAN-02 | `clean-notes-without-receipt` sans `--execute` : rapport seul, rien de modifié | API |
+| CLEAN-03 | `--execute --out` : CSV de toutes les notes sans reçu, suppression des seules notes `pending`, notes décidées conservées, autre entreprise intacte | API |
+| CLEAN-04 | `--execute` sans `--out` : refusé, rien supprimé | API |
+| REC-01 | `reconcile-orphan-receipts` sans `--execute` : liste l'orphelin, ne supprime rien (2-476 bonus) | API |
+| REC-02 | `--execute` : supprime l'orphelin, garde le reçu d'une note | API |
+| REC-03 | Délai de 24 h : un objet récent n'est jamais supprimé, même avec `--execute` | API |
+| REC-04 | Un objet sous le préfixe d'une autre entreprise n'est pas touché (`--company`) | API |
 
 ### Pré-remplissage depuis le reçu (OCR) — `e2e/ocr-suggestion.spec.ts`
 
@@ -131,6 +169,8 @@ e2e/
 | OCR-06 | Seul le montant est reconnu → « Date non reconnu(e) sur ce reçu — vérifie ce champ. » | UI |
 | OCR-07 | Rien de reconnu → « Aucune information reconnue sur ce reçu — saisis les champs manuellement. » | UI |
 | OCR-08 | Sans reçu sélectionné → « Sélectionne d’abord un reçu. » | UI |
+| OCR-22 | Ticket lisible → `description: "Restaurant le Test"` (nom du commerçant) | API |
+| OCR-23 | « Pré-remplir » remplit une description vide, mais ne remplace pas une description déjà saisie | UI |
 
 ### Consultation des reçus — `e2e/receipts.spec.ts`
 
@@ -143,6 +183,19 @@ e2e/
 | RECU-05 | `GET /api/manager/expense-notes/:id/receipt-url` : 200 pour une note de son équipe, 404 pour un id inconnu | API |
 | RECU-06 | RH : « Voir le reçu » depuis `/hr` | UI |
 | RECU-07 | `GET /api/hr/expense-notes/:id/receipt-url` : 200 pour un manager racine de l'entreprise ; 404 pour une note d'employé, de manager non racine, d'une autre entreprise ou inconnue | API |
+| RECU-08 | `GET /api/manager/expense-notes/:id/receipt-url` : 404 pour la note d'un employé d'un autre manager, d'une autre entreprise ou du manager lui-même (faille S2 corrigée) | API |
+
+### Erreurs communes — `e2e/api-errors.spec.ts`
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| ERR-01 | Panne PostgreSQL injectée sur une note : 500 `INTERNAL_ERROR` générique, sans pile ni message interne, `requestId` identique à `X-Request-Id`, décision annulée | API + base |
+| ERR-02 | 401/403/404/409 au format commun, codes stables, champ `error` historique préservé | API |
+| ERR-03 | L’écran traduit un code connu ; code inconnu → message générique français, aucun texte brut de l’API affiché | UI |
+
+ERR-01 crée temporairement un trigger limité à sa note et le supprime en `finally`. Il n’utilise ni date invalide comme déclencheur de 500, ni endpoint de test en production (ADR-001/004). La base des fixtures doit autoriser ce DDL. Les tests unitaires vérifient la même corrélation dans les logs et la capture des rejets tardifs, des erreurs synchrones et des erreurs de sérialisation.
+
+**Évolution autorisée de MGR-05** : « Already decided » → « Cette note a déjà été tranchée. » (ADR-004 §9). L’assertion et le titre de ce seul scénario existant changent dans un commit de tests séparé ; les tests API continuent à attendre `error: "Already decided"`.
 
 ### Validation ou rejet par le manager — `e2e/manager-approval.spec.ts`
 
@@ -152,7 +205,7 @@ e2e/
 | MGR-02 | Sans note : « En attente (0) », « Aucune note en attente. » | UI |
 | MGR-03 | « Approuver » → la note quitte la liste, l'employé la voit « approuvée » | UI |
 | MGR-04 | « Rejeter » → la note quitte la liste, l'employé la voit « rejetée » | UI |
-| MGR-05 | Note tranchée entre-temps → message « Already decided » | UI |
+| MGR-05 | Note tranchée entre-temps → « Cette note a déjà été tranchée. », traduit depuis `ALREADY_DECIDED` (ADR-004 §9, 2-485) | UI |
 | MGR-06 | Liste API = notes `pending` des subordonnés **directs**, plus anciennes d'abord (exclut : notes tranchées, ses propres notes, N+2, autre équipe, autre entreprise) | API |
 | MGR-07 | approve → 200 + note `approved` ; nouvelle décision → 409 « Already decided » | API |
 | MGR-08 | reject → 200 + note `rejected` ; nouvelle décision → 409 | API |
@@ -184,6 +237,7 @@ e2e/
 | ORG-06 | `PUT /api/hr/users/:id/manager` → 200 + utilisateur à jour (la visibilité des notes suit) ; `managerId: null` → détachement | API |
 | ORG-07 | Manager invalide (soi-même, employé, RH, inconnu) → 409 « Invalid manager », rien ne change | API |
 | ORG-08 | Cible RH, d'une autre entreprise ou inconnue → 404 « Not found » | API |
+| ORG-09 | `PUT /api/hr/users/:id/manager` vers un manager d'une autre entreprise → 409 « Invalid manager », rattachement inchangé (faille S3 corrigée) | API |
 
 ### Contrôle d'accès et isolation — `e2e/access-control.spec.ts`
 
@@ -199,11 +253,40 @@ e2e/
 
 Pour ACL-01 à ACL-04, chaque refus est vérifié **sans effet de bord** (notes toujours `pending`, rattachement inchangé).
 
+### Isolation par la base (RLS) — `e2e/rls-isolation.spec.ts`
+
+Tests d'intégration de base (ADR-001 §5.1, 2-478). Chaque vérification tourne sous le rôle restreint `expense_app` (`SET LOCAL ROLE`), avec le contexte que pose `withUserScope`, dans une transaction annulée. Les témoins vérifient que la même requête voit bien les données de sa propre entreprise. L'application, elle, ne passe sous `expense_app` qu'avec 2-481.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| ISO-07a | `expense_app` n'est ni superuser ni `BYPASSRLS` ; aucun droit sur `users.password_hash` (42501) ni sur `companies` | Base |
+| ISO-07b | Contexte absent ou inconnu → 0 note | Base |
+| ISO-07c | Contexte absent ou inconnu → 0 utilisateur | Base |
+| ISO-07d | RH de B → 0 note et 0 utilisateur de A ; témoin : la RH de A voit la note de son manager racine et ses 3 utilisateurs | Base |
+| ISO-07e | Lien manager inter-entreprises refusé par la clé étrangère (23503) ; posé malgré tout (contrôles désactivés), le manager de B ne voit ni ne tranche la note de A | Base |
+| ISO-07f | Un employé ne change pas le statut de sa propre note (0 ligne) | Base |
+| ISO-07g | Le manager racine trouve les RH de son entreprise, et seulement elles (notification de soumission) | Base |
+| ISO-07h | Rattachement : la RH dans son entreprise seulement, jamais un employé ; changer un rôle est refusé (42501) | Base |
+| ISO-07i | `auth_find_user` rend une seule ligne, par email exact | Base |
+| ISO-07j | Le manager tranche la note de son équipe avec les écritures de la décision : statut, `decided_by`, `decided_at` (2-488) | Base |
+| SIGNUP-09 | `register_user` : panne injectée (email déjà pris, en autocommit) → aucune entreprise créée ; même domaine → deuxième entreprise distincte, RH non vérifiées, email de vérification demandé dans la même transaction (S7) | Base |
+
+### Session et rôle à jour — `e2e/session-roles.spec.ts`
+
+S9 (ADR-001 §4, 2-496) : le rôle est relu en base à chaque lecture de session (callback `jwt`), sans reconnexion.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| AUTH-10a | Manager rétrogradé en base → `GET /api/manager/expense-notes` **403**, `/manager` « Accès réservé aux managers », lien « Manager » absent | API + UI |
+| AUTH-10b | Employé promu manager en base → accès manager immédiat (200) | API |
+| AUTH-10c | Compte supprimé en base → API **401**, page protégée redirigée vers `/login` | API + UI |
+| AUTH-10d | Cookie de session : expiration 8 h après la dernière requête (et non 30 jours) | UI |
+
 ### Parcours complet — `e2e/parcours-complet.spec.ts`
 
 | ID | Scénario | Niveau |
 |---|---|---|
-| FLOW-01 | Inscriptions (RH puis deux comptes), promotion manager en base, rattachement par la RH, note de l'employée consultée puis approuvée par le manager, note du manager rejetée par la RH | UI |
+| FLOW-01 | Inscription de la RH (email confirmé), invitation du futur manager et de l'employée depuis `/hr`, inscription par le lien reçu, promotion manager en base, rattachement par la RH, note de l'employée consultée puis approuvée par le manager, note du manager rejetée par la RH | UI |
 
 ### Emails — `e2e/email.spec.ts`
 
@@ -252,70 +335,15 @@ La suite reste verte avec ou sans `make worker` en cours d'exécution (ADR-003 �
 
 ## Résultat de la dernière exécution
 
-### 23 octobre 2026 — 111 / 111 (ticket 2-484 : un événement par destinataire, bail du worker, configuration de production)
-
-**111 / 111 tests verts (100 %)**, 0 échec, 0 flaky, sans nouvel essai.
-
-| | |
-|---|---|
-| Date | 23 octobre 2026 |
-| Code testé | `jacquesdai/2-484-3-notifications` @ `d46abe0` |
-| Commande | `make test-e2e` (Docker déjà démarré ; **aucun worker** `npm run worker` en cours) |
-| Durée | 35 s avec 5 workers Playwright |
-| Nouveaux tests | NOTIF-11 (échec partiel d'une RH), OUTBOX-09 (worker arrêté pendant le traitement), OUTBOX-10 (prise en charge périmée) ; NOTIF-02 mis à jour (un événement par RH) |
-
-Vérifications complémentaires : `npx playwright test e2e/notifications.spec.ts e2e/outbox-worker.spec.ts e2e/email.spec.ts` → 22/22 sans worker, puis 66/66 avec `npm run worker` en cours (`--repeat-each=3`, arrêté ensuite par `SIGINT`) ; `npm run check` (lint, types, 148 tests unitaires) passe.
-
-Détail de l'exécution précédente :
-
-### 22 octobre 2026 — 108 / 108 (ticket 2-484 : emails, outbox, notifications)
-
-**108 / 108 tests verts (100 %)**, 0 échec, 0 flaky, sans nouvel essai.
+**89 / 89 tests verts (100 %)** sur un poste Windows de l'équipe, 0 échec, 0 flaky, sans nouvel essai.
 
 | | |
 |---|---|
 | Date | 22 octobre 2026 |
-| Code testé | `jacquesdai/2-484-3-notifications` @ `ece3174` (le commit suivant ne change que de la documentation et un commentaire) |
-| Commande | `make test-e2e` (Docker déjà démarré ; **aucun worker** `npm run worker` en cours) |
-| Durée | 35 s avec 5 workers Playwright, serveur `next dev` démarré par Playwright, préchauffage compris |
-| Environnement | macOS, Node 22.23.3, PostgreSQL 16 (`postgres:16-alpine`), LocalStack 3.8.1, Mailpit 1.31.6, Playwright 1.63.0, Chromium fourni par Playwright |
-
-| Fichier | Tests | Résultat |
-|---|---:|---|
-| `access-control.spec.ts` | 7 | ✅ 7/7 |
-| `auth.spec.ts` | 9 | ✅ 9/9 |
-| `email.spec.ts` | 1 | ✅ 1/1 |
-| `expense-notes.spec.ts` | 22 | ✅ 22/22 |
-| `hr-approval.spec.ts` | 8 | ✅ 8/8 |
-| `hr-org-chart.spec.ts` | 8 | ✅ 8/8 |
-| `manager-approval.spec.ts` | 10 | ✅ 10/10 |
-| `notifications.spec.ts` | 10 | ✅ 10/10 |
-| `ocr-suggestion.spec.ts` | 8 | ✅ 8/8 |
-| `outbox-worker.spec.ts` | 8 | ✅ 8/8 |
-| `parcours-complet.spec.ts` | 1 | ✅ 1/1 |
-| `receipts.spec.ts` | 9 | ✅ 9/9 |
-| `signup.spec.ts` | 7 | ✅ 7/7 |
-| **Total** | **108** | **✅ 108/108** |
-
-Vérifications complémentaires, sur le même code :
-
-- **Avec ou sans worker** : `npx playwright test e2e/notifications.spec.ts e2e/outbox-worker.spec.ts e2e/email.spec.ts` → 19/19 avec `npm run worker` en cours (le worker a bien traité des événements pendant l'exécution), puis 19/19 après son arrêt (`SIGINT`) ; 95/95 dans chaque cas avec `--repeat-each=5`.
-- **Sensibilité de NOTIF-10** : sans `AND status = 'pending'` dans l'`UPDATE` des deux routes de décision du manager, il échoue 10 fois sur 10 avec `--repeat-each=10` (statuts 200 et 200) ; avec la garde, 10/10 passent. Routes remises dans leur état d'origine.
-- `npm run check` (lint, types, 142 tests unitaires) passe.
-
-Limites : exécution locale sur macOS, pas sur la CI Linux ; le Chromium est celui de Playwright 1.63.0.
-
-### 11 octobre 2026 — 89 / 89 (historique, avant le ticket 2-484)
-
-**89 / 89 tests verts (100 %)**, 0 échec, 0 flaky, sans nouvel essai.
-
-| | |
-|---|---|
-| Date | 11 octobre 2026 |
-| Code testé | `main` @ `4fad1d3`, sans modification de `src/` |
-| Commande | `npm run test:e2e` (Playwright démarre lui-même `next dev`, base de dev déjà peuplée par le seed) |
-| Durée | 2,4 min avec 1 worker, démarrage à froid de `next dev` et préchauffage des routes compris |
-| Environnement | Linux, Node 24.21.0, PostgreSQL 16.15, LocalStack 3.8.1 (S3), Playwright 1.63.0, Chromium 141 (`E2E_CHROMIUM_PATH`) |
+| Code testé | `main` @ `e7239b6` |
+| Commande | équivalent de `make test-e2e` sans `make` (voir [Lancer les tests](#lancer-les-tests)) : `docker compose up -d --wait`, `npm run migrate:up`, `npm run ensure-bucket`, puis `npm run test:e2e`, qui démarre lui-même `next dev` |
+| Durée | 2,6 min avec 4 workers, démarrage à froid de `next dev` et préchauffage des routes compris |
+| Environnement | Windows 11, Node 24.16.0, Docker Desktop 29.1.2, PostgreSQL 16.15, LocalStack 3.8.1 (S3), Playwright 1.63.0, Chromium 153 (fourni par Playwright) |
 
 | Fichier | Tests | Résultat |
 |---|---:|---|
@@ -332,13 +360,36 @@ Limites : exécution locale sur macOS, pas sur la CI Linux ; le Chromium est cel
 | **Total** | **89** | **✅ 89/89** |
 
 ```
-Running 89 tests using 1 worker
-  ✓  1 [chromium] › e2e/access-control.spec.ts:118:7 › Contrôle d’accès par rôle › [ACL-01] …
+Running 89 tests using 4 workers
+  ok  1 [chromium] › e2e\access-control.spec.ts:117:7 › Contrôle d’accès par rôle › [ACL-01] …
   …
-  ✓ 89 [chromium] › e2e/signup.spec.ts:148:7 › Inscription › [SIGNUP-07] …
+  ok 89 [chromium] › e2e\signup.spec.ts:148:7 › Inscription › [SIGNUP-07] …
 
-  89 passed (2.4m)
+  89 passed (2.6m)
 ```
+
+Un PostgreSQL 17 natif occupait déjà le port 5433 de ce poste : le Postgres de Docker a été exposé sur 5434 le temps de l'exécution, avec `DATABASE_URL` surchargée dans l'environnement (`.env` inchangé).
+
+### Toutes les exécutions
+
+| Où | Date | Code | Résultat |
+|---|---|---|---|
+| Windows 11, poste de Stanislas | 22/10/2026 | `main` @ `e7239b6` | ✅ 89/89 en 2,6 min, 4 workers |
+| macOS, poste de Florent, `make test-e2e` | 20/10/2026 | `main` | ✅ vert |
+| CI GitHub Actions, `ubuntu-latest`, `make test-e2e` | à chaque PR et push sur `main`, ici le 22/10/2026 | `main` @ `e7239b6` | ✅ 89/89 en 1,1 min, 2 workers (job `e2e` : 3 min 34 s) |
+| Linux isolé, sans Docker (campagne initiale) | 11/10/2026 | `main` @ `4fad1d3` | ✅ 89/89 en 2,4 min, 1 worker |
+
+macOS : résultat rapporté par Florent dans la mise à jour du 20 octobre de l'ADR-005 ; le commit et la durée n'ont pas été consignés.
+
+### Vérification 2-485 (26 octobre 2026)
+
+Sur macOS, branche de 2-485 intégrant `origin/main` @ `65f13f6` et le contrat de 2-486 : **136/136** avec `npx playwright test --workers=4` en **46,4 s**. Serveur Next.js de développement et worker réels, PostgreSQL/LocalStack/Mailpit via Docker, Chromium 153 de Playwright. Une base dédiée a été créée pour cette campagne ; la base locale existante et `.env` n’ont pas été modifiés.
+
+Avant l’adaptation autorisée de MGR-05 : **135/136**, seul échec sur le texte désormais traduit. Après : **136/136**. Les tests de reproduction unitaires de S6 et Q1.3 ont été observés rouges avant la correction, puis verts. `npm run check` passe : **346 tests unitaires**, lint, types et contrat OpenAPI couvrant les 16 opérations métier. `npm run build` passe également (Turbopack, après nettoyage du cache issu de l’exécution restreinte) ; le build Webpack a aussi été vérifié.
+
+### Campagne initiale (11 octobre 2026)
+
+Environnement Linux isolé, **sans Docker** (registre inaccessible) : PostgreSQL 16.15 et LocalStack 3.8.1 (mêmes versions que `docker-compose.yml`) y tournaient en natif, avec Node 24.21.0, Playwright 1.63.0 et un Chromium 141 (`E2E_CHROMIUM_PATH`) plus ancien que celui fourni par Playwright (153). Google Fonts était inaccessible : police de repli, sans effet sur les tests, et polices simulées localement pour le build de prod. Commande : `npm run test:e2e`, 1 worker, sur une base de dev déjà peuplée par le seed.
 
 Vérifications complémentaires, sur le même code :
 
@@ -347,7 +398,7 @@ Vérifications complémentaires, sur le même code :
 - **Sensibilité de la suite** : 16 régressions injectées une à une dans `src/` (puis annulées) ont toutes fait échouer au moins un test : décision manager inversée, filtre entreprise retiré de la liste RH, premier inscrit non RH, type MIME du reçu perdu, contrôle `pending` supprimé côté RH, contrôle d'entreprise retiré du rattachement, tri par défaut inversé, notes tranchées laissées dans la liste manager, liste non rechargée après décision, libellé « approuvée » modifié, URL pré-signée d'1 h, contrôle du propriétaire retiré du reçu, `/hr` non protégé, date OCR ignorée, limite de 10 Mio relevée, 401 → 403 sur les routes manager.
 - `npm run lint` et `npm run typecheck` passent (fichiers de test inclus).
 
-Limites de cette exécution : elle a eu lieu dans un environnement Linux isolé, **sans Docker** (registre inaccessible). PostgreSQL 16 et LocalStack 3.8.1 (mêmes versions que `docker-compose.yml`) y tournaient en natif, et Google Fonts était inaccessible (police de repli, sans effet sur les tests ; polices simulées localement pour le build de prod). Le Chromium utilisé (141) est plus ancien que celui fourni par Playwright 1.63 (153). **À rejouer sur un poste de l'équipe avec `make test-e2e`, puis mettre à jour cette section.**
+**Exécution du 23 octobre 2026, branche de la PR #17** (`feat/2-475-ocr-description`, empilée sur la PR #13 rebasée sur le socle commun de l'outbox) : **115 / 115**, 0 échec, soit les 113 tests de la PR #13 plus OCR-22 et OCR-23. Aucun test existant modifié. Environnement sans Docker : PostgreSQL 16 natif, S3 local (s3rver) à la place de LocalStack, Mailpit 1.31.6 natif, Chromium 153 de Playwright ; Google Fonts inaccessible, donc le build de production n'a pas été vérifié ici (la CI le fait).
 
 ## Cas non couverts
 
@@ -357,12 +408,9 @@ Les références renvoient à `CLAUDE.md` (« Dette connue ») et à l'audit API
 
 | Comportement actuel | Réf. |
 |---|---|
-| Injection SQL via `?sort=` (seul un tri légitime est testé, NDF-12) | B1 |
-| Un manager obtient le reçu d'une note hors de son équipe (IDOR) | B2 |
-| Une RH peut rattacher un employé à un manager d'une autre entreprise | B3 |
-| Message interne et stacktrace renvoyés dans les erreurs 500 ; certaines erreurs SQL échappent au `catch` | B4, Q1.3 |
+| Erreurs 500 sans détail interne et rejets asynchrones capturés : désormais couverts par ERR-01 à ERR-03 et les tests unitaires du wrapper | B4/S6, Q1.3, 2-485 |
 | Corps JSON invalide ou sans `managerId` sur `PUT …/manager` = détachement silencieux (200) | B7 |
-| Validation laxiste : `12abc` accepté comme 12, date invalide → 500, fichier vide accepté, type MIME déclaratif non vérifié | B7 |
+| Validation stricte B7 : désormais couverte par API-01 à API-04 et les tests unitaires de frontière ; refus avant DB/S3 | 2-486 |
 | Cycles hiérarchiques acceptés (A → B puis B → A) | B13 |
 | Format des clés S3 (`receipts/<compteur>.<ext>`) et champ `receiptKey` : seul le fait que le reçu soit restituable est testé | B14 |
 | Rôle figé dans le JWT jusqu'à la reconnexion | B6 |
@@ -377,7 +425,7 @@ B8 (deux décisions simultanées pouvant toutes deux réussir) n'est plus dans c
 - Atomicité de la création note + upload S3 (panne S3 ou base en cours de route), idempotence des réessais (B9) : demande une injection de pannes.
 - Charge et limites de l'OCR : gros fichiers, durée, concurrence (B10). La distinction entre panne de l'OCR et « rien trouvé » n'existe pas (les deux donnent `{}`, B11) ; seul le cas « type non pris en charge → `{}` » est figé.
 - Messages d'erreur de l'UI qui n'apparaissent qu'en cas de panne serveur : « Impossible de charger les notes de frais. », « Impossible de récupérer le reçu. », « Impossible d’analyser ce reçu. », « Échec de l'assignation. ».
-- Policies RLS de PostgreSQL : contournées dans la configuration actuelle (connexion superuser). L'isolation est vérifiée au niveau HTTP (ISO-*, MGR-09, RH-08, ORG-08, RECU-02/07), pas au niveau des policies.
+- Policies RLS de PostgreSQL **sous l'application lancée** : elle se connecte encore en superuser jusqu'à 2-481. Les policies sont vérifiées en base sous `expense_app` (ISO-07, `e2e/rls-isolation.spec.ts`), et l'isolation au niveau HTTP (ISO-01 à 03, MGR-09, RH-08, ORG-08/09, RECU-02/07/08).
 
 ### Hors périmètre de cette suite
 
@@ -398,3 +446,14 @@ B8 (deux décisions simultanées pouvant toutes deux réussir) n'est plus dans c
 ## Dépendance ajoutée
 
 `@playwright/test` (devDependency, ^1.63.0). Justification : outil E2E de référence recommandé par la documentation Next.js, qui couvre à la fois le navigateur et l'API HTTP, isole chaque utilisateur dans son propre contexte et produit des traces exploitables en cas d'échec. Aucun impact sur le build de production.
+
+## Contrat API (2-486)
+
+`openapi.yaml` couvre les 16 opérations métier actuelles. Les contextes API des fixtures vérifient leurs réponses (statut, contenu, schéma et en-têtes) contre ce contrat, en conservant toutes les assertions métier existantes. Auth.js, S3 et Mailpit sont exclus de cette validation. Voir `docs/api/README.md`.
+
+- API-01 : montants stricts, plafond, calendrier et absence de création sur rejet.
+- API-02 : JSON/managerId invalides sans détachement ; `null` explicite conservé.
+- API-03 : neuf UUID de chemin invalides → 400, session/rôle prioritaires.
+- API-04 : reçus vides, PNG falsifié/tronqué et PDF corrompu refusés ; PDF réel → OCR vide.
+
+NDF-07 et RECU-03 utilisent des octets JPEG/WebP/PDF réels depuis le commit de fixtures de 2-486. Le helper PDF possède une table xref et des offsets exacts.

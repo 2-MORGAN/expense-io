@@ -1,59 +1,16 @@
+import { validateId } from '@/http/validation'
 import { auth } from '@/lib/auth'
-import { withUserScope } from '@/lib/db'
-import { respondError } from '@/lib/errors'
-import { enqueueDecided } from '@/lib/notifications'
+import { withApiErrors } from '@/http/withApiErrors'
+import { decideExpenseNote } from '@/composition/decisions'
+import { requireRole } from '@/http/requireRole'
 
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const session = await auth()
-    if (!session?.user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    if (session.user.role !== 'manager') {
-      return Response.json({ error: 'Unauthorized' }, { status: 403 })
-    }
-    const { id } = await params
+export const POST = withApiErrors('/api/manager/expense-notes/[id]/reject', async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth()
+  const actor = requireRole(session, 'manager')
+  if (actor instanceof Response) return actor
+  const { id } = await params
+  validateId(id)
 
-    return withUserScope(session.user.id, async (client) => {
-      const existing = await client.query(
-        `SELECT en.* FROM expense_notes en
-         JOIN users u ON u.id = en.user_id
-         WHERE en.id = $1 AND u.manager_id = $2`,
-        [id, session.user.id]
-      )
-      const row = existing.rows[0]
-      if (!row) {
-        return Response.json({ error: 'Not found' }, { status: 404 })
-      }
-      if (row.status !== 'pending') {
-        return Response.json({ error: 'Already decided' }, { status: 409 })
-      }
-
-      const updated = await client.query(
-        `UPDATE expense_notes SET status = 'rejected' WHERE id = $1 AND status = 'pending' RETURNING *`,
-        [id]
-      )
-      const note = updated.rows[0]
-      if (!note) {
-        return Response.json({ error: 'Already decided' }, { status: 409 })
-      }
-      await enqueueDecided(
-        client,
-        { id: note.id, description: note.description, userId: note.user_id },
-        'rejected'
-      )
-      return Response.json({
-        id: note.id,
-        userId: note.user_id,
-        amount: Number.parseFloat(note.amount),
-        expenseDate: note.expense_date,
-        description: note.description,
-        receiptKey: note.receipt_key,
-        status: note.status,
-        createdAt: new Date(note.created_at).toISOString(),
-      })
-    })
-  } catch (error) {
-    return respondError(error)
-  }
-}
+  const note = await decideExpenseNote.execute(id, actor.id, 'rejected')
+  return Response.json(note)
+})

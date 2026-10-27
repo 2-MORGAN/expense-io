@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from 'eslint/config'
 import nextVitals from 'eslint-config-next/core-web-vitals'
 import nextTs from 'eslint-config-next/typescript'
+import sonarjs from 'eslint-plugin-sonarjs'
 
 // Règles d'architecture de CLAUDE.md et des ADR-001 et 002, vérifiées par les
 // règles natives d'ESLint (ADR-005, T6).
@@ -20,28 +21,22 @@ const literal = (path) => path.replace(/[[\]]/g, '\\$&')
 // Routes et server actions qui accèdent encore à la base. Chacune sort de la
 // liste quand elle passe par un cas d'usage (2-488, ADR-002 §6).
 export const LEGACY_DB_ACCESS = [
-  'src/app/actions/auth.ts',
   'src/app/api/expense-notes/route.ts',
   'src/app/api/expense-notes/[id]/receipt-url/route.ts',
   'src/app/api/hr/expense-notes/route.ts',
-  'src/app/api/hr/expense-notes/[id]/approve/route.ts',
   'src/app/api/hr/expense-notes/[id]/receipt-url/route.ts',
-  'src/app/api/hr/expense-notes/[id]/reject/route.ts',
   'src/app/api/hr/users/route.ts',
   'src/app/api/hr/users/[id]/manager/route.ts',
   'src/app/api/manager/expense-notes/route.ts',
-  'src/app/api/manager/expense-notes/[id]/approve/route.ts',
   'src/app/api/manager/expense-notes/[id]/receipt-url/route.ts',
-  'src/app/api/manager/expense-notes/[id]/reject/route.ts',
 ].map(literal)
 
-// Fichiers des 12 appels à getPool() que 2-481 supprime (ADR-001, annexe B).
+// Fichiers des appels à getPool() que 2-481 supprime (ADR-001, annexe B) :
+// 12 à l'origine, 11 depuis la correction de S2 (2-471). La server action
+// d'inscription en est sortie avec les invitations (2-496).
 export const LEGACY_GET_POOL = [
-  'src/app/actions/auth.ts',
-  'src/app/api/expense-notes/route.ts',
   'src/app/api/hr/users/route.ts',
   'src/app/api/hr/users/[id]/manager/route.ts',
-  'src/app/api/manager/expense-notes/[id]/receipt-url/route.ts',
   'src/lib/auth.ts',
 ].map(literal)
 
@@ -127,9 +122,41 @@ const SQL_TEXT = [
 const DISABLED_TEST_MESSAGE =
   'Un test ne se désactive pas pour faire passer la CI : corriger le code, ou demander si le comportement doit changer (ADR-005 §2).'
 
+// Règles AWS CDK de SonarJS : le dépôt ne décrit pas d'infrastructure AWS en
+// code, elles ne trouveraient rien et allongent le lint.
+const SONARJS_AWS_CDK_OFF = Object.fromEntries(
+  Object.keys(sonarjs.rules)
+    .filter((name) => name.startsWith('aws-'))
+    .map((name) => [`sonarjs/${name}`, 'off'])
+)
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // Règles de SonarQube (SonarJS) : bugs, failles (ReDoS, secrets en dur,
+    // cookies, cryptographie…) et code fragile, vérifiés à chaque commit, push
+    // et CI, sans serveur. Les constats du code existant sont figés dans
+    // eslint-suppressions.json, qui ne fait que raccourcir. Seuls les
+    // `plugins` et `rules` du préréglage sont repris : ses `settings`
+    // changeraient la version de React vue par les règles de Next.js.
+    name: 'expense-io/sonarjs',
+    ignores: ['src/types/api.d.ts'], // généré par openapi-typescript
+    plugins: sonarjs.configs.recommended.plugins,
+    rules: { ...sonarjs.configs.recommended.rules, ...SONARJS_AWS_CDK_OFF },
+  },
+  {
+    // Comptes de démonstration publics (CLAUDE.md, README) et données de test.
+    name: 'expense-io/sonarjs-test-data',
+    files: ['e2e/**', 'scripts/seed.mjs', 'src/**/*.test.ts'],
+    rules: { 'sonarjs/no-hardcoded-passwords': 'off' },
+  },
+  {
+    // Outils du poste de dev : npm et git lancés par leur nom, depuis le PATH.
+    name: 'expense-io/sonarjs-dev-tools',
+    files: ['.claude/hooks/**', 'scripts/**'],
+    rules: { 'sonarjs/no-os-command-from-path': 'off' },
+  },
   {
     name: 'expense-io/get-pool',
     ignores: ['src/lib/db.ts', ...LEGACY_GET_POOL],
@@ -164,7 +191,7 @@ const eslintConfig = defineConfig([
   },
   {
     name: 'expense-io/tests',
-    files: ['e2e/**', 'src/**/*.test.ts'],
+    files: ['e2e/**', 'src/**/*.test.ts', 'scripts/**/*.test.ts'],
     rules: {
       'no-restricted-properties': [
         'error',
@@ -182,6 +209,9 @@ const eslintConfig = defineConfig([
     '.next/**',
     'out/**',
     'build/**',
+    // Rapports générés par les vérifications E2E locales.
+    'playwright-report/**',
+    'test-results/**',
     'next-env.d.ts',
   ]),
 ])

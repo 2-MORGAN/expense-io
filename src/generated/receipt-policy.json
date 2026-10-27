@@ -1,0 +1,11 @@
+{
+  "maxBytes": 10485760,
+  "mediaTypes": [
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "application/pdf"
+  ],
+  "ocrMaxPixels": 40000000,
+  "ocrMaxSide": 2500
+}

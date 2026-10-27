@@ -1,15 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { responseErrorMessage, ApiResponseError } from '@/components/apiError'
 
-interface ExpenseNote {
-  id: string
-  amount: number
-  expenseDate: string
-  description: string
-  status: string
-  createdAt: string
-}
+import type { ExpenseNote } from '@/http/dto'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { analyzeReceipt } from '@/components/receiptAnalysisClient'
 
 const inputClass =
   'w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-brand-900'
@@ -52,14 +47,18 @@ export default function ExpensesPage() {
   const [suggestionNotice, setSuggestionNotice] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
   const [expenseDate, setExpenseDate] = useState('')
+  const [description, setDescription] = useState('')
   const receiptInputRef = useRef<HTMLInputElement>(null)
+  const analysisController = useRef<AbortController | null>(null)
+
+  useEffect(() => () => analysisController.current?.abort(), [])
 
   const loadNotes = useCallback(async () => {
     const response = await fetch('/api/expense-notes')
     if (response.ok) {
       setNotes(await response.json())
     } else {
-      setError('Impossible de charger les notes de frais.')
+      setError(await responseErrorMessage(response))
     }
     setLoading(false)
   }, [])
@@ -71,6 +70,8 @@ export default function ExpensesPage() {
     loadNotes()
   }, [loadNotes])
 
+  const idempotencyKey = useRef<string | null>(null)
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSubmitting(true)
@@ -78,25 +79,32 @@ export default function ExpensesPage() {
     const form = event.currentTarget
     const formData = new FormData(form)
 
-    const response = await fetch('/api/expense-notes', {
-      method: 'POST',
-      body: formData,
-    })
+    // Même clé à chaque nouvel essai après une erreur, nouvelle clé après un
+    // succès (ADR-003 §4) : un renvoi ne crée jamais de doublon.
+    const post = (key: string) =>
+      fetch('/api/expense-notes', { method: 'POST', body: formData, headers: { 'Idempotency-Key': key } })
+    idempotencyKey.current ??= crypto.randomUUID()
+    let response = await post(idempotencyKey.current)
+    if (response.status === 422) {
+      // Formulaire modifié depuis l'essai précédent : c'est une autre demande.
+      const body = await response.clone().json().catch(() => null)
+      if (body?.code === 'IDEMPOTENCY_KEY_REUSED') {
+        idempotencyKey.current = crypto.randomUUID()
+        response = await post(idempotencyKey.current)
+      }
+    }
     setSubmitting(false)
 
     if (response.ok) {
+      idempotencyKey.current = null
       form.reset()
       setAmount('')
       setExpenseDate('')
+      setDescription('')
       setSuggestionNotice(null)
       await loadNotes()
     } else {
-      const body = await response.json().catch(() => null)
-      setError(
-        typeof body?.error === 'string'
-          ? body.error
-          : 'Échec de la soumission de la note de frais.'
-      )
+      setError(await responseErrorMessage(response))
     }
   }
 
@@ -110,42 +118,44 @@ export default function ExpensesPage() {
     setError(null)
     setSuggestionNotice(null)
 
-    const formData = new FormData()
-    formData.set('receipt', receipt)
-    const response = await fetch('/api/expense-notes/receipt-suggestion', {
-      method: 'POST',
-      body: formData,
-    })
-    setExtracting(false)
-
-    if (!response.ok) {
-      setError('Impossible d’analyser ce reçu.')
-      return
-    }
-    // Une réponse vide est valide (rien à suggérer) : sans ce message, ça
-    // ne se distinguerait pas visuellement d'un bouton qui n'a rien fait.
-    const suggestion = (await response.json()) as { amount?: number; expenseDate?: string }
-    const foundAmount = typeof suggestion.amount === 'number'
-    const foundDate = typeof suggestion.expenseDate === 'string'
-    if (foundAmount) {
-      setAmount(String(suggestion.amount))
-    }
-    if (foundDate) {
-      setExpenseDate(suggestion.expenseDate as string)
-    }
-    if (!foundAmount && !foundDate) {
-      setSuggestionNotice('Aucune information reconnue sur ce reçu — saisis les champs manuellement.')
-    } else if (!foundAmount || !foundDate) {
-      setSuggestionNotice(
-        `${foundAmount ? 'Date' : 'Montant'} non reconnu(e) sur ce reçu — vérifie ce champ.`
-      )
+    analysisController.current?.abort()
+    const controller = new AbortController()
+    analysisController.current = controller
+    try {
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(75_000)])
+      const suggestion = await analyzeReceipt(receipt, signal)
+      const foundAmount = typeof suggestion.amount === 'number'
+      const foundDate = typeof suggestion.expenseDate === 'string'
+      if (foundAmount) {
+        setAmount(String(suggestion.amount))
+      }
+      if (foundDate) {
+        setExpenseDate(suggestion.expenseDate as string)
+      }
+      // Proposée seulement si le champ est vide : on n'écrase jamais une saisie.
+      // Les messages ne portent que sur le montant et la date (comportement figé).
+      const suggestedDescription = suggestion.description
+      if (typeof suggestedDescription === 'string') {
+        setDescription((current) => (current.trim() === '' ? suggestedDescription : current))
+      }
+      if (!foundAmount && !foundDate) {
+        setSuggestionNotice('Aucune information reconnue sur ce reçu — saisis les champs manuellement.')
+      } else if (!foundAmount || !foundDate) {
+        setSuggestionNotice(
+          `${foundAmount ? 'Date' : 'Montant'} non reconnu(e) sur ce reçu — vérifie ce champ.`
+        )
+      }
+    } catch (error) {
+      if (!controller.signal.aborted) setError(error instanceof ApiResponseError ? error.message : 'Impossible d’analyser ce reçu.')
+    } finally {
+      if (!controller.signal.aborted) setExtracting(false)
     }
   }
 
   async function handleViewReceipt(id: string) {
     const response = await fetch(`/api/expense-notes/${id}/receipt-url`)
     if (!response.ok) {
-      setError('Impossible de récupérer le reçu.')
+      setError(await responseErrorMessage(response))
       return
     }
     const { url } = await response.json()
@@ -210,6 +220,8 @@ export default function ExpensesPage() {
               type="text"
               placeholder="Ex. Taxi aéroport, repas client…"
               required
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
               className={inputClass}
             />
           </div>

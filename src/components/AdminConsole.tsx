@@ -1,23 +1,10 @@
 'use client'
 
+import { responseErrorMessage } from '@/components/apiError'
+
+import type { ExpenseNote, CompanyUser } from '@/http/dto'
 import { useCallback, useEffect, useState } from 'react'
-
-interface CompanyUser {
-  id: string
-  name: string
-  email: string
-  role: 'employee' | 'manager'
-  managerId: string | null
-}
-
-interface ExpenseNote {
-  id: string
-  userId: string
-  amount: number
-  expenseDate: string
-  description: string
-  createdAt: string
-}
+import { InviteEmployeeForm } from '@/components/InviteEmployeeForm'
 
 const selectClass =
   'rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-brand-900'
@@ -45,7 +32,7 @@ export function AdminConsole() {
     if (response.ok) {
       setUsers(await response.json())
     } else {
-      setUsersError("Impossible de charger l'annuaire.")
+      setUsersError(await responseErrorMessage(response))
     }
     setUsersLoading(false)
   }, [])
@@ -55,7 +42,7 @@ export function AdminConsole() {
     if (response.ok) {
       setNotes(await response.json())
     } else {
-      setNotesError('Impossible de charger les notes en attente.')
+      setNotesError(await responseErrorMessage(response))
     }
     setNotesLoading(false)
   }, [])
@@ -81,10 +68,7 @@ export function AdminConsole() {
     if (response.ok) {
       await loadUsers()
     } else {
-      const body = await response.json().catch(() => null)
-      setUsersError(
-        typeof body?.error === 'string' ? body.error : "Échec de l'assignation."
-      )
+      setUsersError(await responseErrorMessage(response))
     }
   }
 
@@ -92,7 +76,7 @@ export function AdminConsole() {
     setNotesError(null)
     const response = await fetch(`/api/hr/expense-notes/${id}/receipt-url`)
     if (!response.ok) {
-      setNotesError('Impossible de récupérer le reçu.')
+      setNotesError(await responseErrorMessage(response))
       return
     }
     const { url } = await response.json()
@@ -110,12 +94,7 @@ export function AdminConsole() {
     if (response.ok) {
       await loadNotes()
     } else {
-      const body = await response.json().catch(() => null)
-      setNotesError(
-        typeof body?.error === 'string'
-          ? body.error
-          : 'Échec de la décision sur cette note de frais.'
-      )
+      setNotesError(await responseErrorMessage(response))
     }
   }
 
@@ -128,6 +107,8 @@ export function AdminConsole() {
           des managers sans manager assigné.
         </p>
       </div>
+
+      <InviteEmployeeForm />
 
       <section className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <h2 className="border-b border-gray-200 px-6 py-4 text-base font-semibold dark:border-gray-800">

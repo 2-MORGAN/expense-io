@@ -1,13 +1,8 @@
 import type { PoolClient } from 'pg'
 import { withSystemTransaction } from '@/lib/db'
+import type { OutboxEventRecord } from '@/ports/EventOutbox'
 
-export type OutboxEvent = {
-  id: string
-  companyId: string
-  type: string
-  payload: Record<string, unknown>
-  attempts: number
-}
+export type OutboxEvent = OutboxEventRecord
 
 export type FailureUpdate = { status: 'pending'; delaySeconds: number } | { status: 'dead' }
 
@@ -20,6 +15,7 @@ type OutboxRow = {
   type: string
   payload: Record<string, unknown>
   attempts: number
+  created_at: Date
 }
 
 function toEvent(row: OutboxRow): OutboxEvent {
@@ -29,6 +25,7 @@ function toEvent(row: OutboxRow): OutboxEvent {
     type: row.type,
     payload: row.payload,
     attempts: row.attempts,
+    createdAt: row.created_at,
   }
 }
 
@@ -62,7 +59,7 @@ export async function leaseNextDueEvent(
          LIMIT 1
          FOR UPDATE SKIP LOCKED
        )
-       RETURNING id, company_id, type, payload, attempts`,
+       RETURNING id, company_id, type, payload, attempts, created_at`,
       [types, companyId ?? null, LEASE_SECONDS]
     )
     const row = result.rows[0]
@@ -84,7 +81,7 @@ export async function lockPendingEvent(
   attempts: number
 ): Promise<OutboxEvent | null> {
   const result = await client.query<OutboxRow>(
-    `SELECT id, company_id, type, payload, attempts
+    `SELECT id, company_id, type, payload, attempts, created_at
      FROM outbox_events
      WHERE id = $1 AND status = 'pending' AND attempts = $2
      FOR UPDATE`,

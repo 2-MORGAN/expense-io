@@ -50,5 +50,9 @@ export default defineConfig({
         url: `${BASE_URL}/login`,
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,
+        // Sortie d'erreur affichée par défaut (journal JSON des erreurs) ; en CI,
+        // la sortie standard aussi : requêtes servies et journal du worker
+        // (ADR-005 §5).
+        stdout: process.env.CI ? 'pipe' : 'ignore',
       },
 })
