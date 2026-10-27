@@ -11,7 +11,15 @@ export default defineConfig({
     // `npm run test:coverage` : rapport texte + HTML (coverage/index.html).
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.{ts,tsx}'],
+      // Logique testée en unitaire (ADR-005 §1). Adaptateurs (Postgres, S3),
+      // pages, composants et composition relèvent des E2E : hors périmètre.
+      include: [
+        'src/domain/**/*.ts',
+        'src/application/**/*.ts',
+        'src/http/**/*.ts',
+        'src/lib/**/*.ts',
+        'src/utils/**/*.ts',
+      ],
       exclude: ['src/**/*.test.ts', 'src/**/*.d.ts'],
       reporter: ['text-summary', 'html', 'lcov'],
     },

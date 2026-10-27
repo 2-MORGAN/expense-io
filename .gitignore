@@ -49,3 +49,5 @@ next-env.d.ts
 
 # Couverture de tests
 /coverage
+/coverage-e2e
+/coverage-e2e-report
