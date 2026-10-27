@@ -3,7 +3,7 @@ SHELL := /bin/bash
 
 COMPOSE := docker compose
 
-.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-e2e verify api-breaking reconcile
+.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-e2e verify api-breaking reconcile observability observability-down
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -87,3 +87,10 @@ verify: env ## Ce que vérifie la CI : lint, types, tests unitaires, build de pr
 
 clean: ## Arrête Docker et supprime les volumes — efface les données locales (Postgres/LocalStack/Mailpit)
 	$(COMPOSE) down -v
+
+observability: ## Démarre Grafana et la collecte des traces, métriques et journaux (docs/observability.md)
+	$(COMPOSE) -f docker-compose.observability.yml up -d --wait
+	@echo "Grafana : http://localhost:$${GRAFANA_PORT:-3001}. Envoi : OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 dans .env, puis make dev."
+
+observability-down: ## Arrête Grafana et la collecte (conserve leurs données)
+	$(COMPOSE) -f docker-compose.observability.yml down

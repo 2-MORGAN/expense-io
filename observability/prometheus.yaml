@@ -1,0 +1,26 @@
+# Prometheus de grafana/otel-lgtm (docker-compose.observability.yml), monté à
+# la place de son docker/prometheus.yaml. Repris de l'image 0.36.0 : à relire
+# quand la version de l'image change. Ajouts : la collecte de postgres-exporter
+# et un intervalle de 15 s.
+global:
+  scrape_interval: 15s
+  scrape_native_histograms: true
+otlp:
+  keep_identifying_resource_attributes: true
+  # Attributs de ressource devenus étiquettes : `service_name` distingue le
+  # serveur (expense-io-web) du worker (expense-io-worker).
+  promote_resource_attributes:
+    - service.instance.id
+    - service.name
+    - service.namespace
+    - service.version
+    - deployment.environment.name
+    - host.name
+storage:
+  tsdb:
+    # Absorbe les reprises et les retards réseau des envois OTLP.
+    out_of_order_time_window: 10m
+scrape_configs:
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres-exporter:9187']
