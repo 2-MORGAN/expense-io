@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { pdfReceipt, pngReceipt, receiptForType } from '../../e2e/support/files'
-import { inspectReceipt } from '@/adapters/inspectReceipt'
+import { receiptInspector } from '@/composition/receipts'
 
 vi.mock('@/lib/auth', () => ({ auth: vi.fn(async () => ({ user: { id: '00000000-0000-4000-8000-000000000001', role: 'hr_admin' } })) }))
 const effects = vi.hoisted(() => ({ pool: vi.fn(() => ({ query: vi.fn() })) }))
@@ -37,7 +37,7 @@ it.each(['{}', 'null', '[]', '{bad json', '{"managerId":"bad"}'])('does not deta
 
 it.each(['image/png', 'image/jpeg', 'image/webp', 'application/pdf'])('accepts a real %s', async (type) => {
   const receipt = receiptForType('real', type)
-  await expect(inspectReceipt({ data: receipt.buffer, mimeType: type })).resolves.toBeUndefined()
+  await expect(receiptInspector.inspect({ data: receipt.buffer, mimeType: type })).resolves.toBeUndefined()
 })
 
 it('rejects a renamed PNG, a truncated image and a fake PDF before writes', async () => {

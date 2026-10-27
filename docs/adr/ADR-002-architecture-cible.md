@@ -95,7 +95,9 @@ Fusion Expense + Validation écartée : elle recréerait le module fourre-tout d
 | `src/adapters/` + `src/lib/` | implémentations ; accès base via `withUserScope()`, sous le rôle restreint et la RLS de l'ADR-001 | règle métier |
 | worker (`npm run worker`) | adaptateur entrant, comme les routes : consomme l'outbox (ADR-003) | règle métier propre |
 | `migrations/` | seule vérité du schéma, horodatée, avec `down` | DDL dans le code |
-| `src/components/`, pages | UI mince | SQL, droits |
+| `src/components/`, pages | UI mince ; un composant serveur (page sans `'use client'`) peut appeler un cas d'usage par `src/composition`, comme une server action (amendement du 27/10) | SQL, droits, `lib/db`, adaptateurs ; `src/composition` depuis un fichier `'use client'` |
+
+> **Amendement du 27/10/2026** (PO, réponse WS2 à la PR #31) : le schéma du §4 (« UI → route fine ») vise le code exécuté dans le navigateur. Un composant serveur de Next.js s'exécute côté serveur, comme une server action, déjà autorisée à appeler la composition ; le faire passer par une route `/api` ajouterait un aller-retour HTTP vers soi-même. Vérifié par `scripts/architecture/architecture.test.ts`. Aucun changement d'API.
 
 Conventions de `CLAUDE.md` inchangées : TS strict sans `any`, alias `@/*`, montants `numeric` → `number` à la frontière, dates `YYYY-MM-DD` brutes (parser OID 1082 inchangé).
 

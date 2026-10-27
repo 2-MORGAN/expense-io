@@ -1,18 +1,21 @@
 import type { Decision } from '@/domain/validation/DecideExpenseNote'
 
-export interface DecidedNoteDto {
+// La note tranchée telle que la base la connaît, comme `SubmittedExpenseNote` :
+// la mise en forme JSON de l'API (`toExpenseNoteDto`) reste dans la couche
+// HTTP. Un adaptateur sortant ne dépend pas de la couche d'entrée (ADR-002 §3.3).
+export interface DecidedExpenseNote {
   id: string
-  userId: string
-  amount: number
-  expenseDate: string
+  user_id: string
+  amount: string
+  expense_date: string
   description: string
-  receiptKey: string
-  status: 'approved' | 'rejected'
-  createdAt: string
+  receipt_key: string
+  status: Decision
+  created_at: Date
 }
 
 // Persistance de la décision : charge la note verrouillée (SELECT FOR UPDATE),
 // applique la règle du domaine, écrit le statut + l'audit (B16, interne).
 export interface ExpenseNoteDecisionRepository {
-  decide(noteId: string, actorId: string, decision: Decision): Promise<DecidedNoteDto>
+  decide(noteId: string, actorId: string, decision: Decision): Promise<DecidedExpenseNote>
 }

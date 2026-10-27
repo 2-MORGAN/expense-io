@@ -1,5 +1,5 @@
 import { validateReceipt, type Receipt } from '@/domain/receipt/Receipt'
-import { inspectReceipt } from '@/adapters/inspectReceipt'
+import { receiptInspector } from '@/composition/receipts'
 import { InputError, validateInput } from './validation'
 import { multipartFields, readMultipart } from './readMultipart'
 
@@ -12,6 +12,6 @@ export async function readReceipt(request: Request, signal: AbortSignal, options
   if (!receipt.data.length) throw new InputError('VALIDATION_ERROR', [{ field: 'receipt', code: 'EMPTY_FILE', message: 'A non-empty file is required.' }])
   validateReceipt(receipt, options)
   // Image decoding remains in the isolated, bounded OCR process. PDFs need a real parser.
-  if (receipt.mimeType === 'application/pdf') await inspectReceipt(receipt)
+  if (receipt.mimeType === 'application/pdf') await receiptInspector.inspect(receipt)
   return receipt
 }
