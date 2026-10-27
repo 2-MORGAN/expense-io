@@ -230,7 +230,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Tri historique. Tris légitimes : created_at, amount, expense_date, description, status, avec ASC/DESC. Défaut created_at DESC. La sécurisation par liste blanche est portée par 2-471 ; aucune expression SQL arbitraire ne constitue un usage garanti."
+            "description": "Tri historique. Tris légitimes : created_at, amount, expense_date, description, status, avec ASC/DESC, puis id dans le même sens pour un ordre stable. Défaut created_at DESC, id DESC. La sécurisation par liste blanche est portée par 2-471 ; aucune expression SQL arbitraire ne constitue un usage garanti."
           }
         ],
         "tags": [
@@ -348,7 +348,7 @@
     "/api/manager/expense-notes": {
       "get": {
         "operationId": "listManagerExpenseNotes",
-        "summary": "Manager direct : notes pending, liste complète triée par created_at ASC.",
+        "summary": "Manager direct : notes pending, liste complète triée par created_at ASC, id ASC.",
         "description": "Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.",
         "responses": {
           "200": {
@@ -529,7 +529,7 @@
     "/api/hr/expense-notes": {
       "get": {
         "operationId": "listHrExpenseNotes",
-        "summary": "RH : managers racines de son entreprise : notes pending, liste complète triée par created_at ASC.",
+        "summary": "RH : managers racines de son entreprise : notes pending, liste complète triée par created_at ASC, id ASC.",
         "description": "Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.",
         "responses": {
           "200": {
@@ -710,7 +710,7 @@
     "/api/hr/users": {
       "get": {
         "operationId": "listCompanyUsers",
-        "summary": "RH : employés et managers de son entreprise, triés par nom, sans pagination.",
+        "summary": "RH : employés et managers de son entreprise, triés par nom puis id, sans pagination.",
         "description": "Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.",
         "responses": {
           "200": {

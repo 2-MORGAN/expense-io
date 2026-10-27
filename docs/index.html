@@ -762,7 +762,7 @@ flowchart LR
           <tbody>
             <tr><td><code>ExpenseNoteSubmissionRepository</code></td><td><code>PostgresExpenseNoteSubmissionRepository</code></td><td><code>SubmitExpenseNote</code></td></tr>
             <tr><td><code>ExpenseNoteDecisionRepository</code></td><td><code>PostgresExpenseNoteDecisionRepository</code></td><td><code>DecideExpenseNote</code></td></tr>
-            <tr><td><code>ExpenseNoteListRepository</code></td><td><code>PostgresExpenseNoteListRepository</code> (tri par table de requêtes fixes)</td><td><code>ListExpenseNotes</code></td></tr>
+            <tr><td><code>ExpenseNoteListRepository</code></td><td><code>PostgresExpenseNoteListRepository</code> (tri par table de requêtes fixes, départage par <code>id</code>)</td><td><code>ListExpenseNotes</code></td></tr>
             <tr><td><code>ReceiptAccessRepository</code></td><td><code>PostgresReceiptAccessRepository</code></td><td><code>GetReceiptUrl</code></td></tr>
             <tr><td><code>ReceiptStoragePort</code></td><td><code>S3ReceiptAdapter</code></td><td>soumission, URL de reçu, analyses, worker</td></tr>
             <tr><td><code>ReceiptInspector</code></td><td><code>inspectReceipt</code> (signature, format réel, décodage)</td><td>validation des reçus à la création</td></tr>

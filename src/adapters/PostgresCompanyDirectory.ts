@@ -20,13 +20,14 @@ function toMember(row: MemberRow): CompanyMember {
  * en profondeur (ADR-001 §3).
  */
 export class PostgresCompanyDirectory implements CompanyDirectory {
+  // Triés par nom, puis par id pour départager les homonymes (ADR-004 §7.2).
   async listMembers(actorId: string): Promise<CompanyMember[]> {
     return withUserScope(actorId, async (client) => {
       const result = await client.query<MemberRow>(
         `SELECT id, name, email, role, manager_id FROM users
          WHERE role IN ('employee', 'manager')
            AND company_id = nullif(current_setting('app.current_company_id', true), '')::uuid
-         ORDER BY name`
+         ORDER BY name, id`
       )
       return result.rows.map(toMember)
     })
