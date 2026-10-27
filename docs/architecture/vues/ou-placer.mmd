@@ -1,0 +1,31 @@
+flowchart LR
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec CLAUDE.md (« Où placer le code »).
+
+  q{"Que dois-tu<br/>ajouter ?"}
+  domain["src/domain/<br/>règle pure, testée par Vitest à côté"]
+  usecase["src/application/<br/>cas d'usage, ne voit que des ports"]
+  port["port dans src/ports/<br/>adaptateur dans src/adapters/<br/>assemblage dans src/composition/"]
+  route["openapi.yaml d'abord, npm run generate:api<br/>puis route.ts fine"]
+  event["type d'événement de l'outbox<br/>+ handler déclaré dans src/worker/handlers.ts"]
+  migration["nouvelle migration horodatée<br/>avec sa partie down"]
+  ui["src/components/<br/>la page reste mince"]
+  adr["ADR à partir de<br/>docs/adr/ADR-000-modele.md"]
+
+  q -->|"une règle métier"| domain
+  q -->|"un enchaînement d'étapes"| usecase
+  q -->|"un accès à PostgreSQL,<br/>S3, SMTP ou l'OCR"| port
+  q -->|"une opération HTTP"| route
+  q -->|"un traitement asynchrone"| event
+  q -->|"un changement de schéma"| migration
+  q -->|"un écran"| ui
+  q -->|"une décision structurante"| adr
+
+  classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
+  classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef doc fill:#ede9fe,stroke:#7c3aed,color:#111827
+  class domain,usecase coeur
+  class port,migration infra
+  class route,event,ui entree
+  class adr doc

@@ -1,0 +1,55 @@
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  user(["Navigateur<br/>employé · manager · RH"])
+
+  subgraph web["Processus web · Next.js"]
+    direction TB
+    pages["Pages et server actions<br/>proxy.ts : /login sans session"]
+    api["Route handlers /api/**<br/>auth() · requireRole()<br/>contrat openapi.yaml"]
+    core["Cœur hexagonal<br/>cas d'usage · domaine<br/>ports · adaptateurs"]
+  end
+
+  subgraph worker["Processus worker"]
+    direction TB
+    loops["2 boucles sur l'outbox<br/>SKIP LOCKED · bail de 5 min"]
+    handlers["Handlers de buildHandlers()<br/>emails · notifications<br/>analyse de reçu"]
+    cleanup["Nettoyage des analyses<br/>toutes les 10 s"]
+  end
+
+  pg[("PostgreSQL 16<br/>port 5433<br/>RLS · outbox_events")]
+  s3[("S3 : LocalStack<br/>port 4567<br/>bucket receipts")]
+  ocr["Moteur OCR jetable<br/>sharp + tesseract.js<br/>processus enfant du worker,<br/>et du web pour l'inspection<br/>et la route synchrone"]
+  smtp["SMTP : Mailpit<br/>1025 · interface 8025"]
+  mailbox(["Boîte mail<br/>liens d'invitation<br/>et de vérification"])
+  ops["Scripts npm<br/>migrate:up · seed<br/>ensure-bucket<br/>réconciliation, nettoyage"]
+
+  user -->|"pages, formulaires"| pages
+  user -->|"fetch JSON, multipart"| api
+  pages --> core
+  api --> core
+  core -->|"expense_app, withUserScope :<br/>SQL, RLS, outbox"| pg
+  core -->|"reçus"| s3
+  user ~~~ loops
+  user ~~~ cleanup
+  loops -->|"expense_worker :<br/>prise en charge"| pg
+  loops --> handlers
+  handlers -->|"emails"| smtp
+  handlers -->|"analyse détachée"| ocr
+  handlers -->|"reçus"| s3
+  cleanup -->|"reçus analysés"| s3
+  smtp --> mailbox
+  user -.->|"reçu par URL pré-signée"| s3
+  user ~~~ ops
+  ops --> pg
+  ops --> s3
+
+  classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
+  classDef externe fill:#f3f4f6,stroke:#6b7280,color:#111827
+  class pages,api,loops,handlers,cleanup entree
+  class core coeur
+  class pg,s3,ocr,smtp infra
+  class user,mailbox,ops externe

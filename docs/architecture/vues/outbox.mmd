@@ -1,0 +1,36 @@
+flowchart LR
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  subgraph producers["Écrit dans la transaction métier"]
+    direction TB
+    submitted["Note créée<br/>SubmitExpenseNote"]
+    decided["Note tranchée<br/>DecideExpenseNote"]
+    invited["Invitation de la RH<br/>POST /api/hr/invitations"]
+    registered["Inscription, renvoi du lien<br/>fonctions SQL"]
+    analysis["Analyse de reçu<br/>POST /api/receipt-analyses"]
+  end
+
+  outboxTable[("outbox_events<br/>pending · sent · dead")]
+
+  subgraph worker["Worker : buildHandlers()"]
+    direction TB
+    hSubmitted["expense_note.submitted<br/>email à l'approbateur"]
+    hDecided["expense_note.decided<br/>email au soumetteur"]
+    hInvitation["invitation.requested<br/>jeton + email"]
+    hVerification["email.verification.requested<br/>jeton + email"]
+    hAnalysis["receipt.analysis.requested<br/>OCR, 3 essais"]
+  end
+
+  smtp["SMTP"]
+  engine["Moteur OCR"]
+
+  submitted & decided & invited & registered & analysis -->|"INSERT"| outboxTable
+  outboxTable -->|"SKIP LOCKED"| worker
+  hSubmitted & hDecided & hInvitation & hVerification -->|"handle()<br/>en transaction"| smtp
+  hAnalysis -->|"run()<br/>hors transaction"| engine
+
+  classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
+  class hSubmitted,hDecided,hInvitation,hVerification,hAnalysis entree
+  class outboxTable,smtp,engine infra

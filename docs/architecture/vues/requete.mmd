@@ -1,0 +1,32 @@
+sequenceDiagram
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  autonumber
+  actor M as Manager
+  participant R as route.ts
+  participant A as auth()<br/>requireRole()
+  participant U as DecideExpenseNote
+  participant P as Repository<br/>PostgreSQL
+  participant DB as PostgreSQL
+
+  M->>R: POST /api/manager/<br/>expense-notes/{id}/approve
+  Note over R: withApiErrors :<br/>requestId, capture
+  R->>A: session ? rôle ?
+  A->>DB: relit le rôle (S9)
+  alt sans session
+    A-->>M: 401
+  else rôle refusé
+    A-->>M: 403
+  end
+  R->>R: validateId, sinon 400
+  R->>U: execute(id, acteur)
+  U->>P: decide()
+  P->>DB: BEGIN, contexte RLS
+  P->>DB: SELECT … FOR UPDATE
+  P->>P: règle du domaine :<br/>404 ou 409 ?
+  P->>DB: UPDATE … WHERE<br/>status = 'pending'
+  P->>DB: INSERT outbox_events,<br/>COMMIT
+  P-->>U: note tranchée
+  U-->>R: note
+  R-->>M: 200 ExpenseNote
+  Note over M,R: Exception imprévue : 500 INTERNAL_ERROR<br/>sans détail, logError() côté serveur

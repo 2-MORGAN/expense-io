@@ -1,0 +1,84 @@
+erDiagram
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% npm run check vérifie qu'elle a chaque table des migrations, et rien d'autre.
+
+  companies ||--o{ users : "emploie"
+  users |o--o{ users : "manager_id, même entreprise"
+  users ||--o{ expense_notes : "soumet"
+  users |o--o{ expense_notes : "tranche (decided_by)"
+  companies ||--o{ invitations : "invite"
+  users ||--o{ invitations : "envoie (invited_by)"
+  companies ||--o{ outbox_events : "publie"
+  users ||--o{ receipt_analyses : "demande"
+  companies ||--o{ receipt_analyses : "possède"
+
+  companies {
+    uuid id PK
+    text name
+    text email_domain "indexé, plus unique (S7)"
+    timestamptz created_at
+  }
+  users {
+    uuid id PK
+    uuid company_id FK
+    text name
+    text email UK
+    text password_hash "bcrypt"
+    text role "employee, manager, hr_admin"
+    uuid manager_id FK "même entreprise (clé composite)"
+    timestamptz email_verified_at "NULL tant que non vérifié"
+    text verification_token_hash "empreinte SHA-256"
+    timestamptz verification_expires_at
+    timestamptz created_at
+  }
+  expense_notes {
+    uuid id PK
+    int receipt_seq "historique, inutilisé"
+    uuid user_id FK
+    numeric amount "10,2"
+    date expense_date "YYYY-MM-DD"
+    text description
+    text receipt_key "jamais vide (CHECK)"
+    text status "pending, approved, rejected"
+    uuid decided_by FK
+    timestamptz decided_at
+    uuid idempotency_key "unique par utilisateur"
+    text request_fingerprint
+    timestamptz created_at
+  }
+  invitations {
+    uuid id PK
+    uuid company_id FK
+    text email
+    uuid invited_by FK
+    text token_hash "empreinte SHA-256"
+    timestamptz expires_at "7 jours"
+    timestamptz accepted_at
+    timestamptz created_at
+  }
+  outbox_events {
+    uuid id PK
+    uuid company_id FK
+    text type
+    jsonb payload "figé à l'émission, sans jeton"
+    text status "pending, sent, dead"
+    int attempts
+    timestamptz next_attempt_at
+    text last_error
+    timestamptz created_at
+  }
+  receipt_analyses {
+    uuid id PK
+    uuid user_id FK
+    uuid company_id FK
+    text receipt_key
+    text mime_type
+    text fingerprint
+    uuid idempotency_key
+    text status "queued, running, succeeded, failed"
+    jsonb result
+    text error_code
+    boolean receipt_deleted
+    timestamptz created_at
+    timestamptz expires_at "24 h"
+  }

@@ -143,19 +143,27 @@ export function routesMermaid(routes: RouteGuards): string {
 }
 
 /**
+ * `doc` avec `block` entre les marqueurs du schéma `name`
+ * (`<!-- début : name -->` … `<!-- fin : name -->`), à la place de ce qui s'y
+ * trouvait. Lève une Error, qui situe le document par `where`, si les
+ * marqueurs manquent.
+ */
+export function withBlock(doc: string, name: string, block: string, where: string): string {
+  const start = `<!-- début : ${name} -->`
+  const end = `<!-- fin : ${name} -->`
+  const from = doc.indexOf(start)
+  const to = doc.indexOf(end)
+  if (from < 0 || to < from) throw new Error(`marqueurs « ${start} » et « ${end} » absents ${where}`)
+  return `${doc.slice(0, from + start.length)}\n${block}${doc.slice(to)}`
+}
+
+/**
  * Le README avec chaque graphe recopié entre ses marqueurs, dans un bloc
  * ```mermaid que GitHub dessine. Lève une Error si des marqueurs manquent.
  */
 export function readmeWith(readme: string, graphs: Readonly<Record<string, string>>): string {
   let out = readme.replace(/\r\n/g, '\n')
-  for (const [file, text] of Object.entries(graphs)) {
-    const name = posix.basename(file)
-    const start = `<!-- début : ${name} -->`
-    const end = `<!-- fin : ${name} -->`
-    const from = out.indexOf(start)
-    const to = out.indexOf(end)
-    if (from < 0 || to < from) throw new Error(`marqueurs « ${start} » et « ${end} » absents du README`)
-    out = `${out.slice(0, from + start.length)}\n\`\`\`mermaid\n${text}\`\`\`\n${out.slice(to)}`
-  }
+  for (const [file, text] of Object.entries(graphs))
+    out = withBlock(out, posix.basename(file), `\`\`\`mermaid\n${text}\`\`\`\n`, 'du README')
   return out
 }
