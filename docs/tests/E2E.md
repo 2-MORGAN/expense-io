@@ -52,7 +52,7 @@ Si `npm run migrate:up` échoue sur une erreur d'authentification de l'utilisate
 | Base d'administration distincte pour les fixtures | `E2E_DATABASE_URL=postgres://…` (par défaut : `DATABASE_URL` de `.env`) |
 | Chromium déjà installé (CI sans téléchargement) | `E2E_CHROMIUM_PATH=/chemin/vers/chrome` |
 | Mailpit ailleurs que sur `http://localhost:8025` | `MAILPIT_URL=http://hôte:8025` |
-| Intégration continue | `.github/workflows/ci.yml` lance `make test-e2e` sur chaque PR. `CI=1` : pas de `test.only`, 1 nouvel essai, 2 workers, serveur toujours démarré par Playwright |
+| Intégration continue | `.github/workflows/ci.yml` lance l'équivalent de `make test-e2e` sur chaque PR, en 2 shards (`--shard=1/2` et `--shard=2/2`) dont le job `e2e` fusionne les rapports. `CI=1` : pas de `test.only`, 1 nouvel essai, 2 workers par shard, serveur toujours démarré par Playwright |
 
 Sous PowerShell, une variable se définit ainsi : `$env:E2E_BASE_URL="http://localhost:3100"; npm run test:e2e`.
 

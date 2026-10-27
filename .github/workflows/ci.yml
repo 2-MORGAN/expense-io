@@ -3,9 +3,16 @@
 #
 # - check : lint, types, tests unitaires et build de production, sans
 #           infrastructure ;
-# - e2e   : suite Playwright de docs/tests/E2E.md, via `make test-e2e`, avec
-#           Postgres et LocalStack lancés depuis docker-compose.yml (qui fait
-#           foi pour les images et les ports : rien n'est recopié ici).
+# - e2e   : suite Playwright de docs/tests/E2E.md, contre `next dev` comme
+#           `make test-e2e`, avec Postgres, LocalStack et Mailpit lancés depuis
+#           docker-compose.yml (qui fait foi pour les images et les ports :
+#           rien n'est recopié ici). La suite est découpée en 2 shards, chacun
+#           sur sa machine avec sa propre base et son propre serveur ; le job
+#           `e2e` fusionne leurs rapports et porte le résultat.
+#
+# Tous les jobs restent sur les runners hébergés par GitHub : le dépôt est
+# public, et une PR venant d'un fork peut réécrire `runs-on` ; un runner
+# auto-hébergé exécuterait alors du code externe sur la machine qui l'héberge.
 #
 # Les deux checks sont destinés à être obligatoires pour fusionner sur `main`.
 # Locale, la même vérification se lance avec `make verify`.
@@ -35,9 +42,7 @@ env:
 jobs:
   check:
     name: check
-    # Runner auto-hébergé Sunshine, sauf pour les PR venant d'un fork : le dépôt
-    # est public, du code externe ne doit pas tourner sur cette machine.
-    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","sunshine"]') || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -55,12 +60,17 @@ jobs:
       - name: Build de production
         run: npm run build
 
-  e2e:
-    name: e2e
-    # Reste sur GitHub : `playwright install --with-deps` exige root, et les
-    # ports de docker-compose.yml seraient partagés avec d'autres jobs Sunshine.
+  e2e-shard:
+    name: e2e (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      E2E_CHROMIUM_PATH: /usr/bin/google-chrome
+    strategy:
+      # Un shard en échec n'arrête pas l'autre : le rapport fusionné reste complet.
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -70,23 +80,72 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Installer Chromium pour Playwright
-        run: npx playwright install --with-deps chromium
-      # .env créé depuis .env.example (base et S3 jetables, aucun secret
-      # GitHub), Docker, migrations, bucket, puis la suite. Avec CI=true,
-      # playwright.config.ts interdit test.only, autorise un nouvel essai,
-      # utilise 2 workers et démarre lui-même `next dev`.
-      - name: Tests E2E
-        run: make test-e2e
-      - name: Rapport Playwright (traces et captures des échecs)
+      # Aucun téléchargement ni `apt` : l'image ubuntu-latest fournit Google
+      # Chrome et ses dépendances système. `playwright install --with-deps`
+      # prenait jusqu'à 13 min (apt, hors cache). playwright.config.ts le lance
+      # via E2E_CHROMIUM_PATH (docs/tests/E2E.md).
+      - name: Chrome du runner
+        run: |
+          test -x "$E2E_CHROMIUM_PATH"
+          "$E2E_CHROMIUM_PATH" --version
+      # Mêmes prérequis que `make test-e2e` : .env depuis .env.example (base et
+      # S3 jetables, aucun secret GitHub), Docker, migrations, bucket. Avec
+      # CI=true, playwright.config.ts interdit test.only, autorise un nouvel
+      # essai, utilise 2 workers et démarre lui-même `next dev`.
+      - name: Postgres, LocalStack, Mailpit et migrations
+        run: make up migrate ensure-bucket
+      - name: Tests E2E (shard ${{ matrix.shard }}/2)
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2 --reporter=list,blob
+      - name: Rapport du shard
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 1
+      - name: Traces et captures des échecs
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
+          name: test-results-${{ matrix.shard }}
+          path: test-results/
           retention-days: 7
-      - name: Journaux de Postgres et LocalStack
+      - name: Journaux de Postgres, LocalStack et Mailpit
         if: failure()
         run: docker compose logs --no-color --tail=200
+
+  # Check unique à rendre obligatoire : fusionne les rapports des shards et
+  # échoue si l'un d'eux a échoué ou n'a pas tourné.
+  e2e:
+    name: e2e
+    needs: e2e-shard
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: blob-report-*
+          path: all-blob-reports
+          merge-multiple: true
+      - name: Fusionner les rapports
+        run: npx playwright merge-reports --reporter=html,list ./all-blob-reports
+      - name: Rapport Playwright
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+      - name: Résultat des shards
+        if: ${{ needs.e2e-shard.result != 'success' }}
+        run: |
+          echo "Shards E2E : ${{ needs.e2e-shard.result }}"
+          exit 1
