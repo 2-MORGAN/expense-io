@@ -4,13 +4,13 @@ import type { ExpenseNoteDecisionRepository } from '@/ports/ExpenseNoteDecisionR
 
 const decided = {
   id: 'note-1',
-  userId: 'employee-1',
-  amount: 42.5,
-  expenseDate: '2026-10-01',
+  user_id: 'employee-1',
+  amount: '42.50',
+  expense_date: '2026-10-01',
   description: 'Taxi',
-  receiptKey: 'company-1/receipt-1.jpg',
+  receipt_key: 'company-1/receipt-1.jpg',
   status: 'approved' as const,
-  createdAt: '2026-10-02T10:00:00.000Z',
+  created_at: new Date('2026-10-02T10:00:00.000Z'),
 }
 
 describe('DecideExpenseNote', () => {

@@ -1,6 +1,6 @@
 import type { Decision } from '@/domain/validation/DecideExpenseNote'
 import type {
-  DecidedNoteDto,
+  DecidedExpenseNote,
   ExpenseNoteDecisionRepository,
 } from '@/ports/ExpenseNoteDecisionRepository'
 
@@ -10,7 +10,7 @@ import type {
 export class DecideExpenseNote {
   constructor(private readonly repository: ExpenseNoteDecisionRepository) {}
 
-  execute(noteId: string, actorId: string, decision: Decision): Promise<DecidedNoteDto> {
+  execute(noteId: string, actorId: string, decision: Decision): Promise<DecidedExpenseNote> {
     return this.repository.decide(noteId, actorId, decision)
   }
 }

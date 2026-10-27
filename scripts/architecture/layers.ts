@@ -182,11 +182,6 @@ export const PACKAGES: readonly ExternalPackage[] = [
 // orange, tolérées jusqu'à leur correction.
 export const LEGACY_EDGES: readonly LegacyEdge[] = [
   {
-    from: 'src/adapters',
-    to: 'src/http',
-    why: 'PostgresExpenseNoteDecisionRepository renvoie le DTO HTTP (toExpenseNoteDto) : un adaptateur sortant ne dépend pas de la couche d’entrée',
-  },
-  {
     from: 'src/app/api',
     to: 'src/lib/db',
     why: 'SQL dans les routes (LEGACY_DB_ACCESS) : chacune en sort en passant par un cas d’usage (2-488, ADR-002 §6)',
