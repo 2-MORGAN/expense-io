@@ -8,5 +8,12 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     include: ['src/**/*.test.ts', 'scripts/**/*.test.ts', 'eslint.config.test.ts', '.claude/hooks/*.test.mjs'],
+    // `npm run test:coverage` : rapport texte + HTML (coverage/index.html).
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.ts', 'src/**/*.d.ts'],
+      reporter: ['text-summary', 'html', 'lcov'],
+    },
   },
 })
