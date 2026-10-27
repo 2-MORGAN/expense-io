@@ -171,6 +171,8 @@ Les URL actuelles sont conservées, **sans `/v1` ajouté maintenant**. Une nouve
 - Un élément déprécié est signalé dans OpenAPI, avec son remplacement et la livraison de retrait annoncée **au moins une livraison à l'avance**. Le retrait n'intervient qu'après migration des consommateurs connus. Si cette migration ne peut pas être simultanée, les contrats coexistent.
 - `info.version` trace le contrat avec des versions majeures pour les ruptures, mineures pour les ajouts compatibles et correctives pour les corrections documentaires sans effet HTTP. Cela n'ajoute aucun préfixe d'URL et ne se confond pas avec la version du package npm.
 
+**Mise à jour du 27/10/2026 : règles vérifiées par la CI.** Sur chaque PR, le job `check` compare `openapi.yaml` à celui de la branche visée avec oasdiff 1.34.1 (`scripts/check-api-breaking.sh`, binaire à empreinte SHA-256 vérifiée) et échoue sur tout changement incompatible : champ de réponse retiré, statut changé, entrée devenue obligatoire. L'ajout d'un code d'erreur à une énumération n'est qu'un avertissement (`scripts/oasdiff-levels.txt`), conformément au catalogue extensible de la section 3. Une rupture voulue demande une ADR acceptée, puis le label `rupture-contrat` sur la PR. En local : `make api-breaking`.
+
 ### 7.2 Listes : pas de pagination
 
 **Décision du PO du 20/10 : les quatre listes restent complètes**, sans paramètre `limit` ni en-tête `Link`. Le volume d'une entreprise (quelques dizaines de notes et d'utilisateurs) ne justifie pas la migration du front et le changement de sens des listes. Aucun test E2E ne change.
