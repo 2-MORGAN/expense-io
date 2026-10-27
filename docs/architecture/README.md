@@ -66,7 +66,6 @@ flowchart TB
   m_adapters --> p_pg
   m_adapters --> p_sharp
   m_adapters --> m_domain
-  m_adapters -.->|"legacy"| m_http
   m_adapters --> m_lib_2f_db
   m_adapters --> m_lib_2f_storage
   m_adapters --> m_ports
@@ -74,7 +73,7 @@ flowchart TB
   m_app --> p_react
   m_app --> m_app_2f_actions
   m_app --> m_components
-  m_app -.->|"legacy"| m_composition
+  m_app --> m_composition
   m_app --> m_http
   m_app --> m_lib_2f_auth
   m_app_2f_actions --> p_next
@@ -104,10 +103,10 @@ flowchart TB
   m_composition --> m_adapters
   m_composition --> m_application
   m_composition --> m_lib_2f_tokens
+  m_composition --> m_ports
   m_domain --> m_generated
   m_domain --> m_ports
   m_http --> p_next_2d_auth
-  m_http -.->|"legacy"| m_adapters
   m_http --> m_composition
   m_http --> m_domain
   m_http --> m_generated
@@ -149,7 +148,7 @@ flowchart TB
   m_worker --> m_lib_2f_outbox
   m_worker --> m_lib_2f_tokens
   m_worker --> m_ports
-  linkStyle 4,12,27,28,45 stroke:#ea580c,stroke-width:2px,color:#ea580c
+  linkStyle 26,27 stroke:#ea580c,stroke-width:2px,color:#ea580c
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
   class m_app,m_app_2f_actions,m_app_2f_api,m_app_2f_verify_2d_email,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827

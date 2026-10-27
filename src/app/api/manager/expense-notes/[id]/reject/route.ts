@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { withApiErrors } from '@/http/withApiErrors'
 import { decideExpenseNote } from '@/composition/decisions'
 import { requireRole } from '@/http/requireRole'
+import { toExpenseNoteDto } from '@/http/expenseNote'
 
 export const POST = withApiErrors('/api/manager/expense-notes/[id]/reject', async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -12,5 +13,5 @@ export const POST = withApiErrors('/api/manager/expense-notes/[id]/reject', asyn
   validateId(id)
 
   const note = await decideExpenseNote.execute(id, actor.id, 'rejected')
-  return Response.json(note)
+  return Response.json(toExpenseNoteDto(note))
 })

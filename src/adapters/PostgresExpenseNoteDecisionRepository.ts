@@ -1,7 +1,6 @@
 import { enqueueDecided } from '@/adapters/PgNotificationEvents'
 import { withUserScope } from '@/lib/db'
 import { ExpenseNote } from '@/domain/ExpenseNote'
-import { toExpenseNoteDto } from '@/http/expenseNote'
 import {
   ExpenseNoteAlreadyDecided,
   ExpenseNoteNotVisible,
@@ -11,7 +10,7 @@ import {
   type NoteSubmitter,
 } from '@/domain/validation/DecideExpenseNote'
 import type {
-  DecidedNoteDto,
+  DecidedExpenseNote,
   ExpenseNoteDecisionRepository,
 } from '@/ports/ExpenseNoteDecisionRepository'
 
@@ -33,12 +32,12 @@ interface UserRow {
   company_id: string
 }
 
-function toDto(row: NoteRow, decision: Decision): DecidedNoteDto {
-  return { ...toExpenseNoteDto(row), status: decision }
+function toDecided(row: NoteRow, decision: Decision): DecidedExpenseNote {
+  return { ...row, status: decision }
 }
 
 export class PostgresExpenseNoteDecisionRepository implements ExpenseNoteDecisionRepository {
-  async decide(noteId: string, actorId: string, decision: Decision): Promise<DecidedNoteDto> {
+  async decide(noteId: string, actorId: string, decision: Decision): Promise<DecidedExpenseNote> {
     return withUserScope(actorId, async (client) => {
       const actorResult = await client.query<UserRow>(
         'SELECT id, role, manager_id, company_id FROM users WHERE id = $1',
@@ -94,7 +93,7 @@ export class PostgresExpenseNoteDecisionRepository implements ExpenseNoteDecisio
       const row = updated.rows[0]
       if (!row) throw new ExpenseNoteAlreadyDecided()
       await enqueueDecided(client, { id: row.id, description: row.description, userId: row.user_id }, decision)
-      return toDto(row, decision)
+      return toDecided(row, decision)
     })
   }
 }

@@ -61,7 +61,16 @@ export const LAYERS: readonly Layer[] = [
   { path: 'src/app/actions', group: 'entrees', may: HTTP_ENTRY },
   // Route hors de /api : le lien de vérification d'email (2-496).
   { path: 'src/app/verify-email', group: 'entrees', may: HTTP_ENTRY },
-  { path: 'src/app', group: 'entrees', label: 'app (pages)', may: [...UI, 'src/components', 'src/lib/auth', 'next-auth'] },
+  // Pages : un composant serveur est une entrée côté serveur, comme une server
+  // action ; il peut appeler un cas d'usage par la composition (ADR-002 §3.3,
+  // amendement du 27/10). Jamais depuis un fichier 'use client'
+  // (architecture.test.ts).
+  {
+    path: 'src/app',
+    group: 'entrees',
+    label: 'app (pages)',
+    may: [...UI, 'src/components', 'src/composition', 'src/lib/auth', 'next-auth'],
+  },
   { path: 'src/components', group: 'entrees', may: UI },
   { path: 'src/http', group: 'entrees', may: HTTP_ENTRY },
   { path: 'src/proxy', group: 'entrees', may: ['src/lib/auth', 'next', 'next-auth'] },
@@ -173,16 +182,6 @@ export const PACKAGES: readonly ExternalPackage[] = [
 // orange, tolérées jusqu'à leur correction.
 export const LEGACY_EDGES: readonly LegacyEdge[] = [
   {
-    from: 'src/adapters',
-    to: 'src/http',
-    why: 'PostgresExpenseNoteDecisionRepository renvoie le DTO HTTP (toExpenseNoteDto) : un adaptateur sortant ne dépend pas de la couche d’entrée',
-  },
-  {
-    from: 'src/app',
-    to: 'src/composition',
-    why: 'la page d’inscription lit l’invitation par la composition (2-496), alors que l’ADR-002 (§4) fait passer l’UI par une route fine. À confirmer par WS2',
-  },
-  {
     from: 'src/app/api',
     to: 'src/lib/db',
     why: 'SQL dans les routes (LEGACY_DB_ACCESS) : chacune en sort en passant par un cas d’usage (2-488, ADR-002 §6)',
@@ -191,11 +190,6 @@ export const LEGACY_EDGES: readonly LegacyEdge[] = [
     from: 'src/app/api',
     to: 'src/lib/storage',
     why: 'upload et URL pré-signées appelés depuis les routes, au lieu d’un port (ADR-002 §3.3)',
-  },
-  {
-    from: 'src/http',
-    to: 'src/adapters',
-    why: 'readReceipt et readExpenseInput appellent inspectReceipt (2-486) au lieu d’un port ou de la composition (ADR-002 §3.3)',
   },
 ]
 
