@@ -1,0 +1,21 @@
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  request(["Requête HTTP sur /api/**"])
+  guard["① requireRole() : 401 sans session, 403 si le rôle est refusé<br/>rôle relu en base à chaque auth() (S9)"]
+  contract["② Validation selon openapi.yaml : 400, avant toute écriture ou upload"]
+  rules["③ Domaine et cas d'usage : qui peut décider quoi<br/>404 si la ressource n'est pas visible, 409 si déjà tranchée"]
+  where["④ WHERE explicites par utilisateur, équipe ou entreprise<br/>(défense en profondeur)"]
+  scope["⑤ withUserScope() pose app.current_user_id,<br/>app.current_company_id et app.current_role, lus en base"]
+  rls["⑥ Policies RLS : expense_notes, users, invitations,<br/>outbox_events, receipt_analyses"]
+  role["⑦ Connexions sous expense_app (web) et expense_worker (worker)<br/>NOSUPERUSER, NOBYPASSRLS, vérifiées au démarrage"]
+  receipts["Reçus : clés receipts/{companyId}/…<br/>URL pré-signée de 5 min, après ces contrôles"]
+
+  request --> guard --> contract --> rules --> where --> scope --> rls --> role
+  rules -.-> receipts
+
+  classDef app fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef db fill:#fef9c3,stroke:#a16207,color:#111827
+  class guard,contract,rules,where app
+  class scope,rls,role,receipts db

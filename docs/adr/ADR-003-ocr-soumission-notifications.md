@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Acceptée** le 20 octobre 2026 par le PO (Florent). Choix de contrat d'API alignés sur l'ADR-004 le 20/10 : pas de `/v1`, `503` + `Retry-After`, format RFC 9457, `Idempotency-Key` facultatif. **OCR asynchrone planifié par le PO le 20/10** (2-503). **Amendée le 23/10 par le PO** : écarts de mise en œuvre acceptés, socle asynchrone unique, ordre des notifications (voir « Amendement du 23 octobre ») |
+| Statut | **Acceptée** le 20 octobre 2026 par le PO (Florent). Choix de contrat d'API alignés sur l'ADR-004 le 20/10 : pas de `/v1`, `503` + `Retry-After`, format RFC 9457, `Idempotency-Key` facultatif. **OCR asynchrone planifié par le PO le 20/10** (2-503). **Amendée le 23/10 par le PO** : écarts de mise en œuvre acceptés, socle asynchrone unique, ordre des notifications (voir « Amendement du 23 octobre »). **Mise à jour du 27/10** : observabilité (T9) et planification de la réconciliation (T5) livrées |
 | Date | 14 octobre 2026 |
 | Auteur | Jacques Dai (WS3 Async) |
 | Issue | [2-387](https://linear.app/2-morgan/issue/2-387) |
@@ -50,6 +50,11 @@ L'ordre de la section « Correctifs » est maintenu : **la PR #16 (notifications
 ### 4. Ordre de fusion
 
 #11 → #14 → #15 → 2-476 → #16 → #13 (rebasée) → #17 (rebasée avec #13).
+
+## Mise à jour du 27 octobre 2026
+
+- **T9, observabilité** : métriques **dérivées des logs** (une ligne JSON que le collecteur compte), sans route ni dépendance ajoutée. Le serveur écrit `ocr.request` à chaque suggestion OCR, avec `metric: ocr_requests_total`, `outcome` (`found`, `empty`, `rejected`, `failed`, `timeout`, `overloaded`), `durationMs` et `requestId` (`src/http/ocrMetrics.ts`). Le worker écrit `outbox.stats` toutes les minutes : événements `pending`, `dead` et âge du plus ancien en attente, au total et par type (`src/worker/outboxStats.ts`, test OBS-01). Les seuils d'alerte de la section 2 (lag > 1 min soutenu) se lisent sur ces lignes. Traces distribuées : toujours hors périmètre (ADR-005 §5).
+- **T5, réconciliation** : planifiée une fois par jour à 03:17 UTC par [`ops/cron/expense-io.crontab`](../../ops/cron/expense-io.crontab), sous `expense_worker`, après un premier dry-run relu (`make reconcile`). Aucun environnement n'étant déployé, la ligne est à installer sur l'hôte ou le planificateur de l'hébergeur.
 
 ## Contexte
 
@@ -256,7 +261,7 @@ Ordre : l'intégrité d'abord (T2 → T4), puis la charge (T1), puis les notific
 | T7 | Événements `submitted` / `decided`, destinataires, adaptateur SMTP + Mailpit ; décision `WHERE status = 'pending'` | A6, B8 | 1 j | P1 | 2-484 |
 
 | T8 | Tests : intégration avec pannes, nouveaux E2E API, retrait du harnais d'audit | Q4 | 1 j | — | dans chaque ticket |
-| T9 | Observabilité : `outcome` OCR, métriques d'outbox (avec WS5) | Q5 | 0,5 j | P2 | non planifié |
+| T9 | Observabilité : `outcome` OCR, métriques d'outbox (avec WS5) | Q5 | 0,5 j | P2 | livré le 27/10 |
 | T10 | OCR asynchrone : lancement `202`, suivi, traitement par le worker, bouton en polling (décision du PO du 20/10) | A4 | — | P2 | 2-503 |
 
 L'**adaptateur SMTP + Mailpit** est livré en premier (étape 1 de 2-484, ≤ 23/10) : il sert aussi aux invitations de l'ADR-001 (S7) et n'est pas concerné par l'abandon éventuel des notifications le 25/10. T10 dépend du worker de T6 : si les notifications sont abandonnées le 25/10, le worker reste à livrer pour T10.

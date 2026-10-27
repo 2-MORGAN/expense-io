@@ -1,0 +1,2381 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guide du développeur · Expense.io</title>
+<meta name="description" content="Expense.io : services, architecture du code, parcours, données, API, choix d'architecture et ADR, en schémas.">
+<!--
+  Page des développeurs d'Expense.io. Le texte s'écrit ici ; les schémas
+  s'écrivent dans docs/architecture/ (vues/*.mmd écrites à la main,
+  layers.mmd et routes.mmd générés depuis le code) et
+  `npm run generate:architecture` les recopie entre les marqueurs
+  « début » et « fin ». Ne jamais modifier un schéma entre ses marqueurs :
+  la recopie l'écraserait. `npm run check` vérifie que la page est à jour.
+  Règles de mise à jour : CLAUDE.md, « Documentation développeur ».
+-->
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --surface-2: #f1f4f9;
+  --text: #0f172a;
+  --muted: #556070;
+  --border: #e3e8ef;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: #eff6ff;
+  --green: #15803d;
+  --green-soft: #dcfce7;
+  --yellow: #a16207;
+  --yellow-soft: #fef9c3;
+  --red: #b91c1c;
+  --red-soft: #fee2e2;
+  --violet: #6d28d9;
+  --violet-soft: #ede9fe;
+  --code-bg: #eef2f7;
+  --code-text: #0f172a;
+  --diagram-bg: #ffffff;
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 6px 20px rgb(15 23 42 / 0.05);
+  --radius: 12px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0b1120;
+    --surface: #111a2e;
+    --surface-2: #17223a;
+    --text: #e6e9ef;
+    --muted: #9aa5b5;
+    --border: #24314a;
+    --accent: #60a5fa;
+    --accent-strong: #93c5fd;
+    --accent-soft: rgb(96 165 250 / 0.12);
+    --green: #4ade80;
+    --green-soft: rgb(74 222 128 / 0.12);
+    --yellow: #facc15;
+    --yellow-soft: rgb(250 204 21 / 0.12);
+    --red: #f87171;
+    --red-soft: rgb(248 113 113 / 0.13);
+    --violet: #a78bfa;
+    --violet-soft: rgb(167 139 250 / 0.14);
+    --code-bg: #1b2740;
+    --code-text: #e2e8f0;
+    --diagram-bg: #f8fafc;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1120;
+  --surface: #111a2e;
+  --surface-2: #17223a;
+  --text: #e6e9ef;
+  --muted: #9aa5b5;
+  --border: #24314a;
+  --accent: #60a5fa;
+  --accent-strong: #93c5fd;
+  --accent-soft: rgb(96 165 250 / 0.12);
+  --green: #4ade80;
+  --green-soft: rgb(74 222 128 / 0.12);
+  --yellow: #facc15;
+  --yellow-soft: rgb(250 204 21 / 0.12);
+  --red: #f87171;
+  --red-soft: rgb(248 113 113 / 0.13);
+  --violet: #a78bfa;
+  --violet-soft: rgb(167 139 250 / 0.14);
+  --code-bg: #1b2740;
+  --code-text: #e2e8f0;
+  --diagram-bg: #f8fafc;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 var(--font); -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:hover { color: var(--accent-strong); }
+p, li { max-width: 78ch; }
+strong { font-weight: 650; }
+code { font: 0.86em var(--mono); background: var(--code-bg); color: var(--code-text); padding: 0.12em 0.4em; border-radius: 6px; overflow-wrap: anywhere; }
+.skip { position: absolute; left: -9999px; }
+.skip:focus { left: 16px; top: 12px; z-index: 50; background: var(--surface); padding: 8px 12px; border-radius: 8px; }
+
+/* Barre du haut */
+/* Fond plein, sans backdrop-filter : un flou au-dessus de grands SVG ralentit chaque image d'un facteur 100 sur un poste modeste. */
+.topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 14px; padding: 10px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 650; text-decoration: none; }
+.brand-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: #2563eb; color: #fff; font-weight: 700; }
+.brand small { color: var(--muted); font-weight: 500; }
+.topbar .spacer { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font: 500 13px/1.2 var(--font); text-decoration: none; cursor: pointer; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Mise en page */
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 40px; max-width: 1500px; margin: 0 auto; padding: 0 24px; }
+.toc { position: sticky; top: 60px; align-self: start; max-height: calc(100vh - 70px); overflow-y: auto; padding: 28px 0 24px; }
+.toc summary { display: none; }
+.toc ol { margin: 0; padding: 0; list-style: none; }
+.toc a { display: block; padding: 5px 12px; border-radius: 8px; color: var(--muted); font-size: 14.5px; text-decoration: none; }
+.toc a:hover { background: var(--surface-2); color: var(--text); }
+.toc a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.toc ol ol a { padding-left: 26px; font-size: 13.5px; }
+main { min-width: 0; padding: 28px 0 96px; }
+main > section { margin-top: 64px; }
+h1, h2, h3, h4 { line-height: 1.25; letter-spacing: -0.01em; }
+h2 { margin: 0 0 6px; font-size: 30px; }
+h3 { margin: 40px 0 10px; font-size: 21px; }
+h4 { margin: 22px 0 8px; font-size: 16.5px; }
+.section-lead { margin: 0 0 22px; color: var(--muted); font-size: 17.5px; }
+.kicker { display: inline-block; margin-bottom: 6px; color: var(--accent); font-size: 13px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; }
+.anchor { margin-left: 8px; color: var(--border); font-weight: 400; text-decoration: none; opacity: 0; }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+
+/* Bandeau d'accueil */
+.hero { padding: 44px 44px 36px; border-radius: 20px; background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #0891b2 100%); color: #fff; box-shadow: var(--shadow); }
+.hero .eyebrow { margin: 0 0 10px; opacity: 0.85; font-size: 14px; font-weight: 600; letter-spacing: 0.04em; }
+.hero h1 { margin: 0 0 14px; max-width: 22ch; font-size: clamp(30px, 4.4vw, 46px); }
+.hero .lead { max-width: 70ch; margin: 0; font-size: 18px; opacity: 0.95; }
+.hero-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 28px 0 22px; }
+.hero-stats div { padding: 14px 16px; border-radius: 12px; background: rgb(255 255 255 / 0.12); }
+.hero-stats strong { display: block; font-size: 30px; line-height: 1.1; }
+.hero-stats span { font-size: 14px; opacity: 0.92; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.chips li { padding: 4px 11px; border-radius: 999px; background: rgb(255 255 255 / 0.16); font-size: 13px; }
+
+/* Cartes, encadrés, étiquettes */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; margin: 18px 0; }
+.grid.two { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+.card { padding: 18px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+.card h3, .card h4 { margin-top: 0; }
+.card p:last-child, .card ul:last-child { margin-bottom: 0; }
+.card .icon { display: inline-grid; place-items: center; width: 36px; height: 36px; margin-bottom: 10px; border-radius: 10px; background: var(--accent-soft); font-size: 19px; }
+.card ul { padding-left: 20px; }
+.card.green { border-top: 4px solid var(--green); }
+.card.blue { border-top: 4px solid var(--accent); }
+.card.violet { border-top: 4px solid var(--violet); }
+.card.yellow { border-top: 4px solid var(--yellow); }
+.card.red { border-top: 4px solid var(--red); }
+.callout { margin: 20px 0; padding: 14px 18px; border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; background: var(--accent-soft); }
+.callout > :first-child { margin-top: 0; }
+.callout > :last-child { margin-bottom: 0; }
+.callout.warn { border-color: var(--yellow); background: var(--yellow-soft); }
+.callout.danger { border-color: var(--red); background: var(--red-soft); }
+.callout.ok { border-color: var(--green); background: var(--green-soft); }
+.callout-title { display: block; margin-bottom: 4px; font-weight: 650; }
+.tag { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.tag-gen { background: var(--green-soft); color: var(--green); }
+.tag-hand { background: var(--accent-soft); color: var(--accent); }
+.tag-ok { background: var(--green-soft); color: var(--green); }
+.tag-todo { background: var(--yellow-soft); color: var(--yellow); }
+.tag-risk { background: var(--red-soft); color: var(--red); }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.pills li { padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); font-size: 12.5px; }
+
+/* Tableaux */
+.table-wrap { margin: 16px 0 22px; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+th, td { padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+th { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td p { margin: 0; }
+
+/* Code et commandes */
+pre.cmd { position: relative; margin: 14px 0 20px; padding: 14px 16px; overflow-x: auto; border-radius: 10px; background: #0f172a; color: #e2e8f0; font: 13.5px/1.65 var(--mono); }
+pre.cmd code { padding: 0; background: none; color: inherit; font: inherit; }
+pre.cmd .c { color: #94a3b8; }
+pre.json { margin: 14px 0 20px; padding: 14px 16px; overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font: 13.5px/1.6 var(--mono); }
+.copy-cmd { position: absolute; top: 8px; right: 8px; padding: 4px 9px; border: 1px solid #334155; border-radius: 6px; background: #1e293b; color: #cbd5e1; font: 500 12px/1.2 var(--font); cursor: pointer; }
+.copy-cmd:hover { color: #fff; }
+
+/* Schémas */
+figure.diagram { margin: 24px 0 28px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+figure.diagram figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 13px 18px; border-bottom: 1px solid var(--border); }
+.fig-title { font-weight: 650; }
+.fig-src { margin-left: auto; color: var(--muted); font: 12.5px var(--mono); }
+.diagram-canvas { overflow-x: auto; padding: 22px; background: var(--diagram-bg); }
+pre.mermaid { margin: 0; color: #334155; font: 12.5px/1.5 var(--mono); white-space: pre; }
+pre.mermaid[data-processed] { color: inherit; font: inherit; text-align: center; white-space: normal; }
+pre.mermaid svg { max-width: 100%; height: auto; }
+.fig-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 18px; border-top: 1px solid var(--border); background: var(--surface-2); }
+.fig-note { margin: 0; padding: 12px 18px 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 14.5px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0; padding: 12px 18px; border-top: 1px solid var(--border); list-style: none; font-size: 13.5px; }
+.legend i { display: inline-block; width: 14px; height: 14px; margin-right: 6px; border: 1px solid; border-radius: 4px; vertical-align: -2px; }
+/* Une fois dessinées, seules les figures à l'écran sont peintes : la page reste fluide malgré les grands SVG. */
+.diagrams-ready figure.diagram { content-visibility: auto; contain-intrinsic-size: auto 640px; }
+#mermaid-offline { display: none; }
+.no-mermaid #mermaid-offline { display: block; }
+
+/* Étapes */
+ol.steps { margin: 18px 0; padding: 0; list-style: none; counter-reset: step; }
+ol.steps > li { position: relative; padding: 0 0 18px 46px; }
+ol.steps > li::before { position: absolute; top: 0; left: 0; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 14px; font-weight: 700; content: counter(step); counter-increment: step; }
+ol.steps > li::after { position: absolute; top: 34px; bottom: 2px; left: 14px; width: 2px; background: var(--border); content: ""; }
+ol.steps > li:last-child::after { display: none; }
+ol.steps strong { display: block; }
+
+/* ADR */
+.adr header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 6px; }
+.adr .num { color: var(--muted); font: 700 13px var(--mono); }
+.adr h3 { margin: 0; font-size: 19px; }
+.adr .meta { margin: 0 0 12px; color: var(--muted); font-size: 13.5px; }
+.adr h4 { margin: 14px 0 6px; color: var(--muted); font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+.adr ul { margin: 0; }
+
+/* Glossaire */
+dl.glossary { display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 10px 22px; margin: 18px 0; }
+dl.glossary dt { font-weight: 650; }
+dl.glossary dd { margin: 0; color: var(--muted); }
+
+/* Agrandissement d'un schéma */
+dialog#zoom { width: min(96vw, 1700px); height: min(92vh, 1100px); padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); }
+dialog#zoom::backdrop { background: rgb(15 23 42 / 0.62); }
+.zoom-bar { display: flex; align-items: center; gap: 8px; height: 54px; padding: 0 14px; border-bottom: 1px solid var(--border); }
+.zoom-bar strong { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zoom-body { height: calc(100% - 54px); overflow: auto; padding: 24px; background: var(--diagram-bg); }
+.zoom-body svg { display: block; max-width: none !important; height: auto; margin: 0 auto; }
+
+footer.page-end { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; }
+
+@media (max-width: 980px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 16px; }
+  .toc { position: static; max-height: none; padding: 16px 0 0; }
+  .toc summary { display: block; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-weight: 600; cursor: pointer; }
+  .toc details[open] summary { margin-bottom: 8px; }
+  .hero { padding: 28px 22px; }
+  .topbar { padding: 10px 16px; }
+  .brand small, .topbar .gh { display: none; }
+  dl.glossary { grid-template-columns: 1fr; gap: 2px; }
+  dl.glossary dd { margin-bottom: 10px; }
+}
+@media print {
+  .topbar, .toc, .fig-actions, .copy-cmd { display: none !important; }
+  .layout { display: block; }
+  figure.diagram, .card { break-inside: avoid; box-shadow: none; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#contenu">Aller au contenu</a>
+
+<div class="topbar">
+  <a class="brand" href="#haut"><span class="brand-mark">€</span> Expense.io <small>· guide du développeur</small></a>
+  <span class="spacer"></span>
+  <a class="btn gh" href="https://github.com/2-MORGAN/expense-io">Dépôt GitHub</a>
+  <button class="btn" type="button" id="theme-toggle" aria-label="Changer le thème">Thème : auto</button>
+</div>
+
+<div class="layout">
+  <nav class="toc" aria-label="Sommaire">
+    <details id="toc-details">
+      <summary>Sommaire</summary>
+      <ol>
+        <li><a href="#demarrer">Démarrer</a></li>
+        <li><a href="#produit">Le produit</a></li>
+        <li><a href="#vue-ensemble">Vue d'ensemble</a></li>
+        <li><a href="#code">Architecture du code</a>
+          <ol>
+            <li><a href="#couches">Couches et règles</a></li>
+            <li><a href="#ports">Ports et adaptateurs</a></li>
+            <li><a href="#graphe-couches">Imports réels</a></li>
+            <li><a href="#ou-placer">Où placer le code</a></li>
+          </ol>
+        </li>
+        <li><a href="#parcours">Parcours clés</a>
+          <ol>
+            <li><a href="#requete">Une requête API</a></li>
+            <li><a href="#soumission">Soumettre une note</a></li>
+            <li><a href="#outbox">Outbox et worker</a></li>
+            <li><a href="#ocr">OCR des reçus</a></li>
+            <li><a href="#identite">Inscription et session</a></li>
+          </ol>
+        </li>
+        <li><a href="#donnees">Données et isolation</a></li>
+        <li><a href="#api">API et contrat</a></li>
+        <li><a href="#choix">Choix d'architecture</a></li>
+        <li><a href="#adr">Les ADR</a></li>
+        <li><a href="#qualite">Harnais de validation</a></li>
+        <li><a href="#dette">Dette connue</a></li>
+        <li><a href="#contribuer">Contribuer</a></li>
+        <li><a href="#maintenir">Maintenir cette page</a></li>
+        <li><a href="#glossaire">Glossaire</a></li>
+      </ol>
+    </details>
+  </nav>
+
+  <main id="contenu">
+
+    <header class="hero" id="haut">
+      <p class="eyebrow">Guide du développeur · projet ARLA, EPITA SIGL</p>
+      <h1>Expense.io, de l'architecture au premier commit</h1>
+      <p class="lead">Expense.io est un SaaS B2B de notes de frais, multi-tenant : un tenant est une entreprise. Un employé soumet une note avec son reçu, son manager la valide ou la rejette, et la RH tranche celles des managers qui n'ont pas de manager. Cette page montre comment le projet est construit, pourquoi il l'est ainsi, et comment y contribuer sans rien casser.</p>
+      <div class="hero-stats">
+        <div><strong>1</strong><span>dépôt, un monolithe modulaire</span></div>
+        <div><strong>2</strong><span>processus : web et worker, le même code</span></div>
+        <div><strong>3</strong><span>services : PostgreSQL, S3, SMTP</span></div>
+        <div><strong>0</strong><span>broker : la file est une table PostgreSQL</span></div>
+      </div>
+      <ul class="chips" aria-label="Pile technique">
+        <li>Next.js 16 (App Router)</li><li>React 19</li><li>TypeScript strict</li><li>Tailwind 4</li><li>Auth.js v5</li><li>PostgreSQL 16, SQL brut, RLS</li><li>S3 (LocalStack)</li><li>SMTP (Mailpit)</li><li>Tesseract.js</li><li>Vitest</li><li>Playwright</li>
+      </ul>
+    </header>
+
+    <div class="callout danger">
+      <span class="callout-title">La règle d'or</span>
+      Ne jamais casser le comportement existant : les tests E2E sont rejoués par les correcteurs. Un test E2E rouge est une régression, on corrige le code, pas le test. Un comportement ne change que si une ADR acceptée le décide (<a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-005-harnais-de-validation.md">ADR-005 §2</a>).
+    </div>
+
+    <div class="grid">
+      <div class="card blue">
+        <div class="icon" aria-hidden="true">🚀</div>
+        <h4>Premier jour</h4>
+        <p><a href="#demarrer">Démarrer</a>, <a href="#produit">le produit</a>, puis la <a href="#vue-ensemble">vue d'ensemble</a> des services.</p>
+      </div>
+      <div class="card green">
+        <div class="icon" aria-hidden="true">🧭</div>
+        <h4>Avant ta première PR</h4>
+        <p><a href="#code">L'architecture du code</a>, <a href="#ou-placer">où placer le code</a>, le <a href="#qualite">harnais</a> et <a href="#contribuer">comment contribuer</a>.</p>
+      </div>
+      <div class="card violet">
+        <div class="icon" aria-hidden="true">⚖️</div>
+        <h4>Comprendre une décision</h4>
+        <p>Les <a href="#choix">choix d'architecture</a>, les <a href="#adr">ADR</a> qui les décident et la <a href="#dette">dette connue</a>.</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="callout-title">Cette page résume, elle ne remplace pas les sources de vérité</span>
+      <a href="https://github.com/2-MORGAN/expense-io/blob/main/CLAUDE.md">CLAUDE.md</a> (règles, communes aux humains et aux IA), <a href="https://github.com/2-MORGAN/expense-io/tree/main/docs/adr">docs/adr/</a> (décisions), <a href="https://github.com/2-MORGAN/expense-io/blob/main/openapi.yaml">openapi.yaml</a> (contrat HTTP), <a href="https://github.com/2-MORGAN/expense-io/tree/main/migrations">migrations/</a> (schéma), <a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/tests/E2E.md">docs/tests/E2E.md</a> (scénarios E2E). Ses schémas sont des fichiers Mermaid versionnés : deux sont générés depuis le code, les autres sont vérifiés par <code>npm run check</code> (voir <a href="#maintenir">Maintenir cette page</a>).
+    </div>
+
+    <p id="mermaid-offline" class="callout warn">Les schémas sont dessinés par Mermaid, chargé depuis jsDelivr : sans connexion, leur source reste lisible ci-dessous, et chaque fichier <code>.mmd</code> s'ouvre dans un éditeur ou sur <a href="https://mermaid.live">mermaid.live</a>.</p>
+
+    <!-- ===================================================== Démarrer -->
+    <section id="demarrer" aria-labelledby="demarrer-titre">
+      <span class="kicker">Premier jour</span>
+      <h2 id="demarrer-titre">Démarrer<a class="anchor" href="#demarrer" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Une commande lance tout : dépendances, conteneurs, schéma, données de démonstration, application et worker.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Outil</th><th>Version</th><th>Remarque</th></tr></thead>
+          <tbody>
+            <tr><td>Node.js et npm</td><td>24 (<code>.nvmrc</code>)</td><td></td></tr>
+            <tr><td>Docker et Compose v2</td><td>Docker Desktop ou Docker Engine</td><td>lance PostgreSQL 16, LocalStack (S3) et Mailpit</td></tr>
+            <tr><td><code>make</code> et <code>bash</code></td><td></td><td>fournis sous macOS et Linux ; sous Windows, WSL ou les commandes sans <code>make</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+<pre class="cmd"><code>make dev   <span class="c"># install, .env, conteneurs, migrations, bucket, seed, puis app et worker</span></code></pre>
+
+      <p>Sans <code>make</code> (PowerShell ou Git Bash) :</p>
+<pre class="cmd"><code>npm install
+cp .env.example .env          <span class="c"># seulement si .env n'existe pas encore</span>
+docker compose up -d --wait   <span class="c"># attend que les conteneurs soient prêts</span>
+npm run migrate:up
+npm run ensure-bucket
+npm run seed
+npm run dev                   <span class="c"># next dev et le worker, ensemble (scripts/dev.mjs)</span></code></pre>
+
+      <div class="grid two">
+        <div class="card">
+          <h4>Adresses en local</h4>
+          <div class="table-wrap">
+            <table>
+              <tbody>
+                <tr><td>Application</td><td><a href="http://localhost:3000">http://localhost:3000</a></td></tr>
+                <tr><td>Mailpit (tous les emails)</td><td><a href="http://localhost:8025">http://localhost:8025</a>, SMTP sur 1025</td></tr>
+                <tr><td>PostgreSQL</td><td><code>localhost:5433</code>, base <code>expense_io</code></td></tr>
+                <tr><td>S3 (LocalStack)</td><td><code>http://localhost:4567</code>, bucket <code>receipts</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <h4>Comptes de démonstration (seed)</h4>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Rôle</th><th>Email / mot de passe</th></tr></thead>
+              <tbody>
+                <tr><td>RH</td><td><code>hr@expense.io</code> / <code>hr1234</code></td></tr>
+                <tr><td>Manager racine</td><td><code>manager@expense.io</code> / <code>manager1234</code></td></tr>
+                <tr><td>Employé du manager</td><td><code>demo@expense.io</code> / <code>demo1234</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <h3>Variables d'environnement</h3>
+      <p><code>.env.example</code> fait foi ; <code>make dev</code> le copie en <code>.env</code> et y génère <code>AUTH_SECRET</code> et les mots de passe des deux rôles restreints, que <code>npm run migrate:up</code> pose ensuite en base. Aucun secret ne s'écrit dans le code.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Variable</th><th>Rôle</th></tr></thead>
+          <tbody>
+            <tr><td><code>DATABASE_URL</code></td><td>connexion de l'application, sous le rôle restreint <code>expense_app</code></td></tr>
+            <tr><td><code>WORKER_DATABASE_URL</code></td><td>connexion du worker et de la réconciliation des reçus, sous <code>expense_worker</code></td></tr>
+            <tr><td><code>MIGRATION_DATABASE_URL</code></td><td>propriétaire des tables : migrations, seed, nettoyage ponctuel</td></tr>
+            <tr><td><code>E2E_DATABASE_URL</code></td><td>préparation des données des tests E2E, sous le propriétaire</td></tr>
+            <tr><td><code>AUTH_SECRET</code>, <code>AUTH_TRUST_HOST</code></td><td>signature des sessions Auth.js ; en production, le serveur refuse de démarrer si le secret est absent, fait moins de 32 caractères ou vaut la valeur d'exemple (CONF-01). Rotation : remplacer la valeur et redémarrer, toutes les sessions sont invalidées. <code>AUTH_TRUST_HOST</code> en production seulement</td></tr>
+            <tr><td><code>LOGIN_MAX_FAILURES_PER_EMAIL</code>, <code>LOGIN_MAX_FAILURES_PER_IP</code>, <code>LOGIN_WINDOW_SECONDS</code></td><td>limite de tentatives de connexion : 10 échecs par email et 100 par IP sur 15 min par défaut (AUTH-11)</td></tr>
+            <tr><td><code>S3_ENDPOINT</code>, <code>S3_REGION</code>, <code>S3_ACCESS_KEY_ID</code>, <code>S3_SECRET_ACCESS_KEY</code>, <code>S3_BUCKET</code>, <code>S3_FORCE_PATH_STYLE</code></td><td>stockage des reçus</td></tr>
+            <tr><td><code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_FROM</code> (puis <code>SMTP_SECURE</code>, <code>SMTP_USER</code>, <code>SMTP_PASSWORD</code> en production)</td><td>envoi des emails ; sans <code>SMTP_HOST</code> en production, le worker refuse de démarrer</td></tr>
+            <tr><td><code>APP_URL</code></td><td>adresse publique, pour les liens d'invitation et de vérification</td></tr>
+            <tr><td><code>WORKER_POLL_INTERVAL_MS</code></td><td>intervalle d'interrogation de l'outbox (2000 par défaut)</td></tr>
+            <tr><td><code>OUTBOX_STATS_INTERVAL_MS</code></td><td>intervalle de la ligne de métriques <code>outbox.stats</code> du worker (60000 par défaut)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <span class="callout-title">Sous Windows : port 5433 déjà pris</span>
+        Si un autre PostgreSQL écoute sur 5433, <code>npm run migrate:up</code> échoue en <code>28P01</code> (authentification). Exposer le conteneur sur un autre port et y faire pointer les variables <code>*DATABASE_URL</code> (README, « Dépannage »).
+      </div>
+
+      <h3>Premières vérifications</h3>
+<pre class="cmd"><code>npm run check                     <span class="c"># lint, types, tests unitaires, contrat, graphes et doc : sans Docker</span>
+npx playwright test -g "NDF-06"   <span class="c"># un scénario E2E par son ID, sur le serveur de make dev</span>
+make test-e2e                     <span class="c"># toute la suite E2E (Docker requis)</span></code></pre>
+    </section>
+
+    <!-- ===================================================== Produit -->
+    <section id="produit" aria-labelledby="produit-titre">
+      <span class="kicker">Le métier</span>
+      <h2 id="produit-titre">Le produit<a class="anchor" href="#produit" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Trois rôles, une chaîne de validation, une note qui ne se tranche qu'une fois.</p>
+
+      <div class="grid">
+        <div class="card green">
+          <div class="icon" aria-hidden="true">🧾</div>
+          <h4>Employé · <code>employee</code></h4>
+          <p>Soumet ses notes avec un reçu (PNG, JPEG, WebP, PDF, 10 Mio au plus), voit les siennes et peut préremplir montant, date et description depuis le reçu.</p>
+        </div>
+        <div class="card blue">
+          <div class="icon" aria-hidden="true">✅</div>
+          <h4>Manager · <code>manager</code></h4>
+          <p>Valide ou rejette les notes de ses subordonnés directs. Le rôle ne s'attribue que par le seed ou en base.</p>
+        </div>
+        <div class="card violet">
+          <div class="icon" aria-hidden="true">🏢</div>
+          <h4>RH · <code>hr_admin</code></h4>
+          <p>Invite les salariés, rattache chacun à un manager de l'entreprise et tranche les notes des managers racines, qui n'ont pas de manager.</p>
+        </div>
+      </div>
+
+        <figure class="diagram" id="fig-approbation">
+          <figcaption>
+            <span class="fig-title">Qui valide les notes de qui</span>
+            <span class="tag tag-hand">vue écrite à la main</span>
+            <a class="fig-src" href="architecture/vues/approbation.mmd">vues/approbation.mmd</a>
+          </figcaption>
+          <div class="diagram-canvas">
+<!-- début : vues/approbation.mmd -->
+<pre class="mermaid">
+flowchart BT
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  subgraph tenant["Une entreprise = un tenant (table companies)"]
+    hr["RH · hr_admin&lt;br/&gt;invite, rattache les managers,&lt;br/&gt;tranche les notes des managers racines"]
+    root["Manager racine · manager&lt;br/&gt;manager_id NULL"]
+    mgr["Manager · manager&lt;br/&gt;rattaché à un manager"]
+    emp1["Employé · employee"]
+    emp2["Employé · employee"]
+  end
+
+  emp1 --&gt;|"soumet à son manager direct"| root
+  emp2 --&gt;|"soumet à son manager direct"| mgr
+  mgr --&gt;|"soumet à son manager direct"| root
+  root --&gt;|"sans manager : la RH tranche"| hr
+
+  classDef rh fill:#fce7f3,stroke:#be185d,color:#111827
+  classDef manager fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef employe fill:#dcfce7,stroke:#16a34a,color:#111827
+  class hr rh
+  class root,mgr manager
+  class emp1,emp2 employe
+</pre>
+<!-- fin : vues/approbation.mmd -->
+          </div>
+          <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+        </figure>
+        <figure class="diagram" id="fig-cycle-note">
+          <figcaption>
+            <span class="fig-title">Cycle de vie d'une note</span>
+            <span class="tag tag-hand">vue écrite à la main</span>
+            <a class="fig-src" href="architecture/vues/cycle-note.mmd">vues/cycle-note.mmd</a>
+          </figcaption>
+          <div class="diagram-canvas">
+<!-- début : vues/cycle-note.mmd -->
+<pre class="mermaid">
+stateDiagram-v2
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  direction LR
+
+  [*] --&gt; pending: création (201)
+  pending --&gt; approved: approve
+  pending --&gt; rejected: reject
+  approved --&gt; [*]
+  rejected --&gt; [*]
+
+  note right of pending
+    expense_note.submitted,
+    dans la transaction de la note
+  end note
+
+  note right of rejected
+    Une seule décision, puis 409.
+    expense_note.decided,
+    decided_by et decided_at
+  end note
+</pre>
+<!-- fin : vues/cycle-note.mmd -->
+          </div>
+          <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+        </figure>
+
+      <h3>Règles à connaître</h3>
+      <ul>
+        <li><strong>Une décision par note.</strong> La seconde reçoit <code>409 ALREADY_DECIDED</code> et n'envoie aucun email. Chaque note garde qui l'a tranchée et quand (<code>decided_by</code>, <code>decided_at</code>), sans changer les réponses JSON.</li>
+        <li><strong>Invisible vaut inconnu.</strong> Une note d'une autre entreprise ou d'une autre équipe donne <code>404</code>, exactement comme une note qui n'existe pas.</li>
+        <li><strong>Emails.</strong> À la soumission, l'approbateur est prévenu : le manager direct, ou toutes les RH de l'entreprise pour un manager racine. À la décision, le soumetteur est prévenu. Contenu minimal : description, statut, lien ; ni montant ni reçu.</li>
+        <li><strong>Sans approbateur.</strong> Un employé sans manager peut soumettre, mais personne ne peut trancher sa note et aucun email ne part.</li>
+        <li><strong>Inscription.</strong> Le domaine de l'email ne donne aucun droit : s'inscrire sans invitation crée sa propre entreprise, dont on devient RH ; rejoindre une entreprise passe par une invitation de sa RH (<a href="#identite">détail</a>).</li>
+      </ul>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Écran</th><th>Pour qui</th><th>Ce qu'on y fait</th><th>API appelée</th></tr></thead>
+          <tbody>
+            <tr><td><code>/expenses</code></td><td>tout utilisateur connecté</td><td>ses notes, création, préremplissage par OCR, ouverture d'un reçu</td><td><code>/api/expense-notes</code>, <code>/api/receipt-analyses</code></td></tr>
+            <tr><td><code>/manager</code></td><td>manager</td><td>notes en attente de ses subordonnés : valider, rejeter, voir le reçu</td><td><code>/api/manager/…</code></td></tr>
+            <tr><td><code>/hr</code></td><td>RH</td><td>notes des managers racines, annuaire, rattachement, invitations</td><td><code>/api/hr/…</code></td></tr>
+            <tr><td><code>/login</code>, <code>/signup</code>, <code>/signup/verify</code></td><td>public</td><td>connexion, inscription, renvoi du lien de vérification</td><td>server actions (<code>src/app/actions/auth.ts</code>)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================================================== Vue d'ensemble -->
+    <section id="vue-ensemble" aria-labelledby="vue-ensemble-titre">
+      <span class="kicker">Le grand schéma</span>
+      <h2 id="vue-ensemble-titre">Vue d'ensemble : services et processus<a class="anchor" href="#vue-ensemble" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Un seul dépôt, un monolithe modulaire déployé en deux processus, web et worker, qui partagent le code, la base et le bucket. Pas de broker : la file asynchrone est une table PostgreSQL, l'outbox.</p>
+
+      <figure class="diagram" id="fig-systeme">
+        <figcaption>
+          <span class="fig-title">Services, processus et échanges</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/systeme.mmd">vues/systeme.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/systeme.mmd -->
+<pre class="mermaid">
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  user(["Navigateur&lt;br/&gt;employé · manager · RH"])
+
+  subgraph web["Processus web · Next.js"]
+    direction TB
+    pages["Pages et server actions&lt;br/&gt;proxy.ts : /login sans session"]
+    api["Route handlers /api/**&lt;br/&gt;auth() · requireRole()&lt;br/&gt;contrat openapi.yaml"]
+    core["Cœur hexagonal&lt;br/&gt;cas d'usage · domaine&lt;br/&gt;ports · adaptateurs"]
+  end
+
+  subgraph worker["Processus worker"]
+    direction TB
+    loops["2 boucles sur l'outbox&lt;br/&gt;SKIP LOCKED · bail de 5 min"]
+    handlers["Handlers de buildHandlers()&lt;br/&gt;emails · notifications&lt;br/&gt;analyse de reçu"]
+    cleanup["Nettoyage des analyses&lt;br/&gt;toutes les 10 s"]
+    stats["Métriques outbox.stats&lt;br/&gt;chaque minute (journal)"]
+  end
+
+  pg[("PostgreSQL 16&lt;br/&gt;port 5433&lt;br/&gt;RLS · outbox_events")]
+  s3[("S3 : LocalStack&lt;br/&gt;port 4567&lt;br/&gt;bucket receipts")]
+  ocr["Moteur OCR jetable&lt;br/&gt;sharp + tesseract.js&lt;br/&gt;processus enfant du worker,&lt;br/&gt;et du web pour l'inspection&lt;br/&gt;et la route synchrone"]
+  smtp["SMTP : Mailpit&lt;br/&gt;1025 · interface 8025"]
+  mailbox(["Boîte mail&lt;br/&gt;liens d'invitation&lt;br/&gt;et de vérification"])
+  ops["Scripts npm&lt;br/&gt;migrate:up · seed&lt;br/&gt;ensure-bucket&lt;br/&gt;réconciliation, nettoyage"]
+  cron["Tâche planifiée quotidienne&lt;br/&gt;ops/cron : réconciliation&lt;br/&gt;des reçus orphelins"]
+
+  user --&gt;|"pages, formulaires"| pages
+  user --&gt;|"fetch JSON, multipart"| api
+  pages --&gt; core
+  api --&gt; core
+  core --&gt;|"expense_app, withUserScope :&lt;br/&gt;SQL, RLS, outbox"| pg
+  core --&gt;|"reçus"| s3
+  user ~~~ loops
+  user ~~~ cleanup
+  user ~~~ stats
+  stats --&gt;|"pending, dead, âge"| pg
+  loops --&gt;|"expense_worker :&lt;br/&gt;prise en charge"| pg
+  loops --&gt; handlers
+  handlers --&gt;|"emails"| smtp
+  handlers --&gt;|"analyse détachée"| ocr
+  handlers --&gt;|"reçus"| s3
+  cleanup --&gt;|"reçus analysés"| s3
+  smtp --&gt; mailbox
+  user -.-&gt;|"reçu par URL pré-signée"| s3
+  user ~~~ ops
+  ops --&gt; pg
+  ops --&gt; s3
+  cron --&gt;|"expense_worker"| ops
+
+  classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
+  classDef externe fill:#f3f4f6,stroke:#6b7280,color:#111827
+  class pages,api,loops,handlers,cleanup,stats entree
+  class core coeur
+  class pg,s3,ocr,smtp infra
+  class user,mailbox,ops,cron externe
+</pre>
+<!-- fin : vues/systeme.mmd -->
+        </div>
+        <ul class="legend" aria-label="Légende">
+          <li><i style="background:#dbeafe;border-color:#2563eb"></i>entrées (web, worker)</li>
+          <li><i style="background:#dcfce7;border-color:#16a34a"></i>cœur métier</li>
+          <li><i style="background:#fef9c3;border-color:#a16207"></i>infrastructure</li>
+          <li><i style="background:#f3f4f6;border-color:#6b7280"></i>extérieur, scripts</li>
+          <li>pointillés : échange hors du code (navigateur vers S3, liens des emails)</li>
+        </ul>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Composant</th><th>Rôle</th><th>En local</th><th>En production</th><th>Code</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Web</strong> (Next.js)</td><td>pages, server actions, route handlers <code>/api/**</code>, Auth.js, garde de navigation</td><td><code>npm run dev</code>, port 3000</td><td><code>npm run build</code> puis <code>npm run start</code></td><td><code>src/app</code>, <code>src/proxy.ts</code></td></tr>
+            <tr><td><strong>Worker</strong></td><td>consomme l'outbox : emails d'identité, notifications, analyse des reçus ; nettoie les analyses terminées</td><td>lancé par <code>npm run dev</code> ; seul : <code>npm run worker</code></td><td>second processus supervisé, <code>npm run worker</code></td><td><code>src/worker</code></td></tr>
+            <tr><td><strong>Moteur OCR</strong></td><td>processus enfant jetable par analyse : sharp réduit l'image, Tesseract lit le texte ; tué à l'échéance</td><td>lancé par le web (route synchrone) et par le worker</td><td>idem ; exige <code>tessdata/</code> et les processus enfants</td><td><code>scripts/ocr-engine.mjs</code>, <code>src/adapters/TesseractOcrAdapter.ts</code></td></tr>
+            <tr><td><strong>PostgreSQL 16</strong></td><td>données, RLS, outbox, verrous des moteurs OCR</td><td>Docker, port 5433 ; web sous <code>expense_app</code>, worker sous <code>expense_worker</code>, migrations sous <code>expense</code></td><td>base gérée, mêmes rôles ; un processus refuse de démarrer sous un rôle qui contourne la RLS</td><td><code>migrations/</code>, <code>src/lib/db.ts</code>, <code>src/lib/dbRole.ts</code></td></tr>
+            <tr><td><strong>S3</strong></td><td>reçus des notes et des analyses, sous <code>receipts/{companyId}/…</code></td><td>LocalStack 3.8.1, port 4567</td><td>tout stockage compatible S3</td><td><code>src/lib/storage.ts</code>, <code>src/adapters/S3ReceiptAdapter.ts</code></td></tr>
+            <tr><td><strong>SMTP</strong></td><td>invitations, vérifications d'email, notifications</td><td>Mailpit : SMTP 1025, interface 8025, aucun email ne sort</td><td>fournisseur transactionnel (port 465, <code>SMTP_SECURE</code>)</td><td><code>src/lib/email.ts</code>, <code>src/adapters/SmtpEmailAdapter.ts</code></td></tr>
+            <tr><td><strong>Scripts</strong></td><td>migrations, seed, bucket, réconciliation des reçus orphelins, nettoyage des notes sans reçu</td><td><code>npm run …</code> (dry-run par défaut pour les deux derniers)</td><td>réconciliation planifiée une fois par jour</td><td><code>scripts/</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <span class="callout-title">Pourquoi deux processus et pas de broker ?</span>
+        Un traitement asynchrone (email, OCR) ne doit ni ralentir ni faire échouer une requête HTTP. L'événement s'écrit dans la même transaction que la note ou la décision, puis un second point d'entrée du même code le traite : pas de décision sans événement, pas d'événement sans décision, et aucune nouvelle brique d'infrastructure tant qu'aucun besoin mesuré ne la justifie (<a href="#adr-003">ADR-003</a>).
+      </div>
+    </section>
+
+    <!-- ===================================================== Code -->
+    <section id="code" aria-labelledby="code-titre">
+      <span class="kicker">Le code</span>
+      <h2 id="code-titre">Architecture du code<a class="anchor" href="#code" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Un monolithe modulaire hexagonal léger (<a href="#adr-002">ADR-002</a>) : les entrées appellent des cas d'usage, le cœur ne dépend d'aucune infrastructure, les adaptateurs implémentent les ports et la composition assemble le tout.</p>
+
+      <figure class="diagram" id="fig-hexagone">
+        <figcaption>
+          <span class="fig-title">L'hexagone : entrées, cœur, infrastructure</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/hexagone.mmd">vues/hexagone.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/hexagone.mmd -->
+<pre class="mermaid">
+flowchart LR
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  subgraph sgEntrees["Entrées"]
+    direction TB
+    routes["route.ts /api/**&lt;br/&gt;+ src/http"]
+    actions["Server actions&lt;br/&gt;src/app/actions"]
+    serverPages["Pages serveur&lt;br/&gt;src/app"]
+    worker["Worker&lt;br/&gt;src/worker"]
+  end
+
+  composition["Composition&lt;br/&gt;src/composition"]
+
+  subgraph sgCoeur["Cœur : sans infrastructure"]
+    direction TB
+    usecases["Cas d'usage&lt;br/&gt;src/application"]
+    ports["Ports&lt;br/&gt;src/ports"]
+    domain["Domaine&lt;br/&gt;src/domain"]
+  end
+
+  subgraph sgInfra["Infrastructure"]
+    direction TB
+    adapters["Adaptateurs&lt;br/&gt;src/adapters"]
+    lib["src/lib&lt;br/&gt;db · auth · storage&lt;br/&gt;outbox · log"]
+  end
+
+  routes &amp; actions &amp; serverPages &amp; worker --&gt; composition
+  composition --&gt;|"instancie"| usecases
+  composition --&gt;|"injecte"| adapters
+  usecases --&gt; ports
+  usecases --&gt; domain
+  ports --&gt; domain
+  adapters -.-&gt;|"implémentent"| ports
+  adapters --&gt; lib
+
+  classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
+  class routes,actions,serverPages,worker entree
+  class usecases,domain,ports coeur
+  class composition,adapters,lib infra
+</pre>
+<!-- fin : vues/hexagone.mmd -->
+        </div>
+        <p class="fig-note">Les dépendances pointent vers le cœur : un cas d'usage ne connaît que des ports, jamais PostgreSQL, S3 ou Next.js. On peut ainsi tester une règle en millisecondes et remplacer un adaptateur sans toucher au métier.</p>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <h3 id="couches">Couches et règles<a class="anchor" href="#couches" aria-label="Lien vers cette section">#</a></h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Couche</th><th>Rôle</th><th>Interdit</th></tr></thead>
+          <tbody>
+            <tr><td><code>src/app/api/**/route.ts</code> et <code>src/http/</code></td><td>authentifier (<code>requireRole</code>), valider l'entrée selon le contrat, appeler un cas d'usage, formater la réponse (DTO, <code>problem+json</code>)</td><td>SQL, règle métier, appel direct à <code>lib/storage</code></td></tr>
+            <tr><td><code>src/app/actions/</code>, pages</td><td>server actions (inscription, connexion, déconnexion) ; une page serveur peut appeler un cas d'usage par <code>src/composition</code></td><td>SQL, droits ; <code>src/composition</code> depuis un fichier <code>'use client'</code></td></tr>
+            <tr><td><code>src/application/</code></td><td>cas d'usage : enchaîner les étapes (<code>SubmitExpenseNote</code>, <code>DecideExpenseNote</code>, <code>SignUp</code>, <code>InviteEmployee</code>, OCR…)</td><td>toute infrastructure : seulement domaine, ports et <code>node:crypto</code></td></tr>
+            <tr><td><code>src/domain/</code></td><td>règles pures : qui peut décider, transitions, lecture d'un ticket (<code>parseReceiptText</code>), identité, notifications</td><td><code>pg</code>, <code>next</code>, <code>aws-sdk</code>, <code>auth</code>, toute autre couche</td></tr>
+            <tr><td><code>src/ports/</code></td><td>interfaces : stockage, OCR, outbox, notifications, repositories</td><td>une implémentation</td></tr>
+            <tr><td><code>src/adapters/</code>, <code>src/lib/</code></td><td>implémentations : PostgreSQL par <code>withUserScope()</code>, S3, SMTP, Tesseract ; session, journal, outbox</td><td>règle métier</td></tr>
+            <tr><td><code>src/composition/</code></td><td>assemble cas d'usage et adaptateurs, une fois par processus</td><td>logique propre</td></tr>
+            <tr><td><code>src/worker/</code></td><td>adaptateur entrant de l'outbox, comme une route ; fait sa propre composition</td><td>règle métier propre</td></tr>
+            <tr><td><code>migrations/</code></td><td>seule vérité du schéma : SQL horodaté, avec sa partie <code>down</code></td><td>DDL dans le code, édition d'une migration existante</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="ports">Ports et adaptateurs<a class="anchor" href="#ports" aria-label="Lien vers cette section">#</a></h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Port (<code>src/ports</code>)</th><th>Adaptateur (<code>src/adapters</code>)</th><th>Utilisé par</th></tr></thead>
+          <tbody>
+            <tr><td><code>ExpenseNoteSubmissionRepository</code></td><td><code>PostgresExpenseNoteSubmissionRepository</code></td><td><code>SubmitExpenseNote</code></td></tr>
+            <tr><td><code>ExpenseNoteDecisionRepository</code></td><td><code>PostgresExpenseNoteDecisionRepository</code></td><td><code>DecideExpenseNote</code></td></tr>
+            <tr><td><code>ReceiptStoragePort</code></td><td><code>S3ReceiptAdapter</code></td><td>soumission, analyses, worker</td></tr>
+            <tr><td><code>ReceiptInspector</code></td><td><code>inspectReceipt</code> (signature, format réel, décodage)</td><td>validation des reçus à la création</td></tr>
+            <tr><td><code>OcrPort</code></td><td><code>TesseractOcrAdapter</code> (processus enfant)</td><td><code>SuggestReceiptFields</code></td></tr>
+            <tr><td><code>OcrExecutionPort</code></td><td><code>PostgresOcrExecution</code> (verrous transactionnels : deux moteurs par base)</td><td><code>OcrRequests</code>, <code>ProcessReceiptAnalysis</code></td></tr>
+            <tr><td><code>ReceiptAnalysisRepository</code>, <code>ReceiptAnalysisWorkPort</code></td><td><code>PostgresReceiptAnalysisRepository</code>, <code>PostgresReceiptAnalysisWork</code></td><td><code>ReceiptAnalyses</code>, <code>ProcessReceiptAnalysis</code></td></tr>
+            <tr><td><code>CompanyDirectory</code></td><td><code>PostgresCompanyDirectory</code></td><td>routes RH de l'annuaire et du rattachement</td></tr>
+            <tr><td><code>AccountRegistry</code>, <code>InvitationRepository</code>, <code>IdentityEmailTokens</code></td><td><code>PostgresAccountRegistry</code>, <code>PostgresInvitationRepository</code>, <code>PgIdentityEmailTokens</code> (fonctions <code>SECURITY DEFINER</code>)</td><td><code>SignUp</code>, <code>InviteEmployee</code>, <code>SendIdentityEmails</code></td></tr>
+            <tr><td><code>EventOutbox</code></td><td><code>PgEventOutbox</code> (dans la transaction de l'appelant)</td><td>repositories de soumission, de décision, d'invitation et d'analyse</td></tr>
+            <tr><td><code>NotificationPort</code>, <code>EmailPort</code></td><td><code>EmailNotificationAdapter</code>, <code>SmtpEmailAdapter</code> ; <code>ConsoleNotificationAdapter</code> en test</td><td>handlers du worker</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="graphe-couches">Les imports réels, générés depuis le code<a class="anchor" href="#graphe-couches" aria-label="Lien vers cette section">#</a></h3>
+      <p>Ce graphe n'est pas dessiné à la main : <code>npm run generate:architecture</code> le calcule depuis les imports de <code>src/</code> (tests exclus) et le juge contre la matrice des couches de <a href="https://github.com/2-MORGAN/expense-io/blob/main/scripts/architecture/layers.ts"><code>scripts/architecture/layers.ts</code></a>. <code>npm run check</code> échoue s'il a dérivé du code, si une flèche est interdite ou si un fichier n'appartient à aucune couche.</p>
+      <figure class="diagram" id="fig-couches">
+        <figcaption>
+          <span class="fig-title">Couches et imports entre couches</span>
+          <span class="tag tag-gen">généré depuis le code</span>
+          <a class="fig-src" href="architecture/layers.mmd">layers.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : layers.mmd -->
+<pre class="mermaid">
+flowchart TB
+  %% Généré par npm run generate:architecture (scripts/architecture) : ne pas modifier à la main.
+  m_app["app (pages)"]
+  m_app_2f_actions["app/actions"]
+  m_app_2f_api["app/api"]
+  m_app_2f_verify_2d_email["app/verify-email"]
+  m_components["components"]
+  m_http["http"]
+  m_instrumentation["instrumentation"]
+  m_proxy["proxy"]
+  m_types["types"]
+  m_worker["worker"]
+  m_application["application"]
+  m_domain["domain"]
+  m_generated["generated"]
+  m_ports["ports"]
+  m_utils["utils"]
+  m_adapters["adapters"]
+  m_composition["composition"]
+  m_lib_2f_auth["lib/auth"]
+  m_lib_2f_authErrors["lib/authErrors"]
+  m_lib_2f_authSecret["lib/authSecret"]
+  m_lib_2f_db["lib/db"]
+  m_lib_2f_dbRole["lib/dbRole"]
+  m_lib_2f_email["lib/email"]
+  m_lib_2f_errors["lib/errors"]
+  m_lib_2f_log["lib/log"]
+  m_lib_2f_loginThrottle["lib/loginThrottle"]
+  m_lib_2f_outbox["lib/outbox"]
+  m_lib_2f_sessionUser["lib/sessionUser"]
+  m_lib_2f_storage["lib/storage"]
+  m_lib_2f_tokens["lib/tokens"]
+  p__40_aws_2d_sdk(["@aws-sdk"])
+  p_next(["next"])
+  p_next_2d_auth(["next-auth"])
+  p_node_3a_crypto(["node:crypto"])
+  p_nodemailer(["nodemailer"])
+  p_pg(["pg"])
+  p_react(["react"])
+  p_sharp(["sharp"])
+  m_adapters --&gt; p_nodemailer
+  m_adapters --&gt; p_pg
+  m_adapters --&gt; p_sharp
+  m_adapters --&gt; m_domain
+  m_adapters --&gt; m_lib_2f_db
+  m_adapters --&gt; m_lib_2f_storage
+  m_adapters --&gt; m_ports
+  m_app --&gt; p_next
+  m_app --&gt; p_react
+  m_app --&gt; m_app_2f_actions
+  m_app --&gt; m_components
+  m_app --&gt; m_composition
+  m_app --&gt; m_http
+  m_app --&gt; m_lib_2f_auth
+  m_app_2f_actions --&gt; p_next
+  m_app_2f_actions --&gt; p_next_2d_auth
+  m_app_2f_actions --&gt; m_application
+  m_app_2f_actions --&gt; m_composition
+  m_app_2f_actions --&gt; m_lib_2f_auth
+  m_app_2f_actions --&gt; m_lib_2f_authErrors
+  m_app_2f_api --&gt; p_next
+  m_app_2f_api --&gt; m_application
+  m_app_2f_api --&gt; m_composition
+  m_app_2f_api --&gt; m_domain
+  m_app_2f_api --&gt; m_http
+  m_app_2f_api --&gt; m_lib_2f_auth
+  m_app_2f_api -.-&gt;|"legacy"| m_lib_2f_db
+  m_app_2f_api -.-&gt;|"legacy"| m_lib_2f_storage
+  m_app_2f_verify_2d_email --&gt; p_next
+  m_app_2f_verify_2d_email --&gt; m_composition
+  m_application --&gt; p_node_3a_crypto
+  m_application --&gt; m_domain
+  m_application --&gt; m_ports
+  m_components --&gt; p_next
+  m_components --&gt; p_react
+  m_components --&gt; m_app_2f_actions
+  m_components --&gt; m_http
+  m_components --&gt; m_types
+  m_composition --&gt; m_adapters
+  m_composition --&gt; m_application
+  m_composition --&gt; m_lib_2f_tokens
+  m_composition --&gt; m_ports
+  m_domain --&gt; m_generated
+  m_domain --&gt; m_ports
+  m_http --&gt; p_next_2d_auth
+  m_http --&gt; m_composition
+  m_http --&gt; m_domain
+  m_http --&gt; m_generated
+  m_http --&gt; m_lib_2f_auth
+  m_http --&gt; m_lib_2f_log
+  m_http --&gt; m_ports
+  m_http --&gt; m_types
+  m_instrumentation --&gt; p_next
+  m_instrumentation --&gt; m_lib_2f_authSecret
+  m_instrumentation --&gt; m_lib_2f_dbRole
+  m_instrumentation --&gt; m_lib_2f_log
+  m_lib_2f_auth --&gt; p_next
+  m_lib_2f_auth --&gt; p_next_2d_auth
+  m_lib_2f_auth --&gt; m_lib_2f_authErrors
+  m_lib_2f_auth --&gt; m_lib_2f_db
+  m_lib_2f_auth --&gt; m_lib_2f_log
+  m_lib_2f_auth --&gt; m_lib_2f_loginThrottle
+  m_lib_2f_auth --&gt; m_lib_2f_sessionUser
+  m_lib_2f_authErrors --&gt; p_next_2d_auth
+  m_lib_2f_authSecret --&gt; m_lib_2f_log
+  m_lib_2f_db --&gt; p_pg
+  m_lib_2f_dbRole --&gt; m_lib_2f_db
+  m_lib_2f_dbRole --&gt; m_lib_2f_log
+  m_lib_2f_email --&gt; m_adapters
+  m_lib_2f_email --&gt; m_ports
+  m_lib_2f_errors --&gt; m_http
+  m_lib_2f_loginThrottle --&gt; m_lib_2f_db
+  m_lib_2f_outbox --&gt; p_pg
+  m_lib_2f_outbox --&gt; m_lib_2f_db
+  m_lib_2f_outbox --&gt; m_ports
+  m_lib_2f_sessionUser --&gt; p_react
+  m_lib_2f_sessionUser --&gt; m_domain
+  m_lib_2f_sessionUser --&gt; m_lib_2f_db
+  m_lib_2f_storage --&gt; p__40_aws_2d_sdk
+  m_lib_2f_storage --&gt; m_domain
+  m_ports --&gt; m_domain
+  m_proxy --&gt; p_next
+  m_proxy --&gt; m_lib_2f_auth
+  m_types --&gt; p_next_2d_auth
+  m_worker --&gt; p_pg
+  m_worker --&gt; m_adapters
+  m_worker --&gt; m_application
+  m_worker --&gt; m_composition
+  m_worker --&gt; m_domain
+  m_worker --&gt; m_lib_2f_db
+  m_worker --&gt; m_lib_2f_dbRole
+  m_worker --&gt; m_lib_2f_email
+  m_worker --&gt; m_lib_2f_log
+  m_worker --&gt; m_lib_2f_outbox
+  m_worker --&gt; m_lib_2f_tokens
+  m_worker --&gt; m_ports
+  linkStyle 26,27 stroke:#ea580c,stroke-width:2px,color:#ea580c
+  classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
+  class m_app,m_app_2f_actions,m_app_2f_api,m_app_2f_verify_2d_email,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
+  classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
+  class m_application,m_domain,m_generated,m_ports,m_utils coeur
+  classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
+  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_tokens infra
+  classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
+  class p__40_aws_2d_sdk,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react,p_sharp paquet
+</pre>
+<!-- fin : layers.mmd -->
+        </div>
+        <ul class="legend" aria-label="Légende">
+          <li><i style="background:#dbeafe;border-color:#2563eb"></i>entrées</li>
+          <li><i style="background:#dcfce7;border-color:#16a34a"></i>cœur</li>
+          <li><i style="background:#fef9c3;border-color:#a16207"></i>infrastructure</li>
+          <li><i style="background:#f3f4f6;border-color:#6b7280"></i>paquets npm</li>
+          <li><span style="color:#ea580c;font-weight:600">pointillés orange « legacy »</span> : interdit mais toléré jusqu'à sa correction</li>
+          <li><span style="color:#dc2626;font-weight:600">rouge « interdit »</span> : fait échouer le test</li>
+        </ul>
+        <p class="fig-note">Graphe dense, à l'échelle de la page : « Agrandir » l'ouvre en grand, avec zoom.</p>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <h3 id="ou-placer">Où placer le code<a class="anchor" href="#ou-placer" aria-label="Lien vers cette section">#</a></h3>
+      <figure class="diagram" id="fig-ou-placer">
+        <figcaption>
+          <span class="fig-title">Arbre de décision pour un nouveau morceau de code</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/ou-placer.mmd">vues/ou-placer.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/ou-placer.mmd -->
+<pre class="mermaid">
+flowchart LR
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec CLAUDE.md (« Où placer le code »).
+
+  q{"Que dois-tu&lt;br/&gt;ajouter ?"}
+  domain["src/domain/&lt;br/&gt;règle pure, testée par Vitest à côté"]
+  usecase["src/application/&lt;br/&gt;cas d'usage, ne voit que des ports"]
+  port["port dans src/ports/&lt;br/&gt;adaptateur dans src/adapters/&lt;br/&gt;assemblage dans src/composition/"]
+  route["openapi.yaml d'abord, npm run generate:api&lt;br/&gt;puis route.ts fine"]
+  event["type d'événement de l'outbox&lt;br/&gt;+ handler déclaré dans src/worker/handlers.ts"]
+  migration["nouvelle migration horodatée&lt;br/&gt;avec sa partie down"]
+  ui["src/components/&lt;br/&gt;la page reste mince"]
+  adr["ADR à partir de&lt;br/&gt;docs/adr/ADR-000-modele.md"]
+
+  q --&gt;|"une règle métier"| domain
+  q --&gt;|"un enchaînement d'étapes"| usecase
+  q --&gt;|"un accès à PostgreSQL,&lt;br/&gt;S3, SMTP ou l'OCR"| port
+  q --&gt;|"une opération HTTP"| route
+  q --&gt;|"un traitement asynchrone"| event
+  q --&gt;|"un changement de schéma"| migration
+  q --&gt;|"un écran"| ui
+  q --&gt;|"une décision structurante"| adr
+
+  classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
+  classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef doc fill:#ede9fe,stroke:#7c3aed,color:#111827
+  class domain,usecase coeur
+  class port,migration infra
+  class route,event,ui entree
+  class adr doc
+</pre>
+<!-- fin : vues/ou-placer.mmd -->
+        </div>
+        <p class="fig-note">Pour une fonctionnalité : le domaine d'abord (règle et test), puis le port et l'adaptateur si une dépendance externe entre en jeu, puis la route fine, puis l'interface. Réutiliser avant de créer.</p>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <div class="callout ok">
+        <span class="callout-title">Ce que les outils font respecter</span>
+        <ul>
+          <li><strong>ESLint</strong> (<code>eslint.config.mjs</code>) : domaine pur ; ni SQL ni accès base dans <code>src/app</code> et <code>src/components</code> ; <code>getPool()</code> réservé à <code>src/lib/db.ts</code> ; <code>withSystemTransaction()</code> réservée au worker, à l'outbox et aux lectures d'avant session ; pas de SQL interpolé ; pas de <code>.only</code>, <code>.skip</code>, <code>.fixme</code>. Plus les règles de SonarQube (<code>eslint-plugin-sonarjs</code>) : bugs, ReDoS, secrets en dur.</li>
+          <li><strong>Test d'architecture</strong> (<code>scripts/architecture</code>) : la matrice entière des couches, la garde de chaque méthode de route, et cette page.</li>
+          <li>Les exceptions du code existant (<code>LEGACY_*</code>, <code>LEGACY_EDGES</code>, <code>PUBLIC_ROUTES</code>, <code>eslint-suppressions.json</code>) <strong>ne font que raccourcir</strong> : jamais d'ajout pour faire passer un contrôle.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===================================================== Parcours -->
+    <section id="parcours" aria-labelledby="parcours-titre">
+      <span class="kicker">Ce qui se passe vraiment</span>
+      <h2 id="parcours-titre">Parcours clés<a class="anchor" href="#parcours" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Cinq parcours couvrent l'essentiel du code : une requête API, la soumission d'une note, l'outbox, l'OCR et l'identité.</p>
+
+      <h3 id="requete">Anatomie d'une requête API<a class="anchor" href="#requete" aria-label="Lien vers cette section">#</a></h3>
+      <p>Exemple : un manager valide une note. Toutes les routes métier suivent le même ordre de vérification : session, rôle, validation, visibilité, règle métier, effet de bord.</p>
+      <figure class="diagram" id="fig-requete">
+        <figcaption>
+          <span class="fig-title">POST /api/manager/expense-notes/{id}/approve</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/requete.mmd">vues/requete.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/requete.mmd -->
+<pre class="mermaid">
+sequenceDiagram
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  autonumber
+  actor M as Manager
+  participant R as route.ts
+  participant A as auth()&lt;br/&gt;requireRole()
+  participant U as DecideExpenseNote
+  participant P as Repository&lt;br/&gt;PostgreSQL
+  participant DB as PostgreSQL
+
+  M-&gt;&gt;R: POST /api/manager/&lt;br/&gt;expense-notes/{id}/approve
+  Note over R: withApiErrors :&lt;br/&gt;requestId, capture
+  R-&gt;&gt;A: session ? rôle ?
+  A-&gt;&gt;DB: relit le rôle (S9)
+  alt sans session
+    A--&gt;&gt;M: 401
+  else rôle refusé
+    A--&gt;&gt;M: 403
+  end
+  R-&gt;&gt;R: validateId, sinon 400
+  R-&gt;&gt;U: execute(id, acteur)
+  U-&gt;&gt;P: decide()
+  P-&gt;&gt;DB: BEGIN, contexte RLS
+  P-&gt;&gt;DB: SELECT … FOR UPDATE
+  P-&gt;&gt;P: règle du domaine :&lt;br/&gt;404 ou 409 ?
+  P-&gt;&gt;DB: UPDATE … WHERE&lt;br/&gt;status = 'pending'
+  P-&gt;&gt;DB: INSERT outbox_events,&lt;br/&gt;COMMIT
+  P--&gt;&gt;U: note tranchée
+  U--&gt;&gt;R: note
+  R--&gt;&gt;M: 200 ExpenseNote
+  Note over M,R: Exception imprévue : 500 INTERNAL_ERROR&lt;br/&gt;sans détail, logError() côté serveur
+</pre>
+<!-- fin : vues/requete.mmd -->
+        </div>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+      <ul>
+        <li><code>withApiErrors</code> (<code>src/http</code>) attend toute l'opération, donne un <code>requestId</code> à la requête et transforme toute exception imprévue en <code>500 INTERNAL_ERROR</code> sans détail ; le détail part au journal JSON du serveur (<code>logError()</code>), sans email ni URL pré-signée.</li>
+        <li><code>requireRole()</code> est la seule garde : 401 sans session, 403 si le rôle est refusé. <code>proxy.ts</code> ne protège que les pages, jamais <code>/api</code>.</li>
+        <li>La décision verrouille la note (<code>FOR UPDATE</code>) et ne l'écrit que si elle est encore <code>pending</code> : deux décisions simultanées donnent un 200 et un 409, jamais deux 200.</li>
+      </ul>
+
+      <h3 id="soumission">Soumettre une note de frais<a class="anchor" href="#soumission" aria-label="Lien vers cette section">#</a></h3>
+      <p>S3 n'est pas transactionnel : l'étape qui peut échouer sans laisser de trace passe en premier. Le reçu est stocké, puis la note et son événement s'écrivent dans une seule transaction (<a href="#adr-003">ADR-003 §3 et §4</a>).</p>
+      <figure class="diagram" id="fig-soumission">
+        <figcaption>
+          <span class="fig-title">Upload d'abord, puis une transaction ; renvoi sans doublon</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/soumission.mmd">vues/soumission.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/soumission.mmd -->
+<pre class="mermaid">
+sequenceDiagram
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  autonumber
+  actor F as Employé
+  participant R as POST&lt;br/&gt;/api/expense-notes
+  participant U as SubmitExpenseNote
+  participant S3 as S3
+  participant DB as PostgreSQL
+
+  F-&gt;&gt;R: multipart&lt;br/&gt;+ Idempotency-Key
+  R-&gt;&gt;R: garde 401, contrat 400,&lt;br/&gt;contenu réel du reçu
+  R-&gt;&gt;U: execute(userId, input)
+  opt clé déjà vue
+    U-&gt;&gt;DB: note de cette clé
+    U--&gt;&gt;R: même contenu : cette note (201)&lt;br/&gt;autre contenu : 422
+  end
+  U-&gt;&gt;DB: company_id
+  U-&gt;&gt;U: noteId = randomUUID()&lt;br/&gt;receipts/{companyId}/{noteId}
+  U-&gt;&gt;S3: PutObject
+  Note over U,S3: échec : 500, aucune ligne
+  U-&gt;&gt;DB: une transaction : la note&lt;br/&gt;+ expense_note.submitted
+  alt la transaction échoue
+    U-&gt;&gt;DB: la note existe-t-elle ?
+    U-&gt;&gt;S3: DeleteObject si absente
+  end
+  U--&gt;&gt;R: note créée
+  R--&gt;&gt;F: 201 ExpenseNote
+</pre>
+<!-- fin : vues/soumission.mmd -->
+        </div>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+      <div class="grid">
+        <div class="card"><h4>Jamais de note sans reçu</h4><p>Un échec d'upload ne crée aucune ligne ; une contrainte <code>CHECK (receipt_key &lt;&gt; '')</code> l'interdit aussi en base.</p></div>
+        <div class="card"><h4>Renvoi sans doublon</h4><p>Le formulaire garde son <code>Idempotency-Key</code> jusqu'au succès : même clé et même contenu rendent la même note (<code>Idempotent-Replayed: true</code>), autre contenu donne 422.</p></div>
+        <div class="card"><h4>Rien d'orphelin pour longtemps</h4><p><code>npm run reconcile:orphan-receipts</code> supprime les objets non référencés de plus de 24 h ; dry-run par défaut. La tâche quotidienne (03:17 UTC, sous <code>expense_worker</code>) est décrite dans <code>ops/cron/expense-io.crontab</code>, à installer sur l'hôte après un premier <code>make reconcile</code> relu.</p></div>
+      </div>
+
+      <h3 id="outbox">L'outbox et le worker<a class="anchor" href="#outbox" aria-label="Lien vers cette section">#</a></h3>
+      <p>Tout traitement asynchrone du produit passe par une table, <code>outbox_events</code>, et un worker. Le producteur écrit l'événement dans sa propre transaction ; le worker le traite après le commit, au moins une fois. Un échec d'envoi n'annule jamais une décision.</p>
+      <figure class="diagram" id="fig-outbox">
+        <figcaption>
+          <span class="fig-title">Producteurs, table et handlers</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/outbox.mmd">vues/outbox.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/outbox.mmd -->
+<pre class="mermaid">
+flowchart LR
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  subgraph producers["Écrit dans la transaction métier"]
+    direction TB
+    submitted["Note créée&lt;br/&gt;SubmitExpenseNote"]
+    decided["Note tranchée&lt;br/&gt;DecideExpenseNote"]
+    invited["Invitation de la RH&lt;br/&gt;POST /api/hr/invitations"]
+    registered["Inscription, renvoi du lien&lt;br/&gt;fonctions SQL"]
+    analysis["Analyse de reçu&lt;br/&gt;POST /api/receipt-analyses"]
+  end
+
+  outboxTable[("outbox_events&lt;br/&gt;pending · sent · dead")]
+
+  subgraph worker["Worker : buildHandlers()"]
+    direction TB
+    hSubmitted["expense_note.submitted&lt;br/&gt;email à l'approbateur"]
+    hDecided["expense_note.decided&lt;br/&gt;email au soumetteur"]
+    hInvitation["invitation.requested&lt;br/&gt;jeton + email"]
+    hVerification["email.verification.requested&lt;br/&gt;jeton + email"]
+    hAnalysis["receipt.analysis.requested&lt;br/&gt;OCR, 3 essais"]
+  end
+
+  smtp["SMTP"]
+  engine["Moteur OCR"]
+
+  submitted &amp; decided &amp; invited &amp; registered &amp; analysis --&gt;|"INSERT"| outboxTable
+  outboxTable --&gt;|"SKIP LOCKED"| worker
+  hSubmitted &amp; hDecided &amp; hInvitation &amp; hVerification --&gt;|"handle()&lt;br/&gt;en transaction"| smtp
+  hAnalysis --&gt;|"run()&lt;br/&gt;hors transaction"| engine
+
+  classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
+  class hSubmitted,hDecided,hInvitation,hVerification,hAnalysis entree
+  class outboxTable,smtp,engine infra
+</pre>
+<!-- fin : vues/outbox.mmd -->
+        </div>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Type d'événement</th><th>Émis par</th><th>Traitement</th><th>Relances</th><th>Effet</th></tr></thead>
+          <tbody>
+            <tr><td><code>expense_note.submitted</code></td><td>création de note, un événement par approbateur</td><td><code>handle()</code>, dans la transaction de l'événement</td><td>5 : 1 min, 5 min, 30 min, 2 h, 12 h</td><td>email « note à valider » ; destinataires relus dans l'entreprise de l'événement</td></tr>
+            <tr><td><code>expense_note.decided</code></td><td>décision qui a modifié la note</td><td><code>handle()</code></td><td>5</td><td>email au soumetteur</td></tr>
+            <tr><td><code>invitation.requested</code></td><td><code>POST /api/hr/invitations</code></td><td><code>handle()</code> : crée le jeton, puis envoie</td><td>5</td><td>email d'invitation, lien valable 7 jours</td></tr>
+            <tr><td><code>email.verification.requested</code></td><td><code>register_user()</code>, <code>request_email_verification()</code> (SQL)</td><td><code>handle()</code> : crée le jeton, puis envoie</td><td>5</td><td>email de vérification, lien valable 24 h</td></tr>
+            <tr><td><code>receipt.analysis.requested</code></td><td><code>POST /api/receipt-analyses</code></td><td><code>run()</code>, détaché, hors transaction</td><td>3 essais : 1 s puis 5 s</td><td>analyse <code>succeeded</code> ou <code>failed</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <figure class="diagram" id="fig-outbox-etats">
+        <figcaption>
+          <span class="fig-title">Vie d'un événement : prise en charge, relances, DLQ</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/outbox-etats.mmd">vues/outbox-etats.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/outbox-etats.mmd -->
+<pre class="mermaid">
+stateDiagram-v2
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  direction LR
+
+  state "pending (dû)" as due
+  state "pending (pris en charge)" as leased
+  state "sent" as sent
+  state "dead (DLQ)" as dead
+
+  [*] --&gt; due: INSERT dans la transaction métier
+  due --&gt; leased: attempts + 1, bail de 5 min
+  leased --&gt; sent: traitement réussi
+  leased --&gt; due: échec, relance différée
+  leased --&gt; due: worker arrêté, le bail expire
+  leased --&gt; dead: essais épuisés ou NonRetryableError
+  sent --&gt; [*]
+  dead --&gt; [*]
+</pre>
+<!-- fin : vues/outbox-etats.mmd -->
+        </div>
+        <p class="fig-note">L'essai est compté dès la prise en charge, avec un bail de 5 minutes : un worker tué en plein traitement ne rejoue pas un événement sans fin. Deux boucles consomment la table (<code>FOR UPDATE SKIP LOCKED</code>) : une analyse longue ne bloque pas les emails. Le worker ne réclame que les types qu'il connaît.</p>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <div class="callout">
+        <span class="callout-title">Ajouter un traitement asynchrone</span>
+        <ol>
+          <li>Déclarer le type d'événement, une constante de <code>src/domain</code> (<code>'objet.action'</code>).</li>
+          <li>Le publier par <code>PgEventOutbox</code> dans la transaction métier (celle de <code>withUserScope</code>), avec un payload figé et sans secret.</li>
+          <li>Écrire le handler dans <code>src/worker</code> : <code>handle(event, client)</code> s'il est court, <code>run(event, signal)</code> idempotent s'il est long, puis le déclarer dans <code>buildHandlers()</code>.</li>
+          <li>Le tester, puis l'ajouter au tableau ci-dessus et à <code>vues/outbox.mmd</code> : <code>npm run check</code> échoue tant que la page ne le cite pas.</li>
+        </ol>
+      </div>
+
+      <h3 id="ocr">OCR des reçus<a class="anchor" href="#ocr" aria-label="Lien vers cette section">#</a></h3>
+      <p>Le bouton « Pré-remplir » lance une analyse asynchrone puis interroge son résultat. L'ancienne route synchrone, <code>POST /api/expense-notes/receipt-suggestion</code>, reste disponible sans changement. Détail des protections : <a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/ocr.md">docs/ocr.md</a>.</p>
+      <figure class="diagram" id="fig-ocr">
+        <figcaption>
+          <span class="fig-title">Analyse asynchrone : 202, polling, worker</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/ocr.mmd">vues/ocr.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/ocr.mmd -->
+<pre class="mermaid">
+sequenceDiagram
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  autonumber
+  actor B as Navigateur
+  participant A as /api/&lt;br/&gt;receipt-analyses
+  participant S3 as S3
+  participant DB as PostgreSQL
+  participant W as Worker
+  participant E as Moteur OCR
+
+  B-&gt;&gt;A: POST receipt&lt;br/&gt;+ Idempotency-Key
+  A-&gt;&gt;A: 10 Mio, 40 Mpx,&lt;br/&gt;contenu inspecté
+  A-&gt;&gt;S3: PutObject
+  A-&gt;&gt;DB: analyse queued&lt;br/&gt;+ receipt.analysis.requested
+  A--&gt;&gt;B: 202 + Location
+  par Le navigateur interroge
+    loop toutes les 300 ms, 75 s au plus
+      B-&gt;&gt;A: GET …/{id}
+      A--&gt;&gt;B: queued, running,&lt;br/&gt;succeeded ou failed
+    end
+  and Le worker traite
+    W-&gt;&gt;DB: prend l'événement
+    W-&gt;&gt;S3: lit le reçu
+    W-&gt;&gt;E: image, 15 s par essai
+    E--&gt;&gt;W: texte
+    W-&gt;&gt;W: parseReceiptText
+    W-&gt;&gt;DB: succeeded + résultat
+  end
+  B-&gt;&gt;B: préremplit le formulaire
+</pre>
+<!-- fin : vues/ocr.mmd -->
+        </div>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Borne</th><th>Valeur</th><th>Au-delà</th></tr></thead>
+          <tbody>
+            <tr><td>Taille du fichier</td><td>10 Mio, comptés sur le flux</td><td>400 <code>RECEIPT_TOO_LARGE</code></td></tr>
+            <tr><td>Pixels</td><td>40 Mpx, côté long ramené à 2 500 px</td><td>400 <code>IMAGE_TOO_LARGE</code></td></tr>
+            <tr><td>Moteurs simultanés</td><td>2 par base (verrous PostgreSQL), 8 demandes en attente par processus</td><td>503 <code>OCR_OVERLOADED</code> + <code>Retry-After: 5</code></td></tr>
+            <tr><td>Durée</td><td>15 s par essai ; 60 s pour une analyse persistée, reprises comprises</td><td>503 <code>OCR_TIMEOUT</code> ; analyse <code>failed</code></td></tr>
+            <tr><td>Rien de reconnu, PDF</td><td></td><td>200 et une suggestion vide</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="identite">Inscription, invitations et session<a class="anchor" href="#identite" aria-label="Lien vers cette section">#</a></h3>
+      <p>Le domaine de l'email ne donne aucun droit (faille S7 corrigée, <a href="#adr-001">ADR-001 §3</a>). Les écritures sensibles passent par des fonctions <code>SECURITY DEFINER</code> à surface étroite, et les jetons ne sont stockés qu'en empreinte SHA-256 : le worker les crée au moment d'envoyer l'email, l'outbox ne transporte que des ids.</p>
+      <p>La connexion est limitée (<a href="#adr-001">ADR-001 §4</a>, AUTH-11) : au-delà de 10 échecs pour un même email, ou de 100 pour une même IP, en 15 min, elle est refusée jusqu'à la fin de la fenêtre, même avec le bon mot de passe. <code>/login</code> affiche « Trop de tentatives de connexion », l'appel direct de <code>/api/auth/callback/credentials</code> répond <strong>429</strong> <code>TOO_MANY_LOGIN_ATTEMPTS</code> avec <code>Retry-After</code>. Les compteurs (<code>login_attempts</code>) ne gardent que l'empreinte de l'adresse ; un email inconnu coûte le même <code>bcrypt.compare</code> qu'un mauvais mot de passe.</p>
+      <figure class="diagram" id="fig-identite">
+        <figcaption>
+          <span class="fig-title">Créer son entreprise ou rejoindre celle de sa RH</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/identite.mmd">vues/identite.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/identite.mmd -->
+<pre class="mermaid">
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  start(["Arrivée sur /signup"])
+  invited{"Lien d'invitation ?&lt;br/&gt;/signup?invitation=jeton"}
+  register["register_user()&lt;br/&gt;crée son entreprise et devient hr_admin&lt;br/&gt;email non vérifié : connexion refusée"]
+  accept["accept_invitation()&lt;br/&gt;rejoint l'entreprise de la RH (employee)&lt;br/&gt;le lien vaut vérification d'email"]
+  purge["purge_unverified_account()&lt;br/&gt;un compte non vérifié de même adresse&lt;br/&gt;est remplacé"]
+  verifEvent["outbox : email.verification.requested"]
+  resend["Page /signup/verify : renvoyer le lien&lt;br/&gt;request_email_verification()"]
+  verifMail["Worker : jeton à usage unique, 24 h&lt;br/&gt;seule son empreinte SHA-256 est en base"]
+  verify["GET /verify-email?token=…&lt;br/&gt;verify_email()"]
+  login(["/login : session JWT de 8 h"])
+  hr["RH : POST /api/hr/invitations"]
+  invEvent["outbox : invitation.requested"]
+  invMail["Worker : jeton à usage unique, 7 jours&lt;br/&gt;email avec le lien d'invitation"]
+
+  start --&gt; invited
+  invited --&gt;|"non"| register
+  invited --&gt;|"oui"| accept
+  register -.-&gt; purge
+  accept -.-&gt; purge
+  register --&gt; verifEvent
+  resend --&gt; verifEvent
+  verifEvent --&gt; verifMail
+  verifMail --&gt; verify
+  verify --&gt; login
+  accept --&gt; login
+  hr --&gt; invEvent
+  invEvent --&gt; invMail
+  invMail -.-&gt;|"l'invité ouvre le lien"| start
+
+  classDef sql fill:#fef9c3,stroke:#a16207,color:#111827
+  classDef worker fill:#dbeafe,stroke:#2563eb,color:#111827
+  class register,accept,purge,verify,resend sql
+  class verifEvent,verifMail,invEvent,invMail worker
+</pre>
+<!-- fin : vues/identite.mmd -->
+        </div>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+      <div class="grid">
+        <div class="card"><h4>Session</h4><p>Auth.js v5, fournisseur Credentials, cookie JWT. Expire après 8 h d'inactivité ; chaque requête repousse l'échéance.</p></div>
+        <div class="card"><h4>Rôle toujours à jour</h4><p>Le rôle n'est pas figé dans le jeton : il est relu en base à chaque <code>auth()</code>. Un manager rétrogradé reçoit 403 à la requête suivante, un compte supprimé 401.</p></div>
+        <div class="card"><h4>Connexion</h4><p>Un créateur d'entreprise qui n'a pas confirmé son email ne peut pas se connecter (<code>EmailNotVerified</code>) ; il peut redemander le lien depuis <code>/signup/verify</code>.</p></div>
+      </div>
+    </section>
+
+    <!-- ===================================================== Données -->
+    <section id="donnees" aria-labelledby="donnees-titre">
+      <span class="kicker">PostgreSQL</span>
+      <h2 id="donnees-titre">Données et isolation multi-tenant<a class="anchor" href="#donnees" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Du SQL brut sans ORM, des migrations versionnées, et une isolation entre entreprises portée par la base elle-même.</p>
+
+      <figure class="diagram" id="fig-schema">
+        <figcaption>
+          <span class="fig-title">Schéma des données</span>
+          <span class="tag tag-hand">vue écrite à la main, vérifiée contre migrations/</span>
+          <a class="fig-src" href="architecture/vues/schema.mmd">vues/schema.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/schema.mmd -->
+<pre class="mermaid">
+erDiagram
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% npm run check vérifie qu'elle a chaque table des migrations, et rien d'autre.
+
+  companies ||--o{ users : "emploie"
+  users |o--o{ users : "manager_id, même entreprise"
+  users ||--o{ expense_notes : "soumet"
+  users |o--o{ expense_notes : "tranche (decided_by)"
+  companies ||--o{ invitations : "invite"
+  users ||--o{ invitations : "envoie (invited_by)"
+  companies ||--o{ outbox_events : "publie"
+  users ||--o{ receipt_analyses : "demande"
+  companies ||--o{ receipt_analyses : "possède"
+
+  companies {
+    uuid id PK
+    text name
+    text email_domain "indexé, plus unique (S7)"
+    timestamptz created_at
+  }
+  users {
+    uuid id PK
+    uuid company_id FK
+    text name
+    text email UK
+    text password_hash "bcrypt"
+    text role "employee, manager, hr_admin"
+    uuid manager_id FK "même entreprise (clé composite)"
+    timestamptz email_verified_at "NULL tant que non vérifié"
+    text verification_token_hash "empreinte SHA-256"
+    timestamptz verification_expires_at
+    timestamptz created_at
+  }
+  expense_notes {
+    uuid id PK
+    int receipt_seq "historique, inutilisé"
+    uuid user_id FK
+    numeric amount "10,2"
+    date expense_date "YYYY-MM-DD"
+    text description
+    text receipt_key "jamais vide (CHECK)"
+    text status "pending, approved, rejected"
+    uuid decided_by FK
+    timestamptz decided_at
+    uuid idempotency_key "unique par utilisateur"
+    text request_fingerprint
+    timestamptz created_at
+  }
+  invitations {
+    uuid id PK
+    uuid company_id FK
+    text email
+    uuid invited_by FK
+    text token_hash "empreinte SHA-256"
+    timestamptz expires_at "7 jours"
+    timestamptz accepted_at
+    timestamptz created_at
+  }
+  outbox_events {
+    uuid id PK
+    uuid company_id FK
+    text type
+    jsonb payload "figé à l'émission, sans jeton"
+    text status "pending, sent, dead"
+    int attempts
+    timestamptz next_attempt_at
+    text last_error
+    timestamptz created_at
+  }
+  receipt_analyses {
+    uuid id PK
+    uuid user_id FK
+    uuid company_id FK
+    text receipt_key
+    text mime_type
+    text fingerprint
+    uuid idempotency_key
+    text status "queued, running, succeeded, failed"
+    jsonb result
+    text error_code
+    boolean receipt_deleted
+    timestamptz created_at
+    timestamptz expires_at "24 h"
+  }
+  login_attempts {
+    text key PK "empreinte SHA-256 de l'email ou de l'IP"
+    int failures "échecs dans la fenêtre"
+    timestamptz window_end "15 min ; jamais de blocage définitif"
+  }
+</pre>
+<!-- fin : vues/schema.mmd -->
+        </div>
+        <p class="fig-note"><code>npm run check</code> vérifie que ce schéma a chaque table créée par les migrations, et aucune autre ; les colonnes se tiennent à jour à la main.</p>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <div class="grid">
+        <div class="card"><h4>Montants</h4><p><code>numeric(10,2)</code> en base, convertis en <code>number</code> à la frontière ; 99 999 999,99 au plus.</p></div>
+        <div class="card"><h4>Dates</h4><p>Chaîne <code>YYYY-MM-DD</code> brute : le parser <code>pg</code> de l'OID 1082 la garde telle quelle, sans fuseau. Ne pas le changer.</p></div>
+        <div class="card"><h4>Migrations</h4><p>Nouveau fichier horodaté dans <code>migrations/</code>, avec sa partie <code>down</code> ; jamais d'édition d'une migration existante.</p></div>
+        <div class="card"><h4>Clés des reçus</h4><p><code>receipts/{companyId}/{noteId}.ext</code> et <code>receipts/{companyId}/analyses/{id}</code> : opaques et préfixées par entreprise. Lecture par URL pré-signée de 5 min.</p></div>
+      </div>
+
+      <h3 id="isolation">Défense en profondeur<a class="anchor" href="#isolation" aria-label="Lien vers cette section">#</a></h3>
+      <p>Une fuite de notes entre entreprises est le pire incident pour un SaaS B2B. L'isolation ne repose donc pas sur un seul contrôle (<a href="#adr-001">ADR-001</a>) :</p>
+      <figure class="diagram" id="fig-isolation">
+        <figcaption>
+          <span class="fig-title">Les contrôles qu'une requête traverse</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/isolation.mmd">vues/isolation.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/isolation.mmd -->
+<pre class="mermaid">
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  request(["Requête HTTP sur /api/**"])
+  guard["① requireRole() : 401 sans session, 403 si le rôle est refusé&lt;br/&gt;rôle relu en base à chaque auth() (S9)"]
+  contract["② Validation selon openapi.yaml : 400, avant toute écriture ou upload"]
+  rules["③ Domaine et cas d'usage : qui peut décider quoi&lt;br/&gt;404 si la ressource n'est pas visible, 409 si déjà tranchée"]
+  where["④ WHERE explicites par utilisateur, équipe ou entreprise&lt;br/&gt;(défense en profondeur)"]
+  scope["⑤ withUserScope() pose app.current_user_id,&lt;br/&gt;app.current_company_id et app.current_role, lus en base"]
+  rls["⑥ Policies RLS : expense_notes, users, invitations,&lt;br/&gt;outbox_events, receipt_analyses"]
+  role["⑦ Connexions sous expense_app (web) et expense_worker (worker)&lt;br/&gt;NOSUPERUSER, NOBYPASSRLS, vérifiées au démarrage"]
+  receipts["Reçus : clés receipts/{companyId}/…&lt;br/&gt;URL pré-signée de 5 min, après ces contrôles"]
+
+  request --&gt; guard --&gt; contract --&gt; rules --&gt; where --&gt; scope --&gt; rls --&gt; role
+  rules -.-&gt; receipts
+
+  classDef app fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef db fill:#fef9c3,stroke:#a16207,color:#111827
+  class guard,contract,rules,where app
+  class scope,rls,role,receipts db
+</pre>
+<!-- fin : vues/isolation.mmd -->
+        </div>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <div class="callout ok">
+        <span class="callout-title">Chaque processus sous son rôle restreint (2-481)</span>
+        L'application se connecte sous <code>expense_app</code> et le worker sous <code>expense_worker</code>, tous deux soumis à la RLS ; le propriétaire <code>expense</code> ne sert qu'aux migrations, au seed et au nettoyage ponctuel. Au démarrage, chaque processus vérifie son rôle (<code>src/lib/dbRole.ts</code>) : un rôle superuser ou <code>BYPASSRLS</code> est refusé en production et signalé en développement. Les <code>WHERE</code> par <code>company_id</code> ou par utilisateur restent, en défense en profondeur, et tout accès aux données d'entreprise passe par <code>withUserScope()</code>.
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Table</th><th>Policies RLS</th></tr></thead>
+          <tbody>
+            <tr><td><code>expense_notes</code></td><td>propriétaire : lire et créer ses notes ; manager : lire et trancher celles de ses subordonnés directs de la même entreprise ; RH : celles des managers racines de son entreprise</td></tr>
+            <tr><td><code>users</code></td><td>lire sa propre ligne et celles de son entreprise ; rattachement (<code>manager_id</code>) par la RH de l'entreprise</td></tr>
+            <tr><td><code>invitations</code></td><td>la RH de l'entreprise seulement</td></tr>
+            <tr><td><code>outbox_events</code></td><td>l'application n'a que l'<code>INSERT</code>, dans l'entreprise de l'utilisateur courant ; le worker lit et met à jour les événements de toutes les entreprises</td></tr>
+            <tr><td><code>receipt_analyses</code></td><td>propriétaire de l'analyse, dans son entreprise</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Les policies lisent le contexte que <code>withUserScope()</code> pose au début de chaque transaction (<code>app.current_user_id</code>, puis <code>app.current_company_id</code> et <code>app.current_role</code> lus en base, jamais pris du client). <code>withSystemTransaction()</code>, sans contexte, est réservée par le lint au worker, à l'outbox et aux lectures faites avant toute session, qui n'appellent que des fonctions <code>SECURITY DEFINER</code>.</p>
+
+      <div class="grid two">
+        <div class="card">
+          <h4>Rôles PostgreSQL</h4>
+          <ul>
+            <li><code>expense</code> : propriétaire des tables ; migrations, seed et nettoyage ponctuel (<code>MIGRATION_DATABASE_URL</code>).</li>
+            <li><code>expense_app</code> : l'application (<code>DATABASE_URL</code>), <code>NOSUPERUSER NOBYPASSRLS</code>, droits par colonne.</li>
+            <li><code>expense_worker</code> : le worker et la réconciliation des reçus (<code>WORKER_DATABASE_URL</code>) ; lit et met à jour l'outbox, le reste sous le contexte qu'il pose.</li>
+            <li><code>expense_definer</code> : <code>NOLOGIN BYPASSRLS</code>, propriétaire des fonctions <code>SECURITY DEFINER</code>.</li>
+          </ul>
+          <p>Les mots de passe des deux rôles restreints sont lus dans <code>.env</code> et posés par <code>npm run migrate:up</code> (<code>scripts/provision-db-roles.mjs</code>).</p>
+        </div>
+        <div class="card">
+          <h4>Fonctions <code>SECURITY DEFINER</code></h4>
+          <p>Pour ce qui se fait avant de connaître l'utilisateur, ou qui porte sur toutes les entreprises sans ouvrir un rôle <code>BYPASSRLS</code>, avec un <code>search_path</code> fixé :</p>
+          <ul class="pills">
+            <li><code>auth_find_user</code></li><li><code>register_user</code></li><li><code>accept_invitation</code></li><li><code>invitation_preview</code></li><li><code>verify_email</code></li><li><code>request_email_verification</code></li><li><code>issue_invitation_token</code></li><li><code>issue_verification_token</code></li><li><code>purge_unverified_account</code></li><li><code>receipt_cleanup_candidates</code></li><li><code>purge_expired_receipt_analyses</code></li><li><code>referenced_receipt_keys</code></li><li><code>pending_receipt_analyses</code></li><li><code>login_attempts_for</code></li><li><code>record_login_failure</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================== API -->
+    <section id="api" aria-labelledby="api-titre">
+      <span class="kicker">HTTP</span>
+      <h2 id="api-titre">API et contrat<a class="anchor" href="#api" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Le contrat s'écrit d'abord : <code>openapi.yaml</code> décrit chaque opération métier, les types en sont générés, et la CI vérifie que le code et les réponses lui obéissent (<a href="#adr-004">ADR-004</a>).</p>
+
+      <figure class="diagram" id="fig-contrat">
+        <figcaption>
+          <span class="fig-title">Du contrat au code et aux tests</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/contrat.mmd">vues/contrat.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/contrat.mmd -->
+<pre class="mermaid">
+flowchart LR
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  yaml["openapi.yaml&lt;br/&gt;OpenAPI 3.1, source de vérité"]
+  generate["npm run generate:api"]
+  types["src/types/api.d.ts&lt;br/&gt;types TypeScript"]
+  json["src/generated/&lt;br/&gt;api-contract.json, receipt-policy.json"]
+  http["src/http&lt;br/&gt;validation Ajv, problem+json, DTO"]
+  screens["Écrans&lt;br/&gt;types partagés, apiError.ts&lt;br/&gt;traduit les codes en français"]
+  check["npm run check:api&lt;br/&gt;lint Redocly, artefacts à jour,&lt;br/&gt;couverture méthode + chemin"]
+  e2e["E2E : withContractChecks()&lt;br/&gt;chaque réponse API conforme"]
+
+  yaml --&gt; generate
+  generate --&gt; types &amp; json
+  types --&gt; http &amp; screens
+  json --&gt; http
+  yaml -.-&gt; check
+  yaml -.-&gt; e2e
+
+  classDef source fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef generated fill:#f3f4f6,stroke:#6b7280,color:#111827,stroke-dasharray: 5 5
+  classDef verify fill:#fee2e2,stroke:#dc2626,color:#111827
+  class yaml source
+  class types,json generated
+  class check,e2e verify
+</pre>
+<!-- fin : vues/contrat.mmd -->
+        </div>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <div class="grid two">
+        <div class="card blue">
+          <h4>Modifier une opération</h4>
+          <ol>
+            <li>Lire <code>openapi.yaml</code> et <a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/api/README.md">docs/api/README.md</a>.</li>
+            <li>Modifier le contrat en premier, puis <code>npm run generate:api</code>.</li>
+            <li>Importer les types de <code>src/types/api.d.ts</code> (alias dans <code>src/http/dto.ts</code>) ; jamais de DTO local, jamais de fichier généré modifié à la main.</li>
+            <li><code>npm run check</code>, puis les E2E concernés.</li>
+          </ol>
+        </div>
+        <div class="card">
+          <h4>Conventions</h4>
+          <ul>
+            <li>URL actuelles, sans <code>/v1</code> ; listes complètes, sans pagination.</li>
+            <li>Pas de rupture sans décision : sur chaque PR, la CI compare <code>openapi.yaml</code> à celui de <code>main</code> avec oasdiff (<code>make api-breaking</code> en local). Un nouveau code d'erreur n'est qu'un avertissement ; une rupture voulue demande une ADR et le label <code>rupture-contrat</code>.</li>
+            <li>Messages canoniques en anglais avec un <code>code</code> stable ; le front traduit (<code>src/components/apiError.ts</code>).</li>
+            <li>Validation stricte, sans coercition ni valeur par défaut, après la garde et avant toute écriture ou upload.</li>
+            <li><code>Idempotency-Key</code> facultatif sur la création de note et le lancement d'une analyse.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Routes et gardes, générées depuis le code</h3>
+      <p>Chaque méthode de <code>src/app/**/route.ts</code> et la garde qui l'ouvre. <code>npm run check</code> échoue si une méthode n'a pas de garde ou si ce graphe a dérivé du code.</p>
+      <figure class="diagram" id="fig-routes">
+        <figcaption>
+          <span class="fig-title">Qui peut appeler quoi</span>
+          <span class="tag tag-gen">généré depuis le code</span>
+          <a class="fig-src" href="architecture/routes.mmd">routes.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : routes.mmd -->
+<pre class="mermaid">
+flowchart LR
+  %% Généré par npm run generate:architecture (scripts/architecture) : ne pas modifier à la main.
+  g_public(["Publique (PUBLIC_ROUTES)"])
+  g_session(["Session requise"])
+  g_role_hr_5f_admin(["Rôle hr_admin"])
+  g_role_manager(["Rôle manager"])
+  r_GET_20__2f_api_2f_auth_2f__5b__2e__2e__2e_nextauth_5d_["GET /api/auth/[...nextauth]"]
+  r_POST_20__2f_api_2f_auth_2f__5b__2e__2e__2e_nextauth_5d_["POST /api/auth/[...nextauth]"]
+  r_GET_20__2f_api_2f_expense_2d_notes["GET /api/expense-notes"]
+  r_POST_20__2f_api_2f_expense_2d_notes["POST /api/expense-notes"]
+  r_GET_20__2f_api_2f_expense_2d_notes_2f__5b_id_5d__2f_receipt_2d_url["GET /api/expense-notes/[id]/receipt-url"]
+  r_POST_20__2f_api_2f_expense_2d_notes_2f_receipt_2d_suggestion["POST /api/expense-notes/receipt-suggestion"]
+  r_GET_20__2f_api_2f_hr_2f_expense_2d_notes["GET /api/hr/expense-notes"]
+  r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_approve["POST /api/hr/expense-notes/[id]/approve"]
+  r_GET_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_receipt_2d_url["GET /api/hr/expense-notes/[id]/receipt-url"]
+  r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_reject["POST /api/hr/expense-notes/[id]/reject"]
+  r_POST_20__2f_api_2f_hr_2f_invitations["POST /api/hr/invitations"]
+  r_GET_20__2f_api_2f_hr_2f_users["GET /api/hr/users"]
+  r_PUT_20__2f_api_2f_hr_2f_users_2f__5b_id_5d__2f_manager["PUT /api/hr/users/[id]/manager"]
+  r_GET_20__2f_api_2f_manager_2f_expense_2d_notes["GET /api/manager/expense-notes"]
+  r_POST_20__2f_api_2f_manager_2f_expense_2d_notes_2f__5b_id_5d__2f_approve["POST /api/manager/expense-notes/[id]/approve"]
+  r_GET_20__2f_api_2f_manager_2f_expense_2d_notes_2f__5b_id_5d__2f_receipt_2d_url["GET /api/manager/expense-notes/[id]/receipt-url"]
+  r_POST_20__2f_api_2f_manager_2f_expense_2d_notes_2f__5b_id_5d__2f_reject["POST /api/manager/expense-notes/[id]/reject"]
+  r_POST_20__2f_api_2f_receipt_2d_analyses["POST /api/receipt-analyses"]
+  r_GET_20__2f_api_2f_receipt_2d_analyses_2f__5b_id_5d_["GET /api/receipt-analyses/[id]"]
+  r_GET_20__2f_verify_2d_email["GET /verify-email"]
+  g_public --&gt; r_GET_20__2f_api_2f_auth_2f__5b__2e__2e__2e_nextauth_5d_
+  g_public --&gt; r_POST_20__2f_api_2f_auth_2f__5b__2e__2e__2e_nextauth_5d_
+  g_session --&gt; r_GET_20__2f_api_2f_expense_2d_notes
+  g_session --&gt; r_POST_20__2f_api_2f_expense_2d_notes
+  g_session --&gt; r_GET_20__2f_api_2f_expense_2d_notes_2f__5b_id_5d__2f_receipt_2d_url
+  g_session --&gt; r_POST_20__2f_api_2f_expense_2d_notes_2f_receipt_2d_suggestion
+  g_role_hr_5f_admin --&gt; r_GET_20__2f_api_2f_hr_2f_expense_2d_notes
+  g_role_hr_5f_admin --&gt; r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_approve
+  g_role_hr_5f_admin --&gt; r_GET_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_receipt_2d_url
+  g_role_hr_5f_admin --&gt; r_POST_20__2f_api_2f_hr_2f_expense_2d_notes_2f__5b_id_5d__2f_reject
+  g_role_hr_5f_admin --&gt; r_POST_20__2f_api_2f_hr_2f_invitations
+  g_role_hr_5f_admin --&gt; r_GET_20__2f_api_2f_hr_2f_users
+  g_role_hr_5f_admin --&gt; r_PUT_20__2f_api_2f_hr_2f_users_2f__5b_id_5d__2f_manager
+  g_role_manager --&gt; r_GET_20__2f_api_2f_manager_2f_expense_2d_notes
+  g_role_manager --&gt; r_POST_20__2f_api_2f_manager_2f_expense_2d_notes_2f__5b_id_5d__2f_approve
+  g_role_manager --&gt; r_GET_20__2f_api_2f_manager_2f_expense_2d_notes_2f__5b_id_5d__2f_receipt_2d_url
+  g_role_manager --&gt; r_POST_20__2f_api_2f_manager_2f_expense_2d_notes_2f__5b_id_5d__2f_reject
+  g_session --&gt; r_POST_20__2f_api_2f_receipt_2d_analyses
+  g_session --&gt; r_GET_20__2f_api_2f_receipt_2d_analyses_2f__5b_id_5d_
+  g_public --&gt; r_GET_20__2f_verify_2d_email
+</pre>
+<!-- fin : routes.mmd -->
+        </div>
+        <p class="fig-note">« Session requise » : <code>requireRole(session)</code> sans rôle, quel que soit le rôle de l'utilisateur. Les routes publiques sont déclarées dans <code>PUBLIC_ROUTES</code> (<code>scripts/architecture/layers.ts</code>).</p>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <h3>Erreurs : <code>application/problem+json</code></h3>
+      <p>Une seule forme d'erreur (RFC 9457), construite par <code>src/http/problem.ts</code>, avec l'en-tête <code>X-Request-Id</code>. Jamais de pile ni de message interne. Le membre <code>error</code> garde les textes historiques pendant la transition ; il est déprécié.</p>
+<pre class="json"><code>HTTP/1.1 409 Conflict
+Content-Type: application/problem+json
+X-Request-Id: 5d693674-3f69-4ea2-bb6b-c9d502eefad9
+
+{
+  "type": "/problems/already-decided",
+  "title": "Already decided",
+  "status": 409,
+  "detail": "This expense note has already been decided.",
+  "code": "ALREADY_DECIDED",
+  "requestId": "5d693674-3f69-4ea2-bb6b-c9d502eefad9",
+  "error": "Already decided"
+}</code></pre>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Statut</th><th>Codes</th><th>Quand</th></tr></thead>
+          <tbody>
+            <tr><td>400</td><td><code>INVALID_JSON</code>, <code>VALIDATION_ERROR</code>, <code>RECEIPT_TOO_LARGE</code>, <code>RECEIPT_TYPE_NOT_ALLOWED</code>, <code>IMAGE_TOO_LARGE</code>, <code>INVALID_IDEMPOTENCY_KEY</code>, <code>INVALID_EMAIL</code></td><td>entrée refusée, sans aucun effet de bord</td></tr>
+            <tr><td>401</td><td><code>AUTHENTICATION_REQUIRED</code></td><td>pas de session, ou compte supprimé</td></tr>
+            <tr><td>403</td><td><code>FORBIDDEN</code></td><td>session valide, rôle refusé</td></tr>
+            <tr><td>404</td><td><code>RESOURCE_NOT_FOUND</code></td><td>ressource inconnue ou non visible : même réponse dans les deux cas</td></tr>
+            <tr><td>409</td><td><code>ALREADY_DECIDED</code>, <code>INVALID_MANAGER</code></td><td>transition impossible, manager non admissible</td></tr>
+            <tr><td>422</td><td><code>IDEMPOTENCY_KEY_REUSED</code></td><td>même clé, autre contenu</td></tr>
+            <tr><td>429</td><td><code>TOO_MANY_LOGIN_ATTEMPTS</code></td><td>connexion seulement (<code>/api/auth/callback/credentials</code>, hors contrat car servie par Auth.js), avec <code>Retry-After</code></td></tr>
+            <tr><td>500</td><td><code>INTERNAL_ERROR</code></td><td>exception imprévue, détaillée seulement dans le journal du serveur</td></tr>
+            <tr><td>503</td><td><code>OCR_UNAVAILABLE</code>, <code>OCR_TIMEOUT</code>, <code>OCR_OVERLOADED</code></td><td>moteur en panne, trop lent ou saturé ; avec <code>Retry-After: 5</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================================================== Choix -->
+    <section id="choix" aria-labelledby="choix-titre">
+      <span class="kicker">Pourquoi c'est ainsi</span>
+      <h2 id="choix-titre">Choix d'architecture<a class="anchor" href="#choix" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Chaque choix structurant a été pesé contre des alternatives. Le résumé ci-dessous renvoie à l'ADR qui le décide et le justifie.</p>
+
+      <div class="grid two">
+        <article class="card blue">
+          <h3>Un monolithe modulaire hexagonal léger</h3>
+          <p><strong>Pourquoi.</strong> Petite équipe, un seul déploiement et un seul pipeline ; les transactions PostgreSQL restent locales ; les règles se testent sans infrastructure et S3, l'OCR ou l'email se remplacent par un port.</p>
+          <p><strong>Écarté.</strong> Un monolithe simplement nettoyé (le couplage reste) ; des micro-services, disproportionnés pour une poignée de tables, qui changeraient une transaction locale en saga distribuée.</p>
+          <ul class="pills"><li><a href="#adr-002">ADR-002</a></li></ul>
+        </article>
+        <article class="card red">
+          <h3>L'isolation portée par la base</h3>
+          <p><strong>Pourquoi.</strong> Avec la RLS sous un rôle restreint, un <code>WHERE</code> oublié ne fait plus fuir un autre tenant ; c'est une fonction éprouvée de PostgreSQL. Les <code>WHERE</code> restent, en défense en profondeur.</p>
+          <p><strong>Écarté.</strong> Un filtrage centralisé dans le code (reste de la discipline) ; un schéma ou une base par entreprise (exploitation lourde, sans gain de sécurité suffisant).</p>
+          <ul class="pills"><li><a href="#adr-001">ADR-001 §2</a></li></ul>
+        </article>
+        <article class="card red">
+          <h3>Des invitations, pas le domaine de l'email</h3>
+          <p><strong>Pourquoi.</strong> Un attribut non prouvé ne doit pas décider d'une autorisation : s'inscrire le premier sur un domaine permettait de devenir la RH d'une entreprise (S7).</p>
+          <p><strong>Écarté.</strong> Le statu quo ; le domaine avec vérification d'email (la préemption reste possible) ; le domaine vérifié par DNS, gardé en réouverture.</p>
+          <ul class="pills"><li><a href="#adr-001">ADR-001 §3</a></li></ul>
+        </article>
+        <article class="card red">
+          <h3>Garder Auth.js, rôle relu à chaque requête</h3>
+          <p><strong>Pourquoi.</strong> La brique n'était pas en cause : secret dans l'environnement (S5), rôle relu en base et session de 8 h d'inactivité (S9) corrigent ses défauts d'usage sans changer les parcours.</p>
+          <p><strong>Écarté.</strong> Keycloak, Auth0 ou Clerk : parcours de connexion changés, nouvelle dépendance de disponibilité ou de souveraineté.</p>
+          <ul class="pills"><li><a href="#adr-001">ADR-001 §4</a></li></ul>
+        </article>
+        <article class="card yellow">
+          <h3>Upload d'abord, puis une seule transaction</h3>
+          <p><strong>Pourquoi.</strong> Une transaction SQL ne rend pas S3 transactionnel : l'étape non transactionnelle passe en premier, là où son échec ne laisse rien de visible. Le seul reste possible, un objet orphelin, est réconcilié chaque jour.</p>
+          <p><strong>Écarté.</strong> Un statut intermédiaire (un quatrième statut que les listes et les tests interdisent) ; une compensation après coup (un crash au mauvais moment recrée le bug).</p>
+          <ul class="pills"><li><a href="#adr-003">ADR-003 §3</a></li></ul>
+        </article>
+        <article class="card yellow">
+          <h3><code>Idempotency-Key</code> plutôt que déduplication</h3>
+          <p><strong>Pourquoi.</strong> Seule une clé exprime « c'est le même envoi » : deux taxis au même prix le même jour sont légitimes. La clé vit sur la note, sans table ni durée de vie à gérer.</p>
+          <p><strong>Écarté.</strong> Une déduplication sur le contenu ; une clé obligatoire, qui casserait les clients existants.</p>
+          <ul class="pills"><li><a href="#adr-003">ADR-003 §4</a></li></ul>
+        </article>
+        <article class="card yellow">
+          <h3>Une outbox transactionnelle et un worker</h3>
+          <p><strong>Pourquoi.</strong> Pas de décision sans événement, pas d'événement sans décision ; un échec SMTP n'annule rien ; livraison au moins une fois, relances et DLQ. Un seul mécanisme sert aux emails et à l'OCR, et servira à l'IA.</p>
+          <p><strong>Écarté.</strong> L'envoi dans la route (la décision dépendrait de SMTP) ; <code>after()</code> de Next.js (perdu au moindre crash) ; un broker, sans besoin mesuré.</p>
+          <ul class="pills"><li><a href="#adr-003">ADR-003 §5</a></li></ul>
+        </article>
+        <article class="card yellow">
+          <h3>Un OCR borné, isolé, puis asynchrone</h3>
+          <p><strong>Pourquoi.</strong> Le coût suit les pixels, pas les octets : on borne octets, pixels, concurrence et durée. Le moteur tourne dans un processus jetable, qu'on peut tuer à l'échéance ; l'interface passe par 202 et polling.</p>
+          <p><strong>Écarté.</strong> L'OCR illimité dans la requête ; un worker Tesseract gardé chaud, une optimisation jamais mesurée.</p>
+          <ul class="pills"><li><a href="#adr-003">ADR-003 §1 et §2</a></li><li><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/ocr.md">docs/ocr.md</a></li></ul>
+        </article>
+        <article class="card green">
+          <h3>Le contrat d'abord, des erreurs normalisées</h3>
+          <p><strong>Pourquoi.</strong> Un contrat explicite, lisible par les humains et les agents ; des types générés partagés par le serveur et le front ; des codes stables que le front traduit, pour des utilisateurs internationaux.</p>
+          <p><strong>Écarté.</strong> Une documentation tirée des handlers ; un format d'erreur maison ; un préfixe <code>/v1</code> et une pagination sans besoin.</p>
+          <ul class="pills"><li><a href="#adr-004">ADR-004</a></li></ul>
+        </article>
+        <article class="card">
+          <h3>SQL brut et migrations SQL</h3>
+          <p><strong>Pourquoi.</strong> Convention du projet : pas d'ORM. Policies RLS, fonctions <code>SECURITY DEFINER</code> et contraintes s'écrivent de toute façon en SQL ; les requêtes restent paramétrées (<code>$1</code>, <code>$2</code>), un tri passe par une liste blanche.</p>
+          <p><strong>En pratique.</strong> <code>node-pg-migrate</code>, une migration horodatée par changement, avec sa partie <code>down</code>.</p>
+          <ul class="pills"><li><a href="https://github.com/2-MORGAN/expense-io/blob/main/CLAUDE.md">CLAUDE.md</a></li></ul>
+        </article>
+        <article class="card violet">
+          <h3>Un harnais à plusieurs étages</h3>
+          <p><strong>Pourquoi.</strong> Protéger les E2E des correcteurs à chaque PR, distinguer une régression d'un changement voulu, et rendre les règles exécutables, y compris pour une IA qui écrit vite.</p>
+          <p><strong>Écarté.</strong> Des hooks git seuls (contournables) ; un runner auto-hébergé sur un dépôt public ; un seuil de couverture bloquant.</p>
+          <ul class="pills"><li><a href="#adr-005">ADR-005</a></li></ul>
+        </article>
+        <article class="card">
+          <h3>KISS sur l'infrastructure</h3>
+          <p><strong>Pourquoi.</strong> Aucune nouvelle brique sans besoin mesuré : PostgreSQL sert de base, de file et de verrou des moteurs OCR. L'international passera par une instance par région, sans base répliquée.</p>
+          <p><strong>Réouverture.</strong> Un volume d'outbox que le polling n'absorbe plus, une IA externe, un workflow entre régions.</p>
+          <ul class="pills"><li><a href="#adr-001">ADR-001</a></li><li><a href="#adr-003">ADR-003</a></li></ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- ===================================================== ADR -->
+    <section id="adr" aria-labelledby="adr-titre">
+      <span class="kicker">Décisions</span>
+      <h2 id="adr-titre">Les ADR<a class="anchor" href="#adr" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Une ADR (Architecture Decision Record) consigne une décision structurante : contexte, options, décision, conséquences. Seules les ADR au statut « Acceptée » font foi ; un test E2E ne change que si l'une d'elles décide le changement de comportement.</p>
+
+      <figure class="diagram" id="fig-adr">
+        <figcaption>
+          <span class="fig-title">Comment les ADR s'articulent</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/adr.mmd">vues/adr.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/adr.mmd -->
+<pre class="mermaid">
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec docs/adr (CLAUDE.md, « Documentation développeur »).
+
+  adr5["ADR-005 · Harnais de validation&lt;br/&gt;tests, CI, garde-fous"]
+  adr2["ADR-002 · Architecture cible&lt;br/&gt;monolithe modulaire hexagonal"]
+  adr1["ADR-001 · Isolation multi-tenant&lt;br/&gt;RLS, invitations, Auth.js"]
+  adr3["ADR-003 · OCR, soumission, notifications&lt;br/&gt;upload d'abord, outbox, worker"]
+  adr4["ADR-004 · Contrat d'API&lt;br/&gt;OpenAPI, RFC 9457, codes stables"]
+
+  adr2 --&gt;|"module de permissions"| adr1
+  adr2 --&gt;|"ports, worker = adaptateur entrant"| adr3
+  adr1 &lt;--&gt;|"clés S3 par tenant, rôles du worker"| adr3
+  adr4 &lt;--&gt;|"202 + polling, 503, Idempotency-Key"| adr3
+  adr5 -.-&gt;|"vérifie : E2E, lint, contrat"| adr1 &amp; adr2 &amp; adr3 &amp; adr4
+
+  classDef securite fill:#fee2e2,stroke:#dc2626,color:#111827
+  classDef archi fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef asynchrone fill:#fef9c3,stroke:#a16207,color:#111827
+  classDef api fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef qualite fill:#ede9fe,stroke:#7c3aed,color:#111827
+  class adr1 securite
+  class adr2 archi
+  class adr3 asynchrone
+  class adr4 api
+  class adr5 qualite
+</pre>
+<!-- fin : vues/adr.mmd -->
+        </div>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <div class="grid two">
+        <article class="card adr red" id="adr-001">
+          <header><span class="num">ADR-001</span><span class="tag tag-ok">Acceptée</span></header>
+          <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-001-isolation-multi-tenant.md">Stratégie d'isolation multi-tenant</a></h3>
+          <p class="meta">Amalraj Soupramanien (WS1, sécurité) · acceptée le 20/10/2026, précisée le 23/10</p>
+          <h4>Décide</h4>
+          <ul>
+            <li>RLS effective sous un rôle non superuser, <code>WHERE</code> conservés, règles d'action dans un module de permissions du monolithe.</li>
+            <li>Le domaine de l'email ne donne aucun droit : invitations de la RH, vérification d'email du créateur, création atomique de l'entreprise et de sa RH (S7).</li>
+            <li>Garder Auth.js : secret dans l'environnement (S5), rôle relu en base et session de 8 h (S9).</li>
+            <li>Preuves par la suite E2E : ISO-04 à 09, SIGNUP-08, AUTH-10 ; une instance par région pour l'international.</li>
+          </ul>
+          <h4>Livré</h4>
+          <ul class="pills"><li>2-471 · S1, S2, S3, S5 (PR #19)</li><li>2-478 · rôles, policies, RLS sur users (PR #21)</li><li>2-496 · invitations, vérification, S9 (PR #25)</li><li>2-481 · web et worker sous rôles restreints (PR #37)</li><li>secret vérifié au démarrage, limite de tentatives (PR #39)</li></ul>
+          <h4>Reste à faire</h4>
+          <ul>
+            <li>Proposés au PO : <code>session_version</code> pour « déconnecter partout », limite sur l'inscription.</li>
+          </ul>
+        </article>
+
+        <article class="card adr blue" id="adr-002">
+          <header><span class="num">ADR-002</span><span class="tag tag-ok">Acceptée</span></header>
+          <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-002-architecture-cible.md">Architecture cible</a></h3>
+          <p class="meta">Antoine Blumenroeder (WS2, architecture) · acceptée le 20/10/2026, amendée le 27/10</p>
+          <h4>Décide</h4>
+          <ul>
+            <li>Monolithe modulaire hexagonal léger : route fine, cas d'usage, domaine pur, ports, adaptateurs.</li>
+            <li>Trois domaines cœurs (identité et tenancy, note de frais, validation) ; OCR et future facturation derrière des ports.</li>
+            <li>La matrice « où va quoi » (§3.3) ; une page serveur peut appeler la composition (amendement du 27/10).</li>
+            <li>B8 : décision atomique, 409 à la seconde ; B16 : <code>decided_by</code> et <code>decided_at</code>.</li>
+          </ul>
+          <h4>Livré</h4>
+          <ul class="pills"><li>2-487, 2-488 · garde commune et cas d'usage de décision (PR #22)</li><li>graphe des couches vérifié (PR #31, #35)</li></ul>
+          <h4>Reste à faire</h4>
+          <ul>
+            <li>Sortir le SQL des routes de lecture et les URL de reçu vers des cas d'usage (flèches orange du <a href="#graphe-couches">graphe</a>).</li>
+          </ul>
+        </article>
+
+        <article class="card adr yellow" id="adr-003">
+          <header><span class="num">ADR-003</span><span class="tag tag-ok">Acceptée</span></header>
+          <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-003-ocr-soumission-notifications.md">OCR / IA, fiabilité de la soumission et notifications</a></h3>
+          <p class="meta">Jacques Dai (WS3, asynchrone) · acceptée le 20/10/2026, amendée le 23/10, mise à jour le 27/10</p>
+          <h4>Décide</h4>
+          <ul>
+            <li>OCR borné (octets, pixels, concurrence, durée), puis asynchrone : 202 et polling.</li>
+            <li>Soumission : upload d'abord, puis une transaction ; <code>Idempotency-Key</code> ; nettoyage et réconciliation.</li>
+            <li>Notifications par outbox transactionnelle et worker, au moins une fois, DLQ après 5 relances ; un seul socle asynchrone.</li>
+            <li>B11 : une panne donne 503 et <code>Retry-After</code>, « rien trouvé » reste 200 et vide.</li>
+          </ul>
+          <h4>Livré</h4>
+          <ul class="pills"><li>2-475 · OCR (PR #13, #17)</li><li>2-476 · soumission (PR #27 à #30)</li><li>2-484 · SMTP, outbox, notifications (PR #14 à #16)</li><li>T9 · métriques OCR et outbox ; T5 · réconciliation planifiée (PR #39)</li></ul>
+          <h4>Reste à faire</h4>
+          <ul>
+            <li>Installer la tâche de <code>ops/cron/</code> sur l'hôte, une fois un environnement déployé ; passer à un broker si l'outbox prend plus d'une minute de retard (déclencheur de l'ADR).</li>
+          </ul>
+        </article>
+
+        <article class="card adr green" id="adr-004">
+          <header><span class="num">ADR-004</span><span class="tag tag-ok">Acceptée</span></header>
+          <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-004-contrat-api.md">Contrat d'API, format d'erreur et versioning</a></h3>
+          <p class="meta">Amiel Fabreguettes (WS4, API) · acceptée le 20/10/2026</p>
+          <h4>Décide</h4>
+          <ul>
+            <li>Erreurs RFC 9457 avec <code>code</code> et <code>requestId</code>, capturées par un wrapper commun.</li>
+            <li>API en anglais, codes stables, traduction par le front.</li>
+            <li>OpenAPI 3.1 d'abord, types générés, validation stricte des entrées (B7).</li>
+            <li>Pas de <code>/v1</code>, pas de pagination ; 401, 403, 404 et 409 avec un sens précis.</li>
+          </ul>
+          <h4>Livré</h4>
+          <ul class="pills"><li>Q1.1 · 401 et 403 (PR #8)</li><li>2-486 · contrat et validation (PR #20)</li><li>2-485 · erreurs communes (PR #24)</li><li>contrat sans rupture vérifié par oasdiff en CI (PR #39)</li></ul>
+          <h4>Reste à faire</h4>
+          <ul>
+            <li>Retirer le membre <code>error</code> déprécié, après migration de ses consommateurs.</li>
+          </ul>
+        </article>
+
+        <article class="card adr violet" id="adr-005">
+          <header><span class="num">ADR-005</span><span class="tag tag-ok">Acceptée</span></header>
+          <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-005-harnais-de-validation.md">Harnais de validation : tests, CI et garde-fous</a></h3>
+          <p class="meta">Stanislas Beguin (WS5, qualité) · acceptée le 20/10/2026, amendée le 27/10, points ouverts listés</p>
+          <h4>Décide</h4>
+          <ul>
+            <li>Cinq niveaux de vérification : statique, unitaire, contrat, intégration base, E2E.</li>
+            <li>Un E2E rouge est une régression, sauf changement décidé par une ADR acceptée.</li>
+            <li>CI <code>check</code> et <code>e2e</code> obligatoires, <code>main</code> protégée ; hooks git ; CLAUDE.md, README, modèle d'ADR et hooks Claude Code.</li>
+            <li>Journal JSON des erreurs serveur, sans donnée sensible ; métriques dérivées des logs (amendement du 27/10), sans traces distribuées.</li>
+          </ul>
+          <h4>Livré</h4>
+          <ul class="pills"><li>E2E (PR #4)</li><li>CI (PR #5)</li><li>Vitest et lint d'architecture (PR #10)</li><li>garde-fous (PR #11)</li><li>journal et hooks Claude (PR #23)</li><li>graphes (PR #31)</li><li>SonarJS (PR #32)</li><li>oasdiff, métriques (PR #39)</li><li>cette page (PR #38)</li></ul>
+          <h4>Reste à faire</h4>
+          <ul>
+            <li><code>CODEOWNERS</code> pour les fichiers du harnais ; points ouverts de l'ADR.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h3>Écrire une ADR</h3>
+          <ol class="steps">
+            <li><strong>Copier le modèle</strong>Copier <a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-000-modele.md">ADR-000-modele.md</a> en <code>ADR-NNN-titre-court.md</code>.</li>
+            <li><strong>L'indexer</strong>L'ajouter à <code>docs/adr/README.md</code> au statut « Proposée ».</li>
+            <li><strong>Au moins deux options</strong>Avec leurs compromis, une décision en phrases vérifiables et la rubrique « Comportement observable ».</li>
+            <li><strong>La faire accepter</strong>Par le PO, dans une PR. Seule une ADR acceptée autorise à modifier un test E2E, dans un commit séparé.</li>
+            <li><strong>L'ajouter ici</strong>Sa fiche (<code>id="adr-NNN"</code>) dans cette section : <code>npm run check</code> l'exige.</li>
+          </ol>
+        </article>
+      </div>
+
+      <h3>Décisions transverses du PO</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Décision</th></tr></thead>
+          <tbody>
+            <tr><td>20/10/2026</td><td>401 sans session, 403 si le rôle est refusé ; OCR asynchrone à faire ; pas de pagination ; API en anglais traduite par le front ; S7 est une faille à corriger ; chaque note garde qui l'a tranchée et quand ; sécurité d'abord, puis helpers communs.</td></tr>
+            <tr><td>23/10/2026</td><td>Un seul socle asynchrone, celui de 2-484 ; un événement par destinataire, bail de 5 min, DLQ après 5 relances ; notifications après 2-476 ; 2-481 livre aussi le rôle du worker.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===================================================== Qualité -->
+    <section id="qualite" aria-labelledby="qualite-titre">
+      <span class="kicker">Être serein</span>
+      <h2 id="qualite-titre">Harnais de validation<a class="anchor" href="#qualite" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Un retour en secondes en local, une garantie en minutes en CI, et des garde-fous que ni un humain pressé ni une IA ne contournent (<a href="#adr-005">ADR-005</a>).</p>
+
+      <figure class="diagram" id="fig-harnais">
+        <figcaption>
+          <span class="fig-title">Du commit à main</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/harnais.mmd">vues/harnais.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/harnais.mmd -->
+<pre class="mermaid">
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  change(["Modification"])
+  commit["git commit&lt;br/&gt;pre-commit : ESLint"]
+  push["git push&lt;br/&gt;pre-push : npm run check"]
+  pr["Pull request vers main&lt;br/&gt;modèle rempli, relue par un pair"]
+  ci{"CI GitHub Actions"}
+  checkJob["check&lt;br/&gt;lint, SonarJS, types, Vitest,&lt;br/&gt;contrat, graphes, doc,&lt;br/&gt;oasdiff (sans rupture), build"]
+  e2eJob["e2e&lt;br/&gt;Playwright en 2 shards&lt;br/&gt;Postgres, LocalStack, Mailpit"]
+  mainBranch[("main&lt;br/&gt;squash, historique linéaire")]
+
+  subgraph claude["Claude Code : .claude/settings.json"]
+    direction TB
+    guardHook["PreToolUse : guard-git.mjs&lt;br/&gt;refuse les contournements"]
+    stopHook["Stop : check-on-stop.mjs&lt;br/&gt;npm run check si le code a changé"]
+  end
+
+  change --&gt; commit --&gt; push --&gt; pr --&gt; ci
+  ci --&gt; checkJob &amp; e2eJob
+  checkJob &amp; e2eJob --&gt;|"obligatoires"| mainBranch
+  guardHook -.-&gt; commit
+  stopHook -.-&gt; push
+
+  classDef local fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef ciJob fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef hook fill:#ede9fe,stroke:#7c3aed,color:#111827
+  class commit,push,pr local
+  class checkJob,e2eJob ciJob
+  class guardHook,stopHook hook
+</pre>
+<!-- fin : vues/harnais.mmd -->
+        </div>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Niveau</th><th>Outil</th><th>Ce qu'il protège</th><th>Où</th></tr></thead>
+          <tbody>
+            <tr><td>Statique</td><td>ESLint, SonarJS, <code>tsc</code> strict</td><td>erreurs de code et de types, règles d'architecture de CLAUDE.md</td><td><code>eslint.config.mjs</code></td></tr>
+            <tr><td>Unitaire</td><td>Vitest</td><td>règles métier pures, en millisecondes, sans infrastructure</td><td><code>*.test.ts</code> à côté du code</td></tr>
+            <tr><td>Architecture et doc</td><td>Vitest</td><td>matrice des couches, garde de chaque route, graphes et cette page à jour</td><td><code>scripts/architecture</code></td></tr>
+            <tr><td>Contrat</td><td>Redocly, openapi-typescript, Ajv, oasdiff</td><td>contrat valide, artefacts à jour, chaque route dans le contrat, chaque réponse E2E conforme, aucune rupture par rapport à <code>main</code></td><td><code>npm run check:api</code>, <code>e2e/support/api.ts</code>, <code>scripts/check-api-breaking.sh</code></td></tr>
+            <tr><td>Intégration base</td><td>Playwright sans navigateur</td><td>ce que le HTTP ne voit pas : policies RLS, concurrence, pannes injectées, worker</td><td><code>e2e/</code> (ISO-07, OUTBOX…)</td></tr>
+            <tr><td>E2E</td><td>Playwright</td><td>comportement observable : parcours, codes HTTP, JSON, droits, isolation</td><td><code>e2e/</code>, IDs dans <code>docs/tests/E2E.md</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Moment</th><th>Ce qui tourne</th><th>Durée</th></tr></thead>
+          <tbody>
+            <tr><td><code>git commit</code></td><td>hook pre-commit : ESLint avec cache</td><td>≈ 3 s</td></tr>
+            <tr><td><code>git push</code></td><td>hook pre-push : <code>npm run check</code></td><td>≈ 35 s</td></tr>
+            <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI)</td><td>≈ 3 min pour la suite</td></tr>
+            <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, oasdiff sur les PR, build) et <code>e2e</code> (2 shards), obligatoires</td><td>≈ 1 min et 3 min 30</td></tr>
+            <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="journal">Journal et métriques<a class="anchor" href="#journal" aria-label="Lien vers cette section">#</a></h3>
+      <p>Serveur et worker écrivent une ligne JSON par événement, sans email, jeton ni URL pré-signée (<a href="#adr-005">ADR-005 §5</a>). Une réponse d'erreur porte son <code>requestId</code> (corps et <code>X-Request-Id</code>), repris dans la ligne <code>http.error</code>. Deux lignes servent de métriques à un collecteur de logs (<a href="#adr-003">ADR-003</a>, mise à jour du 27/10) :</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ligne</th><th>Métrique</th><th>Écrite par</th></tr></thead>
+          <tbody>
+            <tr><td><code>ocr.request</code></td><td><code>ocr_requests_total{outcome}</code> : <code>found</code>, <code>empty</code>, <code>rejected</code>, <code>failed</code>, <code>timeout</code>, <code>overloaded</code>, avec <code>durationMs</code> et <code>requestId</code></td><td>le serveur, à chaque suggestion OCR</td></tr>
+            <tr><td><code>outbox.stats</code></td><td>événements <code>pending</code> et <code>dead</code>, âge du plus ancien en attente, au total et par type (OBS-01)</td><td>le worker, chaque minute</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout ok">
+        <span class="callout-title">Avant de déclarer une tâche terminée</span>
+        <code>npm run check</code> passe. Si le changement touche <code>src/app</code>, <code>src/lib</code>, <code>migrations/</code> ou <code>scripts/</code>, les E2E concernés passent aussi, ou toute la suite. Un bug corrigé vient avec un test vu rouge avant la correction et vert après. Dire explicitement ce qui n'a pas été lancé.
+      </div>
+    </section>
+
+    <!-- ===================================================== Dette -->
+    <section id="dette" aria-labelledby="dette-titre">
+      <span class="kicker">Lucidité</span>
+      <h2 id="dette-titre">Dette connue et chantiers ouverts<a class="anchor" href="#dette" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">À ne pas reproduire, et à ne pas « corriger au passage » dans une PR sans rapport : chaque point a son ticket ou son ADR.</p>
+      <div class="grid two">
+        <div class="card yellow">
+          <h4><span class="tag tag-todo">architecture</span> SQL dans des routes</h4>
+          <p>Les routes de lecture listées dans <code>LEGACY_DB_ACCESS</code> font encore leur SQL, et les routes d'URL de reçu appellent <code>lib/storage</code> : ce sont les flèches orange du <a href="#graphe-couches">graphe des couches</a>.</p>
+        </div>
+        <div class="card yellow">
+          <h4><span class="tag tag-todo">exploitation</span> Tâches et observabilité</h4>
+          <p>Nettoyage unique des notes sans reçu à exécuter puis valider (<code>npm run clean:notes-without-receipt</code>) ; tâche quotidienne de <code>ops/cron/</code> à installer une fois un environnement déployé. Les métriques sont des lignes de journal (<code>ocr.request</code>, <code>outbox.stats</code>) : sans collecteur de logs, ni tableau de bord ni alerte ; pas de traces distribuées (<a href="#adr-005">ADR-005 §5</a>).</p>
+        </div>
+        <div class="card">
+          <h4><span class="tag tag-todo">qualité</span> Constats figés</h4>
+          <p>Les constats SonarJS du code existant sont figés dans <code>eslint-suppressions.json</code>, qui ne fait que raccourcir ; <code>CODEOWNERS</code> n'est pas encore en place.</p>
+        </div>
+      </div>
+      <p>Constats détaillés : <a href="https://github.com/2-MORGAN/expense-io/tree/main/docs/audit">docs/audit/</a> (sécurité S1 à S9, architecture A1 à A3, API Q1 à Q3 et B1 à B16).</p>
+    </section>
+
+    <!-- ===================================================== Contribuer -->
+    <section id="contribuer" aria-labelledby="contribuer-titre">
+      <span class="kicker">Au quotidien</span>
+      <h2 id="contribuer-titre">Contribuer<a class="anchor" href="#contribuer" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Un changement, une branche, une petite PR relue par un pair.</p>
+      <div class="grid two">
+        <div class="card">
+          <ol class="steps">
+            <li><strong>Partir de main à jour</strong><code>git pull</code>, puis <code>npm install</code> si <code>package.json</code> a changé.</li>
+            <li><strong>Une branche par changement</strong>Nommée avec le ticket Linear : <code>fix/2-471-correctifs-securite</code>.</li>
+            <li><strong>Lire avant d'écrire</strong>CLAUDE.md, les ADR acceptées concernées, le contrat si l'API change, les fichiers voisins.</li>
+            <li><strong>Domaine d'abord</strong>Règle et test, puis port et adaptateur, route fine, interface.</li>
+            <li><strong>Mettre à jour cette page</strong>Dans la même PR (<a href="#maintenir">comment</a>).</li>
+            <li><strong>Vérifier</strong><code>npm run check</code>, puis les E2E concernés.</li>
+            <li><strong>Ouvrir la PR</strong><code>gh pr create --repo 2-MORGAN/expense-io --base main</code>, en remplissant le modèle ; commits conventionnels (<code>feat(ocr): …</code>, <code>fix(api): …</code>).</li>
+            <li><strong>Fusionner</strong>Par squash, une fois <code>check</code> et <code>e2e</code> verts et la PR relue.</li>
+          </ol>
+        </div>
+        <div class="card red">
+          <h4>Jamais</h4>
+          <ul>
+            <li><code>--no-verify</code>, un push sur <code>main</code>, un force-push.</li>
+            <li>Modifier, désactiver ou supprimer un test E2E pour faire passer la CI.</li>
+            <li>Ajouter une entrée aux listes <code>LEGACY_*</code>, à <code>LEGACY_EDGES</code>, à <code>PUBLIC_ROUTES</code> ; <code>eslint --suppress-all</code>.</li>
+            <li>Un <code>eslint-disable</code> sans commentaire qui le justifie.</li>
+            <li>Éditer une migration existante, concaténer du SQL, faire confiance à un id venu du client.</li>
+            <li>Un secret dans le code, un message interne ou une pile dans une réponse.</li>
+            <li>Une dépendance npm sans justification dans la PR.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================== Maintenir -->
+    <section id="maintenir" aria-labelledby="maintenir-titre">
+      <span class="kicker">Cette page</span>
+      <h2 id="maintenir-titre">Maintenir cette page<a class="anchor" href="#maintenir" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">La doc fait partie du changement : elle se met à jour dans la même PR que le code, sans attendre qu'on le demande. Les règles sont dans CLAUDE.md, « Documentation développeur ».</p>
+
+      <div class="grid">
+        <div class="card green">
+          <h4><span class="tag tag-gen">généré</span> Deux graphes</h4>
+          <p><code>docs/architecture/layers.mmd</code> et <code>routes.mmd</code>, calculés depuis le code. Ne jamais les modifier à la main.</p>
+        </div>
+        <div class="card blue">
+          <h4><span class="tag tag-hand">à la main</span> Les vues</h4>
+          <p><code>docs/architecture/vues/*.mmd</code> : un fichier Mermaid par schéma de cette page, à tenir à jour avec le code.</p>
+        </div>
+        <div class="card violet">
+          <h4>La recopie</h4>
+          <p><code>npm run generate:architecture</code> régénère les graphes et recopie graphes et vues dans cette page, entre leurs marqueurs. Mêmes sources, même page, octet pour octet.</p>
+        </div>
+      </div>
+
+      <p><code>npm run check</code> (<code>scripts/architecture/architecture.test.ts</code>) échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou si un marqueur n'a plus de schéma, si une ADR de <code>docs/adr</code> n'a pas sa fiche, si une table des migrations manque au schéma des données (ou s'il y en a une de trop), si un type d'événement de l'outbox n'est pas cité, ou si un script externe est chargé sans empreinte SRI. Le texte, lui, ne se vérifie pas : d'où la règle suivante.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Si le changement…</th><th>Mettre à jour</th></tr></thead>
+          <tbody>
+            <tr><td>change un import entre couches, une couche, une route ou sa garde</td><td><code>npm run generate:architecture</code>, relire le diff ; la section concernée si le sens change</td></tr>
+            <tr><td>ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement</td><td><code>vues/systeme.mmd</code>, <code>vues/hexagone.mmd</code> ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs »</td></tr>
+            <tr><td>modifie un parcours : soumission, décision, outbox, OCR, inscription, invitation, session</td><td>la vue de séquence correspondante et le texte de « Parcours clés »</td></tr>
+            <tr><td>ajoute une migration : table, colonne, policy, rôle, fonction <code>SECURITY DEFINER</code></td><td><code>vues/schema.mmd</code> et « Données et isolation »</td></tr>
+            <tr><td>ajoute un type d'événement de l'outbox</td><td>le tableau des événements et <code>vues/outbox.mmd</code></td></tr>
+            <tr><td>change une opération HTTP, un code d'erreur</td><td>« API et contrat », après <code>openapi.yaml</code></td></tr>
+            <tr><td>ajoute une ADR ou change son statut</td><td>sa fiche dans « Les ADR », <code>vues/adr.mmd</code>, et « Choix d'architecture » si un choix change</td></tr>
+            <tr><td>change une commande, un script npm, un hook, la CI</td><td>« Démarrer », « Harnais de validation », <code>vues/harnais.mmd</code></td></tr>
+            <tr><td>solde ou crée une dette</td><td>« Dette connue » et la fiche de l'ADR concernée</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <span class="callout-title">Ajouter un schéma</span>
+        Créer <code>docs/architecture/vues/nom.mmd</code> (en-tête de commentaire comme les autres), placer dans cette page une figure avec les marqueurs <code>&lt;!-- début : vues/nom.mmd --&gt;</code> et <code>&lt;!-- fin : vues/nom.mmd --&gt;</code>, puis <code>npm run generate:architecture</code>. Pour l'essayer : <a href="https://mermaid.live">mermaid.live</a>, ou cette page ouverte dans un navigateur. Mermaid est chargé depuis jsDelivr, en version fixe, avec des identifiants déterministes.
+      </div>
+    </section>
+
+    <!-- ===================================================== Glossaire -->
+    <section id="glossaire" aria-labelledby="glossaire-titre">
+      <span class="kicker">Vocabulaire</span>
+      <h2 id="glossaire-titre">Glossaire<a class="anchor" href="#glossaire" aria-label="Lien vers cette section">#</a></h2>
+      <dl class="glossary">
+        <dt>NDF</dt><dd>Note de frais : montant, date, description et reçu, au statut <code>pending</code>, <code>approved</code> ou <code>rejected</code>.</dd>
+        <dt>Tenant</dt><dd>Une entreprise cliente (<code>companies</code>). Aucune donnée ne doit passer d'un tenant à l'autre.</dd>
+        <dt>Manager racine</dt><dd>Manager sans manager (<code>manager_id</code> NULL) : la RH de son entreprise tranche ses notes.</dd>
+        <dt>RLS</dt><dd>Row Level Security : policies PostgreSQL qui filtrent les lignes selon le contexte de la transaction.</dd>
+        <dt><code>withUserScope()</code></dt><dd>Ouvre une transaction et pose le contexte lu par les policies (utilisateur, entreprise, rôle). Seul accès aux données d'entreprise.</dd>
+        <dt><code>SECURITY DEFINER</code></dt><dd>Fonction SQL exécutée avec les droits de son propriétaire, pour une opération étroite et contrôlée.</dd>
+        <dt>Port, adaptateur</dt><dd>Interface dont le cœur dépend, et son implémentation technique (PostgreSQL, S3, SMTP, Tesseract).</dd>
+        <dt>Composition</dt><dd><code>src/composition</code> : l'endroit unique où l'on assemble cas d'usage et adaptateurs.</dd>
+        <dt>Outbox</dt><dd>Table <code>outbox_events</code> où un événement s'écrit dans la transaction métier, avant d'être traité par le worker.</dd>
+        <dt>Bail, DLQ</dt><dd>Durée (5 min) pendant laquelle un worker garde un événement pris en charge ; un événement <code>dead</code> a épuisé ses essais (dead letter queue).</dd>
+        <dt><code>Idempotency-Key</code></dt><dd>UUID envoyé par le client pour qu'un renvoi rende le même résultat au lieu d'un doublon.</dd>
+        <dt><code>problem+json</code></dt><dd>Format d'erreur de la RFC 9457 : <code>type</code>, <code>title</code>, <code>status</code>, <code>detail</code>, plus <code>code</code> et <code>requestId</code>.</dd>
+        <dt>URL pré-signée</dt><dd>Lien S3 temporaire (5 min) vers un reçu, délivré après le contrôle d'autorisation.</dd>
+        <dt>ID de test</dt><dd>Identifiant d'un scénario E2E (<code>NDF-06</code>, <code>ISO-07</code>…), listé dans <code>docs/tests/E2E.md</code> et lançable par <code>-g</code>.</dd>
+        <dt>ADR</dt><dd>Architecture Decision Record : décision structurante écrite, qui ne fait foi qu'au statut « Acceptée ».</dd>
+      </dl>
+    </section>
+
+    <footer class="page-end">
+      Page maintenue avec le code (CLAUDE.md, « Documentation développeur ») · schémas dans <code>docs/architecture/</code> · recopiés par <code>npm run generate:architecture</code>, vérifiés par <code>npm run check</code>.
+    </footer>
+  </main>
+</div>
+
+<dialog id="zoom" aria-labelledby="zoom-title">
+  <div class="zoom-bar">
+    <strong id="zoom-title">Schéma</strong>
+    <button class="btn" type="button" data-zoom-step="-1" aria-label="Réduire">−</button>
+    <button class="btn" type="button" data-zoom-step="0">Ajuster</button>
+    <button class="btn" type="button" data-zoom-step="1" aria-label="Agrandir">+</button>
+    <button class="btn" type="button" data-zoom-close>Fermer</button>
+  </div>
+  <div class="zoom-body" id="zoom-body"></div>
+</dialog>
+
+<!-- Mermaid en version fixe, avec son empreinte (SRI) : un fichier modifié sur le CDN n'est pas exécuté.
+     Empreinte de dist/mermaid.min.js du paquet npm mermaid@11.4.1 :
+     npm pack mermaid@11.4.1 && tar xzf mermaid-11.4.1.tgz package/dist/mermaid.min.js && openssl dgst -sha384 -binary package/dist/mermaid.min.js | openssl base64 -A -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" integrity="sha384-rbtjAdnIQE/aQJGEgXrVUlMibdfTSa4PQju4HDhN3sR2PmaKFzhEafuePsl9H/9I" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+(function () {
+  'use strict'
+  var root = document.documentElement
+
+  // Thème : auto, clair ou sombre, retenu dans ce navigateur seulement.
+  var THEMES = ['auto', 'light', 'dark']
+  var LABELS = { auto: 'Thème : auto', light: 'Thème : clair', dark: 'Thème : sombre' }
+  var toggle = document.getElementById('theme-toggle')
+  function applyTheme(theme) {
+    if (theme === 'auto') root.removeAttribute('data-theme')
+    else root.setAttribute('data-theme', theme)
+    toggle.textContent = LABELS[theme]
+  }
+  var saved = 'auto'
+  try { saved = localStorage.getItem('expense-io-doc-theme') || 'auto' } catch (e) { saved = 'auto' }
+  applyTheme(THEMES.indexOf(saved) >= 0 ? saved : 'auto')
+  toggle.addEventListener('click', function () {
+    var current = root.getAttribute('data-theme') || 'auto'
+    var next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]
+    applyTheme(next)
+    try { localStorage.setItem('expense-io-doc-theme', next) } catch (e) { /* stockage indisponible : le choix vaut pour cette visite */ }
+  })
+
+  // Sommaire ouvert sur grand écran, replié sur mobile.
+  var tocDetails = document.getElementById('toc-details')
+  if (window.matchMedia('(min-width: 981px)').matches) tocDetails.open = true
+
+  // Section courante surlignée dans le sommaire.
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a[href^="#"]'))
+  var byId = {}
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a })
+  var targets = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)) }).filter(Boolean)
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return
+        links.forEach(function (a) { a.classList.remove('active') })
+        var link = byId[entry.target.id]
+        if (link) link.classList.add('active')
+      })
+    }, { rootMargin: '-80px 0px -70% 0px' })
+    targets.forEach(function (t) { observer.observe(t) })
+  }
+
+  // Copier une commande.
+  document.querySelectorAll('pre.cmd').forEach(function (pre) {
+    var button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'copy-cmd'
+    button.textContent = 'Copier'
+    button.addEventListener('click', function () {
+      var text = pre.querySelector('code').textContent.split('\n').map(function (line) {
+        return line.replace(/\s+#.*$/, '')
+      }).join('\n')
+      copy(text, button)
+    })
+    pre.appendChild(button)
+  })
+
+  function copy(text, button) {
+    var done = function () {
+      var label = button.textContent
+      button.textContent = 'Copié'
+      setTimeout(function () { button.textContent = label }, 1400)
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done() })
+    } else {
+      fallbackCopy(text)
+      done()
+    }
+  }
+  function fallbackCopy(text) {
+    var area = document.createElement('textarea')
+    area.value = text
+    area.setAttribute('readonly', '')
+    area.style.position = 'fixed'
+    area.style.opacity = '0'
+    document.body.appendChild(area)
+    area.select()
+    try { document.execCommand('copy') } catch (e) { /* copie impossible : le texte reste sélectionnable */ }
+    document.body.removeChild(area)
+  }
+
+  // Source Mermaid de chaque schéma, gardée avant le dessin.
+  var sources = new Map()
+  document.querySelectorAll('figure.diagram').forEach(function (figure) {
+    var pre = figure.querySelector('pre.mermaid')
+    if (pre) sources.set(figure, pre.textContent)
+  })
+  document.querySelectorAll('[data-copy]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      copy(sources.get(button.closest('figure')) || '', button)
+    })
+  })
+
+  // Agrandir un schéma.
+  var dialog = document.getElementById('zoom')
+  var zoomBody = document.getElementById('zoom-body')
+  var zoomTitle = document.getElementById('zoom-title')
+  var zoom = { svg: null, width: 0, scale: 1 }
+  function setScale(scale) {
+    zoom.scale = Math.min(4, Math.max(0.2, scale))
+    if (zoom.svg) zoom.svg.style.width = Math.round(zoom.width * zoom.scale) + 'px'
+  }
+  function fitScale() {
+    return zoom.width ? Math.min(2, (zoomBody.clientWidth - 48) / zoom.width) : 1
+  }
+  document.querySelectorAll('[data-zoom]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var figure = button.closest('figure')
+      var svg = figure.querySelector('pre.mermaid svg')
+      if (!svg) return
+      var clone = svg.cloneNode(true)
+      clone.removeAttribute('style')
+      clone.removeAttribute('width')
+      clone.removeAttribute('height')
+      var box = svg.viewBox && svg.viewBox.baseVal
+      zoom.width = box && box.width ? box.width : svg.getBoundingClientRect().width
+      zoom.svg = clone
+      zoomTitle.textContent = figure.querySelector('.fig-title').textContent
+      zoomBody.replaceChildren(clone)
+      dialog.showModal()
+      setScale(fitScale())
+    })
+  })
+  dialog.querySelectorAll('[data-zoom-step]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var step = Number(button.getAttribute('data-zoom-step'))
+      setScale(step === 0 ? fitScale() : zoom.scale * (step > 0 ? 1.25 : 0.8))
+    })
+  })
+  dialog.querySelector('[data-zoom-close]').addEventListener('click', function () { dialog.close() })
+  dialog.addEventListener('click', function (event) { if (event.target === dialog) dialog.close() })
+
+  // Dessin des schémas : version de Mermaid fixe, identifiants déterministes.
+  if (!window.mermaid) {
+    root.classList.add('no-mermaid')
+    return
+  }
+  window.mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: 'strict',
+    deterministicIds: true,
+    deterministicIDSeed: 'expense-io',
+    theme: 'base',
+    themeVariables: {
+      fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+      fontSize: '14px',
+      primaryColor: '#eff6ff',
+      primaryBorderColor: '#2563eb',
+      primaryTextColor: '#0f172a',
+      secondaryColor: '#f1f5f9',
+      tertiaryColor: '#ffffff',
+      lineColor: '#475569',
+      textColor: '#0f172a',
+      clusterBkg: '#f8fafc',
+      clusterBorder: '#cbd5e1',
+      edgeLabelBackground: '#ffffff',
+      noteBkgColor: '#fef9c3',
+      noteBorderColor: '#ca8a04',
+      noteTextColor: '#0f172a',
+      actorBkg: '#eff6ff',
+      actorBorder: '#2563eb',
+      actorTextColor: '#0f172a',
+      signalColor: '#334155',
+      signalTextColor: '#0f172a',
+      labelBoxBkgColor: '#f1f5f9',
+      labelBoxBorderColor: '#94a3b8',
+      activationBkgColor: '#dbeafe',
+      activationBorderColor: '#2563eb'
+    },
+    flowchart: { curve: 'basis', padding: 10, nodeSpacing: 30, rankSpacing: 50, useMaxWidth: true },
+    sequence: { useMaxWidth: true, mirrorActors: false, messageMargin: 32 },
+    state: { useMaxWidth: true },
+    er: { useMaxWidth: true }
+  })
+  window.mermaid.run({ querySelector: 'pre.mermaid', suppressErrors: true }).then(function () {
+    root.classList.add('diagrams-ready')
+  })
+})()
+</script>
+</body>
+</html>

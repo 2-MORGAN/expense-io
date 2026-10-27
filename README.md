@@ -9,6 +9,9 @@ audit d'architecture puis refacto, sans casser le comportement existant.
 
 Ce README suffit pour lancer, vérifier et modifier le projet. Les règles
 détaillées, communes aux humains et aux IA, sont dans [`CLAUDE.md`](CLAUDE.md).
+Pour comprendre l'architecture, les services, les parcours et les ADR en
+schémas : la doc des développeurs, [`docs/index.html`](docs/index.html), à
+ouvrir dans un navigateur.
 
 ## Démarrer
 
@@ -87,7 +90,10 @@ sort de la machine.
 ### Variables d'environnement
 
 [`.env.example`](.env.example) fait foi ; `make dev` le copie en `.env` et y
-génère les mots de passe des rôles de base. Chaque processus a son rôle
+génère `AUTH_SECRET` et les mots de passe des rôles de base. En production, le
+serveur refuse de démarrer si `AUTH_SECRET` est absent, fait moins de 32
+caractères ou vaut la valeur d'exemple (CONF-01). Rotation du secret : le
+remplacer et redémarrer ; toutes les sessions sont invalidées. Chaque processus a son rôle
 PostgreSQL (2-481) : l'application `expense_app` (`DATABASE_URL`), le worker
 `expense_worker` (`WORKER_DATABASE_URL`), les migrations et le seed le
 propriétaire (`MIGRATION_DATABASE_URL`). `npm run migrate:up` pose sur la base
@@ -97,7 +103,7 @@ les mots de passe lus dans `.env` : rien à échanger entre postes.
 
 | Commande | Ce qu'elle vérifie | Docker |
 |---|---|---|
-| `npm run check` | lint (règles d'architecture et de SonarQube comprises), types, tests unitaires, contrat API valide et types générés à jour, graphes des couches et des routes à jour ([`docs/architecture/`](docs/architecture/README.md)) | non |
+| `npm run check` | lint (règles d'architecture et de SonarQube comprises), types, tests unitaires, contrat API valide et types générés à jour, graphes des couches et des routes à jour ([`docs/architecture/`](docs/architecture/README.md)), doc des développeurs à jour de ses schémas ([`docs/index.html`](docs/index.html)) | non |
 | `npx playwright test -g "<ID>"` | un scénario E2E désigné par son ID ([`docs/tests/E2E.md`](docs/tests/E2E.md)), sur le serveur de `make dev` s'il tourne | oui |
 | `make test-e2e` | toute la suite E2E de non-régression, environ 3 min | oui |
 | `make verify` | tout ce que vérifie la CI : `npm run check`, build de production, puis la suite E2E | oui |
@@ -112,7 +118,7 @@ Ce qui tourne sans qu'on le demande ([ADR-005](docs/adr/ADR-005-harnais-de-valid
 |---|---|
 | `git commit` | ESLint (hook pre-commit) |
 | `git push` | `npm run check` (hook pre-push) |
-| PR vers `main`, push sur `main` | CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) : `check` (lint, types, tests unitaires, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner |
+| PR vers `main`, push sur `main` | CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) : `check` (lint, types, tests unitaires, contrat d'API sans rupture avec oasdiff sur les PR, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner |
 | Avec Claude Code | les hooks de [`.claude/settings.json`](.claude/settings.json) refusent `--no-verify`, le push sur `main`, le force-push et `eslint --suppress-all`, et lancent `npm run check` en fin de tour si du code a changé |
 
 Les hooks git s'installent avec `npm install`.
@@ -126,6 +132,23 @@ pré-signée (ADR-005 §5) ; Next.js affiche en plus, en texte, les erreurs qu'i
 capte. La sortie du serveur s'affiche dans le terminal de `make dev`, ou dans la
 console de Playwright quand il démarre lui-même le serveur ; en CI, dans le
 journal du job `e2e`.
+
+Métriques, dérivées de ces lignes par le collecteur de logs (ADR-003 §6) :
+
+| Ligne | Métrique | Qui l'écrit |
+|---|---|---|
+| `"msg":"ocr.request"` | `ocr_requests_total{outcome}` : `found`, `empty`, `rejected`, `failed`, `timeout`, `overloaded`, avec `durationMs` et `requestId` | le serveur, à chaque suggestion OCR |
+| `"msg":"outbox.stats"` | événements `pending` et `dead` (DLQ), âge du plus ancien en attente (`oldestPendingAgeSeconds`), au total et par type | le worker, toutes les minutes (`OUTBOX_STATS_INTERVAL_MS`) |
+
+Une réponse d'erreur porte son `requestId` (corps et en-tête `X-Request-Id`),
+repris dans la ligne `http.error` du journal.
+
+### Tâches planifiées
+
+La réconciliation quotidienne des reçus orphelins sur S3 est décrite dans
+[`ops/cron/expense-io.crontab`](ops/cron/expense-io.crontab), à installer sur
+l'hôte ou le planificateur de l'hébergeur après un premier `make reconcile`
+(dry-run) relu.
 
 ## Contrat API
 
@@ -141,6 +164,8 @@ Validation des entrées, outils, compatibilité et transition des erreurs :
 2. Partir de `main` à jour (`git pull`, puis `npm install` si `package.json` a changé). Une branche par changement, nommée avec le ticket Linear : `fix/2-471-correctifs-securite`, ou le nom que propose Linear.
 3. Commits conventionnels, comme l'historique : `feat(ocr): …`, `fix(api): …`, `test(e2e): …`, `docs(adr): …`, `chore: …`.
 4. Un bug corrigé = un test vu en échec avant la correction, en succès après.
+   La doc des développeurs ([`docs/index.html`](docs/index.html)) se met à jour
+   dans la même PR que le code (`CLAUDE.md`, « Documentation développeur »).
 5. Ouvrir la PR avec `gh pr create --repo 2-MORGAN/expense-io --base main` (sans `--repo`, `gh` peut viser le dépôt du cours) et remplir le modèle.
 6. Fusion par squash, une fois `check` et `e2e` verts et la PR relue par un pair. `main` refuse le push direct et le force-push.
 7. Un test E2E ne change que si une ADR acceptée décide le changement de comportement, et dans un commit séparé ([ADR-005 §2](docs/adr/ADR-005-harnais-de-validation.md#2-régression-ou-changement-voulu)).
@@ -151,12 +176,13 @@ Validation des entrées, outils, compatibilité et transition des erreurs :
 | Chemin | Contenu |
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | règles d'architecture, de sécurité et de vérification ; [`AGENTS.md`](AGENTS.md) y renvoie les autres assistants IA |
+| [`docs/index.html`](docs/index.html) | doc des développeurs : services, architecture du code, parcours, données, API, choix d'architecture et ADR, en schémas ; à ouvrir dans un navigateur |
 | [`docs/adr/`](docs/adr/README.md) | décisions d'architecture, leur statut et le modèle |
 | [`docs/audit/`](docs/audit/) | constats d'audit : sécurité (S), architecture (A), API (Q, B) |
 | [`docs/tests/E2E.md`](docs/tests/E2E.md) | scénarios E2E avec leurs IDs, résultats des exécutions |
 | [`openapi.yaml`](openapi.yaml), [`docs/api/`](docs/api/README.md) | contrat de l'API (16 opérations) et ses règles d'évolution |
 | [`docs/ocr.md`](docs/ocr.md) | OCR : protections et file asynchrone |
-| [`docs/architecture/`](docs/architecture/README.md) | graphes Mermaid des couches et des routes, générés depuis le code (`npm run generate:architecture`) et vérifiés par `npm run check` |
+| [`docs/architecture/`](docs/architecture/README.md) | graphes Mermaid des couches et des routes, générés depuis le code (`npm run generate:architecture`) et vérifiés par `npm run check` ; vues écrites à la main (`vues/`) de la doc des développeurs |
 | `src/` | le code ; où placer quoi : « Où placer le code » dans `CLAUDE.md` |
 | `migrations/` | schéma SQL versionné, seule source de vérité |
 | `e2e/` | tests Playwright |
@@ -171,6 +197,8 @@ make help      # toutes les cibles du Makefile
 make build     # build de production
 make start     # build puis démarre en production
 make worker    # le worker seul (make dev le lance déjà)
+make api-breaking  # contrat d'API sans rupture par rapport à main (oasdiff)
+make reconcile # reçus orphelins sur S3, rapport seul (dry-run)
 make logs      # journaux des conteneurs
 make down      # arrête les conteneurs, garde les données
 make clean     # arrête les conteneurs et supprime les données locales
@@ -186,6 +214,7 @@ make clean     # arrête les conteneurs et supprime les données locales
 | Lint : erreur `sonarjs/…` | Règle de SonarQube : corriger le code. Les constats du code existant sont figés dans `eslint-suppressions.json`, qui ne fait que raccourcir ([`CLAUDE.md`](CLAUDE.md), « Où placer le code ») |
 | Lint : « There are suppressions left that do not occur anymore » | Un constat figé a été corrigé : `npx eslint --prune-suppressions`, puis commiter `eslint-suppressions.json` avec la correction |
 | `npm run check` : « docs/architecture/… a dérivé du code » | Un import entre couches ou une route a changé : `npm run generate:architecture`, relire le diff, le commiter avec le code. Une flèche interdite ou une route sans garde se corrigent dans le code ([`docs/architecture/`](docs/architecture/README.md)) |
+| `npm run check` : « docs/index.html … », « ADR sans fiche », « table absente », « type d'événement » | La doc des développeurs n'a pas suivi le code : `npm run generate:architecture` recopie les schémas ; une ADR, une table ou un événement se décrivent à la main (`CLAUDE.md`, « Documentation développeur ») |
 | Sous Windows, `npm run check` signale des types générés « not up-to-date » sans modification | Fichier extrait en fins de ligne CRLF avant l'ajout de `.gitattributes` : le supprimer, puis `git checkout -- <fichier>` |
 | Test E2E : « Executable doesn't exist » | Navigateur absent : `npx playwright install chromium` |
 | Réponse 500 | Lire la ligne `"level":"error"` du journal du serveur ([Journaux](#journaux)) |

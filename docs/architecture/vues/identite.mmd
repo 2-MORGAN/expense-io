@@ -1,0 +1,37 @@
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  start(["Arrivée sur /signup"])
+  invited{"Lien d'invitation ?<br/>/signup?invitation=jeton"}
+  register["register_user()<br/>crée son entreprise et devient hr_admin<br/>email non vérifié : connexion refusée"]
+  accept["accept_invitation()<br/>rejoint l'entreprise de la RH (employee)<br/>le lien vaut vérification d'email"]
+  purge["purge_unverified_account()<br/>un compte non vérifié de même adresse<br/>est remplacé"]
+  verifEvent["outbox : email.verification.requested"]
+  resend["Page /signup/verify : renvoyer le lien<br/>request_email_verification()"]
+  verifMail["Worker : jeton à usage unique, 24 h<br/>seule son empreinte SHA-256 est en base"]
+  verify["GET /verify-email?token=…<br/>verify_email()"]
+  login(["/login : session JWT de 8 h"])
+  hr["RH : POST /api/hr/invitations"]
+  invEvent["outbox : invitation.requested"]
+  invMail["Worker : jeton à usage unique, 7 jours<br/>email avec le lien d'invitation"]
+
+  start --> invited
+  invited -->|"non"| register
+  invited -->|"oui"| accept
+  register -.-> purge
+  accept -.-> purge
+  register --> verifEvent
+  resend --> verifEvent
+  verifEvent --> verifMail
+  verifMail --> verify
+  verify --> login
+  accept --> login
+  hr --> invEvent
+  invEvent --> invMail
+  invMail -.->|"l'invité ouvre le lien"| start
+
+  classDef sql fill:#fef9c3,stroke:#a16207,color:#111827
+  classDef worker fill:#dbeafe,stroke:#2563eb,color:#111827
+  class register,accept,purge,verify,resend sql
+  class verifEvent,verifMail,invEvent,invMail worker

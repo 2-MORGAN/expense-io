@@ -23,6 +23,16 @@ E2E obligatoires dès que la PR touche src/app, src/lib, migrations/ ou scripts/
 - E2E (`npx playwright test -g "<ID>"`, `make test-e2e`) :
 - Test ajouté (bug corrigé ou règle métier : vu rouge avant, vert après) :
 
+## Documentation
+
+<!--
+Doc des développeurs mise à jour dans cette PR (CLAUDE.md, « Documentation développeur ») :
+sections de docs/index.html et vues de docs/architecture/vues/ touchées, ou « sans objet » et
+pourquoi (correctif local, test, refacto sans effet visible).
+-->
+
+- `docs/index.html` :
+
 ## Changement de comportement
 
 <!--

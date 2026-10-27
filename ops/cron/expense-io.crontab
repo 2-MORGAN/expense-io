@@ -1,0 +1,15 @@
+# Tâches planifiées d'Expense.io (ADR-003 §3, 2-476). À installer sur la
+# machine (ou le planificateur de l'hébergeur : CronJob, tâche planifiée) qui
+# a accès à la base et au bucket, avec le même .env que le worker
+# (`WORKER_DATABASE_URL` : rôle `expense_worker`, ADR-001).
+#
+# Avant d'activer la ligne : un premier passage en dry-run, rapport relu
+# (`npm run reconcile:orphan-receipts`).
+#
+# Réconciliation des reçus orphelins : supprime les objets de `receipts/` qui
+# ne sont référencés ni par une note ni par une analyse OCR et qui ont plus de
+# 24 h. Tous les jours à 03:17 UTC, hors des heures de bureau européennes.
+# Une exécution qui échoue se voit dans le journal ; la suivante rattrape.
+#
+# m  h  jdm mois jds  commande
+17 3 * * * cd /srv/expense-io && npm run --silent reconcile:orphan-receipts -- --execute >> /var/log/expense-io/reconcile-orphan-receipts.log 2>&1
