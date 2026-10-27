@@ -46,6 +46,16 @@ function fingerprintOf(input: SubmissionInput): string {
     .digest('hex')
 }
 
+type Idempotency = { key: string; fingerprint: string }
+
+// Clé absente : pas de déduplication. Clé présente : un UUID, et l'empreinte
+// du contenu pour reconnaître un renvoi identique.
+function idempotencyOf(input: SubmissionInput): Idempotency | undefined {
+  if (input.idempotencyKey == null) return undefined
+  if (!UUID_PATTERN.test(input.idempotencyKey)) throw new InvalidIdempotencyKey()
+  return { key: input.idempotencyKey.toLowerCase(), fingerprint: fingerprintOf(input) }
+}
+
 // ADR-003 §3 : l'étape non transactionnelle (S3) passe en premier, là où son
 // échec ne laisse aucune ligne ; la note est ensuite écrite en une seule
 // transaction, avec sa clé de reçu. Jamais de note sans reçu.
@@ -58,10 +68,8 @@ export class SubmitExpenseNote {
   ) {}
 
   async execute(userId: string, input: SubmissionInput): Promise<SubmissionResult> {
-    let idempotency: { key: string; fingerprint: string } | undefined
-    if (input.idempotencyKey != null) {
-      if (!UUID_PATTERN.test(input.idempotencyKey)) throw new InvalidIdempotencyKey()
-      idempotency = { key: input.idempotencyKey.toLowerCase(), fingerprint: fingerprintOf(input) }
+    const idempotency = idempotencyOf(input)
+    if (idempotency) {
       const known = await this.repository.findByIdempotencyKey(userId, idempotency.key)
       if (known) return this.replay(known, idempotency.fingerprint)
     }
@@ -84,22 +92,34 @@ export class SubmitExpenseNote {
       })
       return { note, replayed: false }
     } catch (error) {
-      if (error instanceof DuplicateIdempotencyKey && idempotency) {
-        // Requête concurrente de même clé : l'index unique a désigné la
-        // gagnante. Son objet est le seul référencé, le nôtre est en trop.
-        await this.storage.delete(receiptKey).catch(() => {})
-        const winner = await this.repository.findByIdempotencyKey(userId, idempotency.key)
-        if (!winner) throw error
-        return this.replay(winner, idempotency.fingerprint)
-      }
-      // L'échec peut cacher un COMMIT réussi dont l'accusé s'est perdu : on ne
-      // supprime l'objet que si la base confirme l'absence de la note. Sinon il
-      // reste, et la réconciliation quotidienne des orphelins le rattrape.
-      const committed = await this.repository.find(userId, noteId).catch(() => 'unknown' as const)
-      if (committed === null) await this.storage.delete(receiptKey).catch(() => {})
-      if (committed && committed !== 'unknown') return { note: committed, replayed: false }
-      throw error
+      return this.recover(error, userId, noteId, receiptKey, idempotency)
     }
+  }
+
+  // Échec de l'insertion, reçu déjà stocké : rejeu de la requête concurrente
+  // gagnante, COMMIT dont l'accusé s'est perdu, ou échec réel.
+  private async recover(
+    error: unknown,
+    userId: string,
+    noteId: string,
+    receiptKey: string,
+    idempotency: Idempotency | undefined
+  ): Promise<SubmissionResult> {
+    if (error instanceof DuplicateIdempotencyKey && idempotency) {
+      // Requête concurrente de même clé : l'index unique a désigné la
+      // gagnante. Son objet est le seul référencé, le nôtre est en trop.
+      await this.storage.delete(receiptKey).catch(() => {})
+      const winner = await this.repository.findByIdempotencyKey(userId, idempotency.key)
+      if (!winner) throw error
+      return this.replay(winner, idempotency.fingerprint)
+    }
+    // L'échec peut cacher un COMMIT réussi dont l'accusé s'est perdu : on ne
+    // supprime l'objet que si la base confirme l'absence de la note. Sinon il
+    // reste, et la réconciliation quotidienne des orphelins le rattrape.
+    const committed = await this.repository.find(userId, noteId).catch(() => 'unknown' as const)
+    if (committed === null) await this.storage.delete(receiptKey).catch(() => {})
+    if (committed && committed !== 'unknown') return { note: committed, replayed: false }
+    throw error
   }
 
   private replay(note: SubmittedExpenseNote, fingerprint: string): SubmissionResult {

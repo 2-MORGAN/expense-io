@@ -43,7 +43,8 @@ async function insertLegacyNotes(
 }
 
 function runScript(args: string[]): string {
-  return execFileSync('node', [SCRIPT, ...args, '--skip-validate'], {
+  // Le binaire de Node qui exécute la suite, pas celui trouvé dans le PATH.
+  return execFileSync(process.execPath, [SCRIPT, ...args, '--skip-validate'], {
     env: { ...process.env, DATABASE_URL: databaseUrl() },
     encoding: 'utf8',
   })

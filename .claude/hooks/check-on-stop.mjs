@@ -11,12 +11,24 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const MAX_OUTPUT_LINES = 80
 
+/**
+ * Dossier où lancer git et `npm run check`, lettre de lecteur en majuscule :
+ * sous Windows, VS Code fournit `c:\…`, et Vitest lancé depuis un tel dossier
+ * charge ses modules deux fois. Tous les tests échouaient alors dès
+ * describe() (« reading 'config' ») sur un code vert.
+ */
+export function projectRoot(env, input, cwd) {
+  const dir = env.CLAUDE_PROJECT_DIR || input.cwd || cwd
+  return dir.replace(/^[a-z]:/, (drive) => drive.toUpperCase())
+}
+
 function main() {
   const input = JSON.parse(readFileSync(0, 'utf8') || '{}')
-  const root = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd()
+  const root = projectRoot(process.env, input, process.cwd())
   // Sortie d'erreur capturée : pas d'avertissement de fins de ligne dans la
   // console de Claude Code.
   const git = (args, env = process.env) =>
@@ -75,4 +87,6 @@ function main() {
   }))
 }
 
-main()
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main()
+}

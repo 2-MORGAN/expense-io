@@ -2,10 +2,10 @@
 openapi: 3.1.0
 info:
   title: Expense.io API
-  version: 1.0.0
+  version: 1.1.0
   description: "Contrat HTTP des 17 opérations métier (Auth.js exclu). ADR-004 : URL stables, pas de pagination.
-    Les refus historiques application/json restent transitoirement disponibles jusqu’à 2-485 ; les nouvelles
-    validations et le module OCR utilisent application/problem+json. Les permissions documentées ne dispensent
+    Toutes les erreurs métier utilisent application/problem+json (2-485), avec un code stable et un requestId.
+    Le membre error historique reste déprécié pour compatibilité, sans détail interne. Les permissions documentées ne dispensent
     pas des contrôles de sécurité ADR-001."
 security:
   - session: []
@@ -101,6 +101,12 @@ paths:
                 $ref: "#/components/schemas/ReceiptAnalysis"
         "400":
           description: Malformed UUID.
+          headers:
+            X-Request-Id: &requestIdHeader
+              required: true
+              schema:
+                type: string
+                format: uuid
           content:
             application/problem+json: &a2
               schema:
@@ -109,6 +115,8 @@ paths:
           $ref: "#/components/responses/Problem"
         "404":
           description: Analyse inconnue, étrangère ou expirée.
+          headers:
+            X-Request-Id: *requestIdHeader
           content:
             application/problem+json:
               schema:
@@ -509,11 +517,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Invitation"
         "400":
-          description: Missing or malformed email address; nothing written. Historical envelope until 2-485.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InvalidEmailError"
+          $ref: "#/components/responses/InvalidInput"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
         "403":
@@ -545,6 +549,8 @@ components:
   responses:
     Problem:
       description: Refus explicite ou erreur interne, sans fuite technique
+      headers:
+        X-Request-Id: *requestIdHeader
       content:
         application/problem+json:
           schema:
@@ -552,6 +558,7 @@ components:
     Unavailable:
       description: OCR_UNAVAILABLE, OCR_TIMEOUT ou OCR_OVERLOADED
       headers:
+        X-Request-Id: *requestIdHeader
         Retry-After:
           required: true
           schema:
@@ -563,42 +570,39 @@ components:
             $ref: "#/components/schemas/Problem"
     AuthenticationRequired:
       description: Authentication required.
+      headers:
+        X-Request-Id: *requestIdHeader
       content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/LegacyError"
         application/problem+json: *a2
     InternalError:
       description: Internal server error.
+      headers:
+        X-Request-Id: *requestIdHeader
       content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/LegacyError"
         application/problem+json: *a2
     InvalidInput:
       description: Invalid input; no write or upload.
+      headers:
+        X-Request-Id: *requestIdHeader
       content:
         application/problem+json: *a2
     ResourceNotFound:
       description: Resource not found or not visible; indistinguishable response.
+      headers:
+        X-Request-Id: *requestIdHeader
       content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/LegacyError"
         application/problem+json: *a2
     Forbidden:
       description: Role is not allowed.
+      headers:
+        X-Request-Id: *requestIdHeader
       content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/LegacyError"
         application/problem+json: *a2
     Conflict:
       description: "Resource conflict: ALREADY_DECIDED or INVALID_MANAGER."
+      headers:
+        X-Request-Id: *requestIdHeader
       content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/LegacyError"
         application/problem+json: *a2
   schemas:
     ReceiptSuggestion:
@@ -671,6 +675,7 @@ components:
               error: *a5
     Problem:
       type: object
+      additionalProperties: false
       required:
         - type
         - title
@@ -709,6 +714,7 @@ components:
             - FORBIDDEN
             - ALREADY_DECIDED
             - INVALID_MANAGER
+            - INVALID_EMAIL
         requestId:
           type: string
           format: uuid
@@ -753,16 +759,6 @@ components:
             - field: amount
               code: INVALID_AMOUNT
               message: The field does not satisfy the API contract.
-    LegacyError:
-      type: object
-      deprecated: true
-      required:
-        - error
-      properties:
-        error:
-          type: string
-      description: Enveloppe historique transitoire ; supprimée après migration 2-485. Aucun détail interne ne fait
-        partie du contrat public.
     Uuid:
       type: string
       format: uuid
@@ -933,24 +929,6 @@ components:
           description: Adresse du salarié invité, sans espaces autour ; mise en minuscules par le serveur.
       examples:
         - email: salarie@example.org
-    InvalidEmailError:
-      type: object
-      deprecated: true
-      additionalProperties: false
-      required:
-        - error
-        - code
-      properties:
-        error:
-          type: string
-        code:
-          type: string
-          const: INVALID_EMAIL
-      description: Enveloppe historique de l’invitation, comme LegacyError avec un code stable ; remplacée par
-        application/problem+json avec 2-485.
-      examples:
-        - error: Invalid email
-          code: INVALID_EMAIL
     Invitation:
       type: object
       additionalProperties: false
