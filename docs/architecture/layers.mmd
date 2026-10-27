@@ -47,7 +47,7 @@ flowchart TB
   m_app --> p_react
   m_app --> m_app_2f_actions
   m_app --> m_components
-  m_app -.->|"legacy"| m_composition
+  m_app --> m_composition
   m_app --> m_http
   m_app --> m_lib_2f_auth
   m_app_2f_actions --> p_next
@@ -122,7 +122,7 @@ flowchart TB
   m_worker --> m_lib_2f_outbox
   m_worker --> m_lib_2f_tokens
   m_worker --> m_ports
-  linkStyle 4,12,27,28,45 stroke:#ea580c,stroke-width:2px,color:#ea580c
+  linkStyle 4,27,28,45 stroke:#ea580c,stroke-width:2px,color:#ea580c
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
   class m_app,m_app_2f_actions,m_app_2f_api,m_app_2f_verify_2d_email,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827

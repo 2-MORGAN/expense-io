@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { analyze, readSources, README } from './architecture'
 import { edgeName } from './graph'
+import { fileImports } from './imports'
 import { readmeWith } from './mermaid'
 import { routeName } from './routes'
 
@@ -23,6 +24,10 @@ const read = (file: string): string | undefined => {
     return undefined
   }
 }
+
+// Directive en tête de fichier (commentaires et lignes vides tolérés avant).
+const isClientModule = (text: string): boolean =>
+  /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*['"]use client['"]/.test(text)
 
 const REGENERATE = 'régénérer avec npm run generate:architecture, relire le diff, puis le commiter'
 
@@ -44,6 +49,23 @@ describe('architecture du dépôt (docs/architecture)', () => {
   it('chaque fichier de src/ appartient à une couche, et chaque import se lit', () => {
     expect(analysis.layers.unclassified, 'déclarer la couche dans scripts/architecture/layers.ts').toEqual([])
     expect(analysis.layers.unsure, 'écrire le chemin de l’import en toutes lettres').toEqual([])
+  })
+
+  it('aucun fichier \'use client\' n’importe la composition (ADR-002 §3.3)', () => {
+    // La composition branche les adaptateurs (pg, S3…) : elle ne s'exécute que
+    // côté serveur. Seul un composant serveur appelle un cas d'usage.
+    const offenders = readSources(root)
+      .filter((file) => isClientModule(file.text))
+      .filter((file) => (fileImports(file.path, file.text) ?? []).some((spec) => spec.startsWith('@/composition')))
+      .map((file) => file.path)
+    expect(offenders, 'passer par une route fine ou un composant serveur').toEqual([])
+  })
+
+  it('reconnaît la directive \'use client\'', () => {
+    expect(isClientModule("'use client'\nimport x from 'y'\n")).toBe(true)
+    expect(isClientModule('// commentaire\n"use client"\n')).toBe(true)
+    expect(isClientModule("import x from 'y'\n'use client'\n")).toBe(false)
+    expect(isClientModule('export default function Page() {}\n')).toBe(false)
   })
 
   it('chaque exception de LEGACY_EDGES sert encore', () => {

@@ -61,7 +61,16 @@ export const LAYERS: readonly Layer[] = [
   { path: 'src/app/actions', group: 'entrees', may: HTTP_ENTRY },
   // Route hors de /api : le lien de vérification d'email (2-496).
   { path: 'src/app/verify-email', group: 'entrees', may: HTTP_ENTRY },
-  { path: 'src/app', group: 'entrees', label: 'app (pages)', may: [...UI, 'src/components', 'src/lib/auth', 'next-auth'] },
+  // Pages : un composant serveur est une entrée côté serveur, comme une server
+  // action ; il peut appeler un cas d'usage par la composition (ADR-002 §3.3,
+  // amendement du 27/10). Jamais depuis un fichier 'use client'
+  // (architecture.test.ts).
+  {
+    path: 'src/app',
+    group: 'entrees',
+    label: 'app (pages)',
+    may: [...UI, 'src/components', 'src/composition', 'src/lib/auth', 'next-auth'],
+  },
   { path: 'src/components', group: 'entrees', may: UI },
   { path: 'src/http', group: 'entrees', may: HTTP_ENTRY },
   { path: 'src/proxy', group: 'entrees', may: ['src/lib/auth', 'next', 'next-auth'] },
@@ -176,11 +185,6 @@ export const LEGACY_EDGES: readonly LegacyEdge[] = [
     from: 'src/adapters',
     to: 'src/http',
     why: 'PostgresExpenseNoteDecisionRepository renvoie le DTO HTTP (toExpenseNoteDto) : un adaptateur sortant ne dépend pas de la couche d’entrée',
-  },
-  {
-    from: 'src/app',
-    to: 'src/composition',
-    why: 'la page d’inscription lit l’invitation par la composition (2-496), alors que l’ADR-002 (§4) fait passer l’UI par une route fine. À confirmer par WS2',
   },
   {
     from: 'src/app/api',
