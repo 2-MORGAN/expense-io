@@ -805,7 +805,7 @@
       "post": {
         "operationId": "inviteEmployee",
         "summary": "RH : inviter un salarié à rejoindre son entreprise (S7, ADR-001 §3).",
-        "description": "Session required, hr_admin only. The invitation belongs to the caller's company, read in the database. An address is trimmed and lower-cased before use. Inviting an address that already has a pending invitation in the same company returns that invitation with a new expiry and invalidates the previous link. The email itself is sent asynchronously through the outbox.",
+        "description": "Session required, hr_admin only. The invitation belongs to the caller's company, read in the database. An address is trimmed and lower-cased before use. Inviting an address that already has a pending invitation in the same company returns that invitation with a new expiry and invalidates the previous link. The email itself is sent asynchronously through the outbox. Malformed JSON returns INVALID_JSON; a body outside CreateInvitation returns VALIDATION_ERROR; an address that does not satisfy the email format of the Invitation response returns INVALID_EMAIL.",
         "responses": {
           "201": {
             "description": "Invitation created or renewed; email queued.",

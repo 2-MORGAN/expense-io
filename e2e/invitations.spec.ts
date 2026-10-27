@@ -258,4 +258,34 @@ test.describe('API des invitations', () => {
       ).rejects.toMatchObject({ code: '42501' })
     })
   })
+
+  test('[INV-03] POST /api/hr/invitations : erreurs d’entrée uniformes et adresse conforme au contrat', async ({ org, apiAs }) => {
+    const hr = await apiAs(org.hr)
+    const invitations = async () =>
+      (await db().query<{ n: number }>('SELECT count(*)::int AS n FROM invitations WHERE company_id = $1', [org.company.id])).rows[0].n
+    const post = (data: unknown) => hr.request.post('/api/hr/invitations', { data })
+
+    // JSON malformé : même code que les autres opérations JSON (ADR-004 §6).
+    const malformed = await hr.request.post('/api/hr/invitations', {
+      headers: { 'Content-Type': 'application/json' },
+      data: '{"email": ',
+    })
+    expect(malformed.status()).toBe(400)
+    expect(await malformed.json()).toMatchObject({ code: 'INVALID_JSON' })
+
+    // Corps hors contrat : champ absent, mauvais type, corps qui n’est pas un objet.
+    for (const body of [{}, { email: 42 }, ['salarie@example.org']]) {
+      const response = await post(body)
+      expect(response.status(), JSON.stringify(body)).toBe(400)
+      expect(await response.json(), JSON.stringify(body)).toMatchObject({ code: 'VALIDATION_ERROR' })
+    }
+
+    // Adresses que le contrat refuserait en réponse 201 (format email) : refusées dès l’entrée.
+    for (const email of ['a..b@invite.e2e.test', '.a@invite.e2e.test', 'a(b)@invite.e2e.test', 'é@invite.e2e.test', 'a@-invite.e2e.test']) {
+      const response = await post({ email })
+      expect(response.status(), email).toBe(400)
+      expect(await response.json(), email).toMatchObject({ code: 'INVALID_EMAIL' })
+    }
+    expect(await invitations()).toBe(0)
+  })
 })

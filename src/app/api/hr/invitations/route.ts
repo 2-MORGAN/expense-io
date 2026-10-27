@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { withApiErrors } from '@/http/withApiErrors'
 import { problemResponse } from '@/http/problem'
 import { requireRole } from '@/http/requireRole'
+import { readJsonBody, validateInput } from '@/http/validation'
 import type { Invitation } from '@/http/dto'
 import { inviteEmployee } from '@/composition/identity'
 import { InvalidEmail } from '@/domain/identity/identity'
@@ -14,8 +15,10 @@ export const POST = withApiErrors('/api/hr/invitations', async function POST(req
   const actor = requireRole(session, 'hr_admin')
   if (actor instanceof Response) return actor
 
-  const body: unknown = await request.json().catch(() => null)
-  const email = typeof body === 'object' && body !== null && 'email' in body ? body.email : undefined
+  // Même ordre que les autres opérations JSON (ADR-004 §6) : JSON malformé →
+  // INVALID_JSON, corps hors contrat → VALIDATION_ERROR, puis la syntaxe de
+  // l'adresse par le domaine → INVALID_EMAIL.
+  const { email } = validateInput('CreateInvitation', await readJsonBody(request))
 
   try {
     const invitation = await inviteEmployee.execute(actor.id, email)
