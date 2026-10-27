@@ -3,6 +3,7 @@ import { closePool, configureDatabase } from '@/lib/db'
 import { checkDatabaseRole } from '@/lib/dbRole'
 import { buildHandlers } from '@/worker/handlers'
 import { describeError, log } from '@/worker/log'
+import { DEFAULT_STATS_INTERVAL_MS, runOutboxStats } from '@/worker/outboxStats'
 import { processNextEvent, type OutboxHandlers } from '@/worker/processNextEvent'
 import { runReceiptCleanup } from '@/worker/receiptAnalysis'
 import { runWorker } from '@/worker/runWorker'
@@ -58,7 +59,12 @@ async function main(): Promise<void> {
     signal: controller.signal,
     onError: (error) => log('error', 'worker.error', { error: describeError(error) }),
   }))
-  await Promise.all([...consumers, runReceiptCleanup(controller.signal)])
+  const statsIntervalMs = Number(process.env.OUTBOX_STATS_INTERVAL_MS ?? DEFAULT_STATS_INTERVAL_MS)
+  await Promise.all([
+    ...consumers,
+    runReceiptCleanup(controller.signal),
+    runOutboxStats(controller.signal, Number.isFinite(statsIntervalMs) && statsIntervalMs > 0 ? statsIntervalMs : DEFAULT_STATS_INTERVAL_MS),
+  ])
 
   await closePool()
   log('info', 'worker.stopped')

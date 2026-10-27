@@ -35,6 +35,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 | Reçus orphelins sur S3 (2-476) | `npm run reconcile:orphan-receipts` (dry-run) · `npm run reconcile:orphan-receipts -- --execute` |
 | Nettoyage unique des notes sans reçu (2-476) | `npm run clean:notes-without-receipt` (dry-run) · `npm run clean:notes-without-receipt -- --execute --out <dossier>` |
 | Worker (outbox : analyse OCR, puis emails) | lancé par `npm run dev` / `make dev` ; seul : `make worker` · `npm run worker` |
+| Graphes d'architecture, et leur recopie avec les vues dans la doc des développeurs (`docs/index.html`) | `npm run generate:architecture` |
 | Build prod | `npm run build` |
 | Reset des données locales | `make clean` |
 
@@ -82,11 +83,12 @@ src/
 ├── ports/                   # stockage, OCR, analyses, exécution et outbox
 ├── adapters/                # S3, Tesseract isolé, SMTP, notifications et persistance PostgreSQL
 ├── utils/                   # validators.ts, format.ts
-├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), processNextEvent.ts
+├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), processNextEvent.ts, outboxStats.ts (métriques)
 ├── instrumentation.ts       # journalise les erreurs captées par Next.js (onRequestError)
 └── proxy.ts                 # garde de navigation (ne couvre PAS /api)
 migrations/                  # SQL versionné — seule source de vérité du schéma
-scripts/                     # seed.mjs, ensure-bucket.mjs, architecture/ (graphes de docs/architecture)
+scripts/                     # seed.mjs, ensure-bucket.mjs, architecture/ (graphes de docs/architecture, page docs/index.html), check-api-breaking.sh (oasdiff)
+ops/cron/                    # tâches planifiées à installer sur l'hôte (réconciliation des reçus)
 ```
 
 Règles de placement pour tout **nouveau** code :
@@ -105,6 +107,28 @@ Règles de placement pour tout **nouveau** code :
 Le lint applique aussi les règles de SonarQube (`eslint-plugin-sonarjs`) : bugs, failles (regex au temps super-linéaire, donc ReDoS ; secrets en dur ; cookies ; cryptographie…) et code fragile. Leurs constats dans le code existant sont figés dans `eslint-suppressions.json`, par fichier et par règle. Un nouveau constat fait échouer le lint : corriger le code. Après une correction, la suppression devenue inutile fait aussi échouer le lint : `npx eslint --prune-suppressions` la retire, et le fichier se commite avec la correction. Ce fichier ne fait que raccourcir.
 
 Les graphes de [`docs/architecture/`](docs/architecture/README.md) complètent le lint. Le test `scripts/architecture/architecture.test.ts` (dans `npm run check`) vérifie la matrice entière des couches (`scripts/architecture/layers.ts`, ADR-002 §3.3) et la garde de chaque méthode de route, puis compare les graphes Mermaid versionnés au code. Un graphe qui a dérivé se régénère avec `npm run generate:architecture` et se commite avec le code. Une flèche interdite ou une route sans garde se corrigent dans le code, jamais en régénérant ni en ajoutant une exception (`LEGACY_EDGES` et `PUBLIC_ROUTES` ne font que raccourcir). Une nouvelle couche ou un nouveau droit se justifient dans la PR.
+
+## Documentation développeur
+
+[`docs/index.html`](docs/index.html) est la doc d'accueil des développeurs : services et processus, architecture du code, parcours clés, données, API, choix d'architecture et ADR, en schémas. Elle s'ouvre dans un navigateur. Ses schémas sont des fichiers Mermaid versionnés dans `docs/architecture/` : `layers.mmd` et `routes.mmd`, générés depuis le code, et les vues écrites à la main de `docs/architecture/vues/`. `npm run generate:architecture` les recopie dans la page, entre leurs marqueurs `<!-- début : … -->` et `<!-- fin : … -->`.
+
+**La doc fait partie du changement.** Tout agent (et tout humain) qui modifie le code met à jour la page et ses vues **dans la même PR**, sans attendre qu'on le demande :
+
+| Si le changement… | Mettre à jour |
+|---|---|
+| change un import entre couches, une couche, une route ou sa garde | `npm run generate:architecture`, relire le diff ; le texte de la section si le sens change |
+| ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement | `vues/systeme.mmd`, `vues/hexagone.mmd` ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs » |
+| modifie un parcours : soumission, décision, outbox, OCR, inscription, invitation, session | la vue de séquence correspondante et le texte de « Parcours clés » |
+| ajoute une migration : table, colonne, policy, rôle, fonction `SECURITY DEFINER` | `vues/schema.mmd` et « Données et isolation » |
+| ajoute un type d'événement de l'outbox | le tableau des événements et `vues/outbox.mmd` |
+| change une opération HTTP ou un code d'erreur | « API et contrat », après `openapi.yaml` |
+| ajoute une ADR ou change son statut | sa fiche (`id="adr-NNN"`) dans « Les ADR », `vues/adr.mmd`, et « Choix d'architecture » si un choix change |
+| change une commande, un script npm, un hook ou la CI | « Démarrer », « Harnais de validation », `vues/harnais.mmd` |
+| solde ou crée une dette | « Dette connue » et la fiche de l'ADR concernée |
+
+- Une vue se modifie dans son `.mmd`, jamais entre ses marqueurs dans la page : la recopie l'écraserait. Le texte de la page se modifie directement. Nouvelle vue : créer `docs/architecture/vues/nom.mmd`, placer ses marqueurs dans une figure de la page, puis `npm run generate:architecture`.
+- `npm run check` échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou un marqueur plus de schéma, si une ADR de `docs/adr/` n'a pas sa fiche, si `vues/schema.mmd` n'a pas exactement les tables des migrations, si un type d'événement de l'outbox n'est pas cité, ou si un script externe est chargé sans empreinte SRI (`integrity`, `crossorigin`). Le reste du texte ne se vérifie pas : le tableau ci-dessus fait foi.
+- Rien dans le tableau ne change (correctif local, test, refacto sans effet visible) : le dire dans la rubrique « Documentation » de la PR. Ce qui n'est plus vrai se corrige ou se retire : une doc fausse est pire qu'une doc absente.
 
 ## Conventions
 
@@ -141,7 +165,7 @@ Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 - Création de NDF : reçu stocké d'abord puis une seule transaction (2-476 étape 1, `SubmitExpenseNote`) ; renvoi sans doublon par `Idempotency-Key` (étape 2, colonnes `idempotency_key` et `request_fingerprint`) ; nettoyage de l'existant (étape 3) : contrainte `CHECK (receipt_key <> '')` posée `NOT VALID` par migration, puis `npm run clean:notes-without-receipt` (dry-run par défaut ; `-- --execute --out <dossier>` exporte en CSV, supprime les notes `pending` sans reçu, garde les décidées pour la RH et valide la contrainte quand il n'en reste plus). Réconciliation des objets orphelins (bonus) : `npm run reconcile:orphan-receipts` (dry-run par défaut ; `-- --execute` supprime les objets de `receipts/` non référencés par une note ni une analyse OCR et vieux de plus de 24 h), à planifier une fois par jour après un premier dry-run relu. Les bornes OCR et son parcours asynchrone, branché sur le socle commun de l'outbox (2-484), sont décrits dans `docs/ocr.md`.
 - Contrat global dans `openapi.yaml`, types et JSON de validation générés (2-486). Erreurs communes sans détail interne et traductions front (2-485), logger serveur de 2-490 réutilisé.
 
-Déjà corrigé : notifications par email de la soumission (approbateur) et de la décision (soumetteur), émises dans la transaction de la note via l'outbox (2-484, `src/adapters/PgNotificationEvents.ts`, handlers dans `src/worker/notificationHandlers.ts`) ; codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489) ; OCR : montant lu sur la dernière ligne de total chiffrée, « TTC » en priorité, et description suggérée (nom du commerçant), règles pures dans `src/domain/receipt/parseReceiptText.ts` (PR #17) ; sécurité WS1 (2-471) : tri `?sort=` par liste blanche (S1), reçu manager limité à son équipe (S2), rattachement limité aux managers de l'entreprise (S3), `AUTH_SECRET` lu dans l'environnement (S5) ; identité (2-496) : invitations par la RH et vérification d'email du créateur, le domaine ne donne plus aucun droit (S7), rôle relu en base à chaque requête et session de 8 h d'inactivité (S9) ; isolation par la base (S4, 2-478 puis 2-481) : l'application se connecte sous `expense_app` et le worker sous `expense_worker`, soumis à la RLS, le propriétaire ne sert qu'aux migrations et au seed (`MIGRATION_DATABASE_URL`), et chaque processus refuse de démarrer en production sous un rôle superuser ou `BYPASSRLS` (tests ISO-07, ISO-10, ISO-11).
+Déjà corrigé : notifications par email de la soumission (approbateur) et de la décision (soumetteur), émises dans la transaction de la note via l'outbox (2-484, `src/adapters/PgNotificationEvents.ts`, handlers dans `src/worker/notificationHandlers.ts`) ; codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489) ; OCR : montant lu sur la dernière ligne de total chiffrée, « TTC » en priorité, et description suggérée (nom du commerçant), règles pures dans `src/domain/receipt/parseReceiptText.ts` (PR #17) ; sécurité WS1 (2-471) : tri `?sort=` par liste blanche (S1), reçu manager limité à son équipe (S2), rattachement limité aux managers de l'entreprise (S3), `AUTH_SECRET` lu dans l'environnement (S5) ; identité (2-496) : invitations par la RH et vérification d'email du créateur, le domaine ne donne plus aucun droit (S7), rôle relu en base à chaque requête et session de 8 h d'inactivité (S9) ; isolation par la base (S4, 2-478 puis 2-481) : l'application se connecte sous `expense_app` et le worker sous `expense_worker`, soumis à la RLS, le propriétaire ne sert qu'aux migrations et au seed (`MIGRATION_DATABASE_URL`), et chaque processus refuse de démarrer en production sous un rôle superuser ou `BYPASSRLS` (tests ISO-07, ISO-10, ISO-11). Garde-fous d'exploitation (27/10) : `AUTH_SECRET` vérifié au démarrage, refus en production s'il est absent, court ou d'exemple (`src/lib/authSecret.ts`, CONF-01) ; limite de tentatives de connexion par email et par IP, 429 + `Retry-After` sur l'API d'Auth.js (`src/lib/loginThrottle.ts`, table `login_attempts` accessible seulement par fonctions `SECURITY DEFINER`, AUTH-11) ; métriques dérivées des logs `ocr.request` et `outbox.stats` (OBS-01) ; contrat d'API sans rupture vérifié par oasdiff en CI (`make api-breaking`) ; réconciliation des reçus planifiée dans `ops/cron/`.
 
 Ne pas « corriger au passage » un de ces points dans une PR sans rapport : ouvrir un sujet dédié. Constats détaillés : [`docs/audit/`](docs/audit/) ; décisions : [`docs/adr/`](docs/adr/) ; tickets : projet Linear ARLA, jalon J4.
 
@@ -153,3 +177,4 @@ Ne pas « corriger au passage » un de ces points dans une PR sans rapport : ouv
 4. Écrire ou mettre à jour les tests avec le code. Un bug corrigé = un test qui échoue avant, passe après.
 5. Rester dans le périmètre demandé : pas de refacto opportuniste, pas de fichiers superflus.
 6. En cas de doute d'architecture, proposer plusieurs options avec leurs compromis plutôt que trancher en silence ; une décision structurante appelle une ADR.
+7. Mettre à jour la doc des développeurs (`docs/index.html` et ses vues) dans le même changement que le code : « Documentation développeur » ci-dessus.

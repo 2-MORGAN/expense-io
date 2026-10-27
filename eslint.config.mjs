@@ -48,6 +48,8 @@ export const SYSTEM_TRANSACTION_ALLOWED = [
   'src/adapters/PostgresReceiptAnalysisWork.ts',
   'src/adapters/PostgresAccountRegistry.ts',
   'src/lib/auth.ts',
+  // Limite de tentatives de connexion, lue avant toute session (AUTH-11).
+  'src/lib/loginThrottle.ts',
   'e2e/**',
 ]
 

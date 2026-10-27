@@ -1,0 +1,26 @@
+flowchart LR
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  yaml["openapi.yaml<br/>OpenAPI 3.1, source de vérité"]
+  generate["npm run generate:api"]
+  types["src/types/api.d.ts<br/>types TypeScript"]
+  json["src/generated/<br/>api-contract.json, receipt-policy.json"]
+  http["src/http<br/>validation Ajv, problem+json, DTO"]
+  screens["Écrans<br/>types partagés, apiError.ts<br/>traduit les codes en français"]
+  check["npm run check:api<br/>lint Redocly, artefacts à jour,<br/>couverture méthode + chemin"]
+  e2e["E2E : withContractChecks()<br/>chaque réponse API conforme"]
+
+  yaml --> generate
+  generate --> types & json
+  types --> http & screens
+  json --> http
+  yaml -.-> check
+  yaml -.-> e2e
+
+  classDef source fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef generated fill:#f3f4f6,stroke:#6b7280,color:#111827,stroke-dasharray: 5 5
+  classDef verify fill:#fee2e2,stroke:#dc2626,color:#111827
+  class yaml source
+  class types,json generated
+  class check,e2e verify

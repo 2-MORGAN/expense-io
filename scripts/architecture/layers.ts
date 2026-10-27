@@ -74,8 +74,8 @@ export const LAYERS: readonly Layer[] = [
   { path: 'src/components', group: 'entrees', may: UI },
   { path: 'src/http', group: 'entrees', may: HTTP_ENTRY },
   { path: 'src/proxy', group: 'entrees', may: ['src/lib/auth', 'next', 'next-auth'] },
-  // Contrôle du rôle de base au démarrage du serveur (2-481).
-  { path: 'src/instrumentation', group: 'entrees', may: ['src/lib/dbRole', 'src/lib/log', 'next'] },
+  // Contrôles au démarrage du serveur : secret des sessions (S5, CONF-01) et rôle de base (2-481).
+  { path: 'src/instrumentation', group: 'entrees', may: ['src/lib/authSecret', 'src/lib/dbRole', 'src/lib/log', 'next'] },
   { path: 'src/types', group: 'entrees', may: ['next-auth'] },
   // Le worker est un processus à part, adaptateur entrant de l'outbox : il
   // fait aussi sa propre composition (ADR-003).
@@ -149,8 +149,19 @@ export const LAYERS: readonly Layer[] = [
   {
     path: 'src/lib/auth',
     group: 'infra',
-    may: ['src/domain', 'src/lib/authErrors', 'src/lib/db', 'src/lib/log', 'src/lib/sessionUser', 'next-auth'],
+    may: [
+      'src/domain',
+      'src/lib/authErrors',
+      'src/lib/db',
+      'src/lib/log',
+      'src/lib/loginThrottle',
+      'src/lib/sessionUser',
+      'next',
+      'next-auth',
+    ],
   },
+  // Refus de démarrer avec un secret de session absent, faible ou d'exemple (S5, CONF-01).
+  { path: 'src/lib/authSecret', group: 'infra', may: ['src/lib/log'] },
   // Échec de connexion d'un email non vérifié (2-496), partagé avec l'action de connexion.
   { path: 'src/lib/authErrors', group: 'infra', may: ['next-auth'] },
   { path: 'src/lib/db', group: 'infra', may: ['src/lib/log', 'pg'] },
@@ -161,6 +172,8 @@ export const LAYERS: readonly Layer[] = [
   // Réponses d'erreur HTTP : peut reprendre celles de src/http (ADR-004).
   { path: 'src/lib/errors', group: 'infra', may: ['src/http', 'src/lib/log', 'next'] },
   { path: 'src/lib/log', group: 'infra', may: [] },
+  // Limite de tentatives de connexion, compteurs en base (AUTH-11, ADR-001 §4 point 3).
+  { path: 'src/lib/loginThrottle', group: 'infra', may: ['src/lib/db'] },
   { path: 'src/lib/outbox', group: 'infra', may: ['src/domain', 'src/lib/db', 'src/lib/log', 'src/ports', 'pg'] },
   // Rôle de la session relu en base à chaque auth() (2-496, S9).
   { path: 'src/lib/sessionUser', group: 'infra', may: ['src/domain', 'src/lib/db', 'react'] },

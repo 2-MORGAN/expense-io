@@ -1,0 +1,42 @@
+flowchart LR
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  subgraph sgEntrees["Entrées"]
+    direction TB
+    routes["route.ts /api/**<br/>+ src/http"]
+    actions["Server actions<br/>src/app/actions"]
+    serverPages["Pages serveur<br/>src/app"]
+    worker["Worker<br/>src/worker"]
+  end
+
+  composition["Composition<br/>src/composition"]
+
+  subgraph sgCoeur["Cœur : sans infrastructure"]
+    direction TB
+    usecases["Cas d'usage<br/>src/application"]
+    ports["Ports<br/>src/ports"]
+    domain["Domaine<br/>src/domain"]
+  end
+
+  subgraph sgInfra["Infrastructure"]
+    direction TB
+    adapters["Adaptateurs<br/>src/adapters"]
+    lib["src/lib<br/>db · auth · storage<br/>outbox · log"]
+  end
+
+  routes & actions & serverPages & worker --> composition
+  composition -->|"instancie"| usecases
+  composition -->|"injecte"| adapters
+  usecases --> ports
+  usecases --> domain
+  ports --> domain
+  adapters -.->|"implémentent"| ports
+  adapters --> lib
+
+  classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
+  class routes,actions,serverPages,worker entree
+  class usecases,domain,ports coeur
+  class composition,adapters,lib infra

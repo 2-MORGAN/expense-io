@@ -1,0 +1,30 @@
+sequenceDiagram
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  autonumber
+  actor B as Navigateur
+  participant A as /api/<br/>receipt-analyses
+  participant S3 as S3
+  participant DB as PostgreSQL
+  participant W as Worker
+  participant E as Moteur OCR
+
+  B->>A: POST receipt<br/>+ Idempotency-Key
+  A->>A: 10 Mio, 40 Mpx,<br/>contenu inspecté
+  A->>S3: PutObject
+  A->>DB: analyse queued<br/>+ receipt.analysis.requested
+  A-->>B: 202 + Location
+  par Le navigateur interroge
+    loop toutes les 300 ms, 75 s au plus
+      B->>A: GET …/{id}
+      A-->>B: queued, running,<br/>succeeded ou failed
+    end
+  and Le worker traite
+    W->>DB: prend l'événement
+    W->>S3: lit le reçu
+    W->>E: image, 15 s par essai
+    E-->>W: texte
+    W->>W: parseReceiptText
+    W->>DB: succeeded + résultat
+  end
+  B->>B: préremplit le formulaire

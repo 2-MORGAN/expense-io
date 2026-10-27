@@ -1,0 +1,23 @@
+flowchart BT
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  subgraph tenant["Une entreprise = un tenant (table companies)"]
+    hr["RH · hr_admin<br/>invite, rattache les managers,<br/>tranche les notes des managers racines"]
+    root["Manager racine · manager<br/>manager_id NULL"]
+    mgr["Manager · manager<br/>rattaché à un manager"]
+    emp1["Employé · employee"]
+    emp2["Employé · employee"]
+  end
+
+  emp1 -->|"soumet à son manager direct"| root
+  emp2 -->|"soumet à son manager direct"| mgr
+  mgr -->|"soumet à son manager direct"| root
+  root -->|"sans manager : la RH tranche"| hr
+
+  classDef rh fill:#fce7f3,stroke:#be185d,color:#111827
+  classDef manager fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef employe fill:#dcfce7,stroke:#16a34a,color:#111827
+  class hr rh
+  class root,mgr manager
+  class emp1,emp2 employe

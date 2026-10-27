@@ -1,0 +1,18 @@
+stateDiagram-v2
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  direction LR
+
+  state "pending (dû)" as due
+  state "pending (pris en charge)" as leased
+  state "sent" as sent
+  state "dead (DLQ)" as dead
+
+  [*] --> due: INSERT dans la transaction métier
+  due --> leased: attempts + 1, bail de 5 min
+  leased --> sent: traitement réussi
+  leased --> due: échec, relance différée
+  leased --> due: worker arrêté, le bail expire
+  leased --> dead: essais épuisés ou NonRetryableError
+  sent --> [*]
+  dead --> [*]
