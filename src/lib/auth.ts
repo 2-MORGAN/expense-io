@@ -1,7 +1,7 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
-import { getPool } from '@/lib/db'
+import { withSystemTransaction } from '@/lib/db'
 import { EmailNotVerified } from '@/lib/authErrors'
 import { loadSessionUser } from '@/lib/sessionUser'
 
@@ -30,15 +30,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           typeof credentials?.password === 'string' ? credentials.password : null
         if (!email || !password) return null
 
-        const result = await getPool().query<{
+        // Avant toute session : pas d'utilisateur à poser en contexte. La
+        // fonction `auth_find_user` (SECURITY DEFINER) rend la seule ligne de
+        // cet email ; le rôle de l'application n'a aucun droit sur
+        // `password_hash` (ADR-001 §4, 2-481).
+        const result = await withSystemTransaction((client) => client.query<{
           id: string
           email: string
           password_hash: string
           role: 'employee' | 'manager' | 'hr_admin'
           email_verified_at: Date | null
-        }>('SELECT id, email, password_hash, role, email_verified_at FROM users WHERE email = $1', [
+        }>('SELECT id, email, password_hash, role, email_verified_at FROM auth_find_user($1)', [
           email,
-        ])
+        ]))
         const user = result.rows[0]
         if (!user) return null
 
