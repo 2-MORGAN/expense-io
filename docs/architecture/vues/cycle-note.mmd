@@ -1,0 +1,21 @@
+stateDiagram-v2
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  direction LR
+
+  [*] --> pending: création (201)
+  pending --> approved: approve
+  pending --> rejected: reject
+  approved --> [*]
+  rejected --> [*]
+
+  note right of pending
+    expense_note.submitted,
+    dans la transaction de la note
+  end note
+
+  note right of rejected
+    Une seule décision, puis 409.
+    expense_note.decided,
+    decided_by et decided_at
+  end note

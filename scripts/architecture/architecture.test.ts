@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { analyze, readSources, README } from './architecture'
+import { DATA_VIEW, DIAGRAMS, DOC_PAGE, docGaps, pageDiagrams, pageWith, readDocInputs, readViews } from './docs'
 import { edgeName } from './graph'
 import { fileImports } from './imports'
 import { readmeWith } from './mermaid'
@@ -12,10 +13,13 @@ import { routeName } from './routes'
 // comparés octet pour octet aux fichiers versionnés : un import entre couches
 // ou une route qui change sans que son graphe suive fait échouer ce test. Les
 // autres vérifications ne se règlent pas en régénérant : une flèche interdite
-// ou une route sans garde restent rouges (docs/architecture/README.md).
+// ou une route sans garde restent rouges (docs/architecture/README.md). La
+// page des développeurs (docs/index.html) recopie ces graphes et les vues
+// écrites à la main, et présente chaque ADR, table et type d'événement.
 
 const root = process.cwd()
-const analysis = analyze(readSources(root))
+const sources = readSources(root)
+const analysis = analyze(sources)
 
 const read = (file: string): string | undefined => {
   try {
@@ -81,6 +85,38 @@ describe('architecture du dépôt (docs/architecture)', () => {
 
   it('chaque route publique déclarée existe', () => {
     expect(analysis.routes.stalePublic, 'retirer l’entrée de PUBLIC_ROUTES').toEqual([])
+  })
+})
+
+describe(`page des développeurs (${DOC_PAGE})`, () => {
+  const page = read(DOC_PAGE) ?? ''
+  const diagrams = pageDiagrams(analysis.graphs, readViews(root))
+  const gaps = docGaps(page, diagrams, readDocInputs(root, sources))
+
+  it('chaque schéma a ses marqueurs dans la page, chaque marqueur son schéma', () => {
+    expect(gaps.unplaced, `placer <!-- début : nom.mmd --> et <!-- fin : nom.mmd --> dans la page, puis ${REGENERATE}`).toEqual([])
+    expect(gaps.staleMarkers, 'retirer les marqueurs de la page, ou rétablir le schéma').toEqual([])
+  })
+
+  it('recopie les schémas à jour', () => {
+    expect(page, `${DOC_PAGE} : ${REGENERATE}`).toBe(pageWith(page, diagrams))
+  })
+
+  it('charge ses scripts externes avec une empreinte SRI', () => {
+    expect(gaps.scripts, 'ajouter integrity="sha384-…" et crossorigin="anonymous" (commande en commentaire dans la page)').toEqual([])
+  })
+
+  it('présente chaque ADR de docs/adr', () => {
+    expect(gaps.adrs, 'ajouter sa fiche (id="adr-NNN") à la section ADR de la page').toEqual([])
+  })
+
+  it('le schéma des données a chaque table des migrations, et rien d’autre', () => {
+    expect(gaps.tables, `ajouter la table à ${DIAGRAMS}/${DATA_VIEW}`).toEqual([])
+    expect(gaps.staleEntities, `retirer l’entité de ${DIAGRAMS}/${DATA_VIEW}`).toEqual([])
+  })
+
+  it('cite chaque type d’événement de l’outbox', () => {
+    expect(gaps.events, 'le décrire dans la section « L’outbox et le worker » de la page').toEqual([])
   })
 })
 

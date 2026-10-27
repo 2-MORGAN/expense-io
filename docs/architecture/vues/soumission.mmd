@@ -1,0 +1,28 @@
+sequenceDiagram
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  autonumber
+  actor F as Employé
+  participant R as POST<br/>/api/expense-notes
+  participant U as SubmitExpenseNote
+  participant S3 as S3
+  participant DB as PostgreSQL
+
+  F->>R: multipart<br/>+ Idempotency-Key
+  R->>R: garde 401, contrat 400,<br/>contenu réel du reçu
+  R->>U: execute(userId, input)
+  opt clé déjà vue
+    U->>DB: note de cette clé
+    U-->>R: même contenu : cette note (201)<br/>autre contenu : 422
+  end
+  U->>DB: company_id
+  U->>U: noteId = randomUUID()<br/>receipts/{companyId}/{noteId}
+  U->>S3: PutObject
+  Note over U,S3: échec : 500, aucune ligne
+  U->>DB: une transaction : la note<br/>+ expense_note.submitted
+  alt la transaction échoue
+    U->>DB: la note existe-t-elle ?
+    U->>S3: DeleteObject si absente
+  end
+  U-->>R: note créée
+  R-->>F: 201 ExpenseNote
