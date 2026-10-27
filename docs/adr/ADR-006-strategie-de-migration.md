@@ -57,11 +57,11 @@ Les trois patterns ne répondent pas au même besoin. On choisit **par type de c
    1. **URL de reçu** d'abord : ce sont des données sensibles (constat S2, règle 6 de `CLAUDE.md`), et c'est le seul endroit qui appelle `lib/storage` sans port. Un cas d'usage par rôle lit la note visible et demande l'URL à `ReceiptStoragePort`. La flèche `app/api → lib/storage` disparaît.
    2. **Listes** ensuite : la lecture passe par un repository. Le tri par liste blanche y descend, ce qui vide `LEGACY_SQL_INTERPOLATION`.
 
-   La migration est **terminée** quand `LEGACY_DB_ACCESS`, `LEGACY_SQL_INTERPOLATION` et `LEGACY_EDGES` sont vides. Ce critère se lit dans le code. `scripts/architecture/architecture.test.ts` échoue déjà sur une exception de `LEGACY_EDGES` qui ne sert plus ; les listes du lint, elles, ne détectent pas une entrée périmée, d'où l'obligation de la retirer dans la PR de la route.
+   La migration est **terminée** quand `LEGACY_DB_ACCESS`, `LEGACY_SQL_INTERPOLATION` et `LEGACY_EDGES` sont vides. Ce critère se vérifie en continu : `eslint.config.test.ts` échoue sur une entrée de `LEGACY_DB_ACCESS` ou de `LEGACY_SQL_INTERPOLATION` qui n'enfreint plus la règle, et `scripts/architecture/architecture.test.ts` sur une exception de `LEGACY_EDGES` qui ne sert plus. La PR de la route doit donc retirer ses entrées.
 2. **Remplacement d'une dépendance externe → Branch by Abstraction (B)**, par les ports existants. Le choix de l'adaptateur se fait dans `src/composition/` d'après une variable d'environnement, avec l'adaptateur actuel par défaut. Cela vaut pour l'OCR (Tesseract → IA externe), le stockage, l'email et la future facturation (`BillingPort`, abonné à `note.approved`, ADR-002 §5).
 3. **Big Bang (C) : écarté.** Il n'est retenu pour aucune étape. Le périmètre restant (6 routes en lecture) se découpe sans difficulté.
 
-Contre la **migration sans fin** : les listes `LEGACY_*` ne font que raccourcir (`CLAUDE.md`, vérifié en revue), chaque étape a son ticket et le critère de fin ci-dessus se lit dans le code.
+Contre la **migration sans fin** : les listes `LEGACY_*` ne font que raccourcir (`CLAUDE.md` ; un ajout se refuse en revue, une entrée périmée fait échouer les tests), chaque étape a son ticket et le critère de fin ci-dessus est vérifié par `npm run check`.
 
 Hors périmètre : l'international (une instance par région, ADR-001) relève du déploiement, pas d'une migration de code.
 
@@ -72,6 +72,7 @@ Hors périmètre : l'international (une instance par région, ADR-001) relève d
 - **Risque** : une PR qui migre une route et change en même temps son comportement. Parade : contrat inchangé, E2E de la famille verts sans modification (ADR-005 §2).
 - **Dette soldée par l'application de cette ADR** : la fin d'A1 et d'A2 (audit WS2) pour les routes.
 - **Tickets à créer** : (a) URL de reçu par cas d'usage et `ReceiptStoragePort` ; (b) listes par repository ; (c) choix de l'adaptateur par variable d'environnement dans `src/composition/`.
+- **État au 27/10** : (a) et (b) appliquées dans 2-536 (cas d'usage `GetReceiptUrl` et `ListExpenseNotes`). `LEGACY_DB_ACCESS`, `LEGACY_SQL_INTERPOLATION` et `LEGACY_EDGES` sont vides : la migration des routes est terminée. Contrat vérifié identique avant et après (statuts, ordre, corps JSON), suite E2E complète verte sans modification.
 
 ## Comportement observable
 
@@ -79,6 +80,6 @@ Aucun changement.
 
 ## Vérification
 
-- `npm run lint` : un fichier retiré de `LEGACY_DB_ACCESS` qui accède encore à la base fait échouer le lint. Un ajout à une liste `LEGACY_*` se voit dans le diff et se refuse en revue.
+- `npm run lint` : un fichier retiré de `LEGACY_DB_ACCESS` qui accède encore à la base fait échouer le lint. `eslint.config.test.ts` : une entrée de liste qui n'enfreint plus la règle fait échouer le test. Un ajout se voit dans le diff et se refuse en revue.
 - `scripts/architecture/architecture.test.ts` (dans `npm run check`) : une flèche interdite fait échouer le test, une exception de `LEGACY_EDGES` qui ne sert plus aussi.
 - E2E de la famille migrée, par ID (tableau du contexte), verts sans modification dans la PR.
