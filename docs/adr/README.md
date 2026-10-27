@@ -28,4 +28,11 @@ Décisions du PO (23/10/2026) :
 - **Notifications (PR #16) après 2-476** ; ordre de fusion : #11 → #14 → #15 → 2-476 → #16 → #13 → #17.
 - **2-481** livre aussi le rôle du worker et ses garde-fous (ADR-001, point de coordination).
 
+Mises à jour du 27/10/2026 (garde-fous d'exploitation, livrés) :
+
+- **ADR-001 §4** : `AUTH_SECRET` vérifié au démarrage (CONF-01) et procédure de rotation ; limite de tentatives de connexion, 429 + `Retry-After` sur l'API (AUTH-11).
+- **ADR-003** : métriques `ocr_requests_total{outcome}` et état de l'outbox dérivés des logs (T9, OBS-01) ; réconciliation quotidienne planifiée dans `ops/cron/` (T5).
+- **ADR-004 §7.1** : absence de rupture du contrat vérifiée par oasdiff dans la CI.
+- **ADR-005 §5** : métriques dérivées des logs ajoutées au périmètre ; traces distribuées toujours hors périmètre.
+
 Constats d'audit référencés par les ADR : [`docs/audit/`](../audit/).

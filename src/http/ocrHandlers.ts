@@ -6,19 +6,26 @@ import type { ReceiptAnalysis } from '@/ports/ReceiptAnalysisRepository'
 import { readReceipt } from './readReceipt'
 import { withApiErrors } from './withApiErrors'
 import { problemBody } from './problem'
+import { ocrErrorOutcome, ocrSuccessOutcome, recordOcrRequest } from './ocrMetrics'
 import type { components } from '@/types/api'
 
 export const suggest = withApiErrors('/api/expense-notes/receipt-suggestion', async function suggest(request: Request) {
   let reservation: ReturnType<typeof ocrCapacity.reserve> | undefined
+  const actor = requireRole(await auth())
+  if (actor instanceof Response) return actor
+  // Compté à partir d'ici : une requête sans session n'est pas un appel OCR.
+  const startedAt = performance.now()
   try {
-    const actor = requireRole(await auth())
-    if (actor instanceof Response) return actor
     reservation = ocrCapacity.reserve(request.signal)
     const receipt = await readReceipt(request, reservation.signal, { allowUnsupported: true })
     return await reservation.run(async (signal) => {
       const result = await ocrRequests.suggest(actor.id, receipt, signal)
+      recordOcrRequest(ocrSuccessOutcome(result), startedAt)
       return Response.json(result)
     })
+  } catch (error) {
+    recordOcrRequest(ocrErrorOutcome(error), startedAt)
+    throw error
   } finally { reservation?.release() }
 })
 

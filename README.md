@@ -87,7 +87,10 @@ sort de la machine.
 ### Variables d'environnement
 
 [`.env.example`](.env.example) fait foi ; `make dev` le copie en `.env` et y
-génère les mots de passe des rôles de base. Chaque processus a son rôle
+génère `AUTH_SECRET` et les mots de passe des rôles de base. En production, le
+serveur refuse de démarrer si `AUTH_SECRET` est absent, fait moins de 32
+caractères ou vaut la valeur d'exemple (CONF-01). Rotation du secret : le
+remplacer et redémarrer ; toutes les sessions sont invalidées. Chaque processus a son rôle
 PostgreSQL (2-481) : l'application `expense_app` (`DATABASE_URL`), le worker
 `expense_worker` (`WORKER_DATABASE_URL`), les migrations et le seed le
 propriétaire (`MIGRATION_DATABASE_URL`). `npm run migrate:up` pose sur la base
@@ -112,7 +115,7 @@ Ce qui tourne sans qu'on le demande ([ADR-005](docs/adr/ADR-005-harnais-de-valid
 |---|---|
 | `git commit` | ESLint (hook pre-commit) |
 | `git push` | `npm run check` (hook pre-push) |
-| PR vers `main`, push sur `main` | CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) : `check` (lint, types, tests unitaires, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner |
+| PR vers `main`, push sur `main` | CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) : `check` (lint, types, tests unitaires, contrat d'API sans rupture avec oasdiff sur les PR, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner |
 | Avec Claude Code | les hooks de [`.claude/settings.json`](.claude/settings.json) refusent `--no-verify`, le push sur `main`, le force-push et `eslint --suppress-all`, et lancent `npm run check` en fin de tour si du code a changé |
 
 Les hooks git s'installent avec `npm install`.
@@ -126,6 +129,23 @@ pré-signée (ADR-005 §5) ; Next.js affiche en plus, en texte, les erreurs qu'i
 capte. La sortie du serveur s'affiche dans le terminal de `make dev`, ou dans la
 console de Playwright quand il démarre lui-même le serveur ; en CI, dans le
 journal du job `e2e`.
+
+Métriques, dérivées de ces lignes par le collecteur de logs (ADR-003 §6) :
+
+| Ligne | Métrique | Qui l'écrit |
+|---|---|---|
+| `"msg":"ocr.request"` | `ocr_requests_total{outcome}` : `found`, `empty`, `rejected`, `failed`, `timeout`, `overloaded`, avec `durationMs` et `requestId` | le serveur, à chaque suggestion OCR |
+| `"msg":"outbox.stats"` | événements `pending` et `dead` (DLQ), âge du plus ancien en attente (`oldestPendingAgeSeconds`), au total et par type | le worker, toutes les minutes (`OUTBOX_STATS_INTERVAL_MS`) |
+
+Une réponse d'erreur porte son `requestId` (corps et en-tête `X-Request-Id`),
+repris dans la ligne `http.error` du journal.
+
+### Tâches planifiées
+
+La réconciliation quotidienne des reçus orphelins sur S3 est décrite dans
+[`ops/cron/expense-io.crontab`](ops/cron/expense-io.crontab), à installer sur
+l'hôte ou le planificateur de l'hébergeur après un premier `make reconcile`
+(dry-run) relu.
 
 ## Contrat API
 
@@ -171,6 +191,8 @@ make help      # toutes les cibles du Makefile
 make build     # build de production
 make start     # build puis démarre en production
 make worker    # le worker seul (make dev le lance déjà)
+make api-breaking  # contrat d'API sans rupture par rapport à main (oasdiff)
+make reconcile # reçus orphelins sur S3, rapport seul (dry-run)
 make logs      # journaux des conteneurs
 make down      # arrête les conteneurs, garde les données
 make clean     # arrête les conteneurs et supprime les données locales
