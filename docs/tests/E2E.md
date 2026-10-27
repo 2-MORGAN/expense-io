@@ -140,6 +140,8 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | NDF-11 | `GET /api/expense-notes` : uniquement ses propres notes, plus récentes d'abord | API |
 | NDF-12 | `?sort=amount ASC` / `amount DESC` trie la liste | API |
 | NDF-13 | `?sort=` hors liste blanche (colonne inconnue, clause ajoutée, direction invalide) → 200, tri par défaut (faille S1 corrigée) | API |
+| SOUM-01 | Note créée : `receipt_key = receipts/{entreprise}/{id de la note}.ext`, objet présent dans S3 avec son type (2-476, ADR-003 §3) | API |
+| SOUM-02 | Aucune note de l'entreprise sans reçu (clé vide) ni hors du préfixe de son entreprise | API |
 
 ### Pré-remplissage depuis le reçu (OCR) — `e2e/ocr-suggestion.spec.ts`
 
