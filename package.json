@@ -19,7 +19,7 @@
     "worker": "tsx src/worker/main.ts",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e:coverage": "rm -rf coverage-e2e && NODE_V8_COVERAGE=$PWD/coverage-e2e playwright test && c8 report --temp-directory=coverage-e2e --include='src/**' --exclude='**/*.test.ts' --reporter=text-summary --reporter=html --reports-dir=coverage-e2e-report",
+    "test:e2e:coverage": "rm -rf coverage-e2e && NODE_V8_COVERAGE=$PWD/coverage-e2e NEXT_EXIT_TIMEOUT_MS=60000 DEV_EXIT_TIMEOUT_MS=75000 playwright test; status=$?; tsx scripts/coverage/flatten.ts coverage-e2e && c8 report --exclude-after-remap --temp-directory=coverage-e2e --include=\"src/**\" --include=\"scripts/*.mjs\" --exclude=\"**/*.test.ts\" --reporter=text-summary --reporter=html --reporter=json-summary --reports-dir=coverage-e2e-report; exit $status",
     "test:coverage:ui": "vitest --ui --coverage.enabled",
     "test:e2e": "playwright test",
     "generate:api": "openapi-typescript openapi.yaml -o src/types/api.d.ts && node scripts/generate-api.mjs",

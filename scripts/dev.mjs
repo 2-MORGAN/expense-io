@@ -5,6 +5,9 @@ const children = [
   spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev'], { stdio: 'inherit' }),
   spawn(process.execPath, ['--import', 'tsx', 'src/worker/main.ts'], { stdio: 'inherit' }),
 ]
+// Délai avant SIGKILL à l'arrêt. `npm run test:e2e:coverage` l'allonge : chaque
+// processus écrit sa couverture en sortant, ce qui prend plusieurs secondes.
+const exitTimeoutMs = Number(process.env.DEV_EXIT_TIMEOUT_MS ?? 5000)
 let closing = false
 function close(code = 0) {
   if (closing) return
@@ -13,7 +16,7 @@ function close(code = 0) {
   const timer = setTimeout(() => {
     for (const child of children) child.kill('SIGKILL')
     process.exit(code)
-  }, 5000)
+  }, exitTimeoutMs)
   Promise.all(children.map((child) => child.exitCode !== null ? Promise.resolve() : new Promise((resolve) => child.once('exit', resolve))))
     .then(() => { clearTimeout(timer); process.exit(code) })
 }
