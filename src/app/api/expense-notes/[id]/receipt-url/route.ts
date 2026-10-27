@@ -11,7 +11,7 @@ export const GET = withApiErrors('/api/expense-notes/[id]/receipt-url', async fu
   const { id } = await params
   validateId(id)
 
-  // Sa propre note seulement ; sinon 404 (ExpenseNoteNotVisible).
+  // Sa propre note seulement ; sinon 404 (ReceiptNotVisible).
   const url = await getReceiptUrl.execute(id, actor.id, 'own')
   return Response.json({ url })
 })

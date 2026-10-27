@@ -1809,12 +1809,15 @@ flowchart TB
   adr1["ADR-001 · Isolation multi-tenant&lt;br/&gt;RLS, invitations, Auth.js"]
   adr3["ADR-003 · OCR, soumission, notifications&lt;br/&gt;upload d'abord, outbox, worker"]
   adr4["ADR-004 · Contrat d'API&lt;br/&gt;OpenAPI, RFC 9457, codes stables"]
+  adr6["ADR-006 · Stratégie de migration&lt;br/&gt;Strangler Fig, Branch by Abstraction"]
 
   adr2 --&gt;|"module de permissions"| adr1
   adr2 --&gt;|"ports, worker = adaptateur entrant"| adr3
   adr1 &lt;--&gt;|"clés S3 par tenant, rôles du worker"| adr3
   adr4 &lt;--&gt;|"202 + polling, 503, Idempotency-Key"| adr3
-  adr5 -.-&gt;|"vérifie : E2E, lint, contrat"| adr1 &amp; adr2 &amp; adr3 &amp; adr4
+  adr6 --&gt;|"comment atteindre la cible"| adr2
+  adr6 --&gt;|"façade : contrat inchangé"| adr4
+  adr5 -.-&gt;|"vérifie : E2E, lint, contrat"| adr1 &amp; adr2 &amp; adr3 &amp; adr4 &amp; adr6
 
   classDef securite fill:#fee2e2,stroke:#dc2626,color:#111827
   classDef archi fill:#dbeafe,stroke:#2563eb,color:#111827
@@ -1822,7 +1825,7 @@ flowchart TB
   classDef api fill:#dcfce7,stroke:#16a34a,color:#111827
   classDef qualite fill:#ede9fe,stroke:#7c3aed,color:#111827
   class adr1 securite
-  class adr2 archi
+  class adr2,adr6 archi
   class adr3 asynchrone
   class adr4 api
   class adr5 qualite
@@ -1942,7 +1945,7 @@ flowchart TB
           <ul class="pills"><li>2-536 · URL de reçu et listes par cas d'usage, exceptions legacy vidées (PR #40)</li></ul>
           <h4>Reste à faire</h4>
           <ul>
-            <li>Acceptation par le PO ; rangement de <code>ReceiptAccess</code> dans le domaine, à voir avec WS2.</li>
+            <li>Acceptation par le PO.</li>
           </ul>
         </article>
 

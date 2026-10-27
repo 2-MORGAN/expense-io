@@ -142,6 +142,8 @@ Ordre : **correctifs de sécurité d'abord** (2-471, décision du PO), puis les 
 | 1. Helpers communs | `requireRole()` (401/403), sérialiseur unique de note, décision approve/reject unique pour manager et RH ; aucun changement visible | [2-487](https://linear.app/2-morgan/issue/2-487) | 2-471, cette ADR ; types du contrat de 2-486 si disponibles |
 | 2. Hexagone sur « valider une note » | cas d'usage `decideExpenseNote`, `WhoCanDecide`, repository, B8, B16 (auteur et date de décision), tests unitaires ; puis généralisation et lint interdisant SQL, `lib/storage` et `lib/ocr` dans `route.ts` | [2-488](https://linear.app/2-morgan/issue/2-488) | 2-487, Vitest et lint d'architecture (2-489) |
 
+**Suite (27/10)** : la migration des dernières routes (listes, URL de reçu) et la façon de migrer sans casser les E2E sont décidées par l'[ADR-006](ADR-006-strategie-de-migration.md) (2-536). La règle d'accès au reçu (`canViewReceipt`) est rangée dans le domaine Expense, conformément au §3.2.
+
 Hors de ce plan, décidés ailleurs : isolation et invitations (ADR-001 : 2-471, 2-478, 2-496, 2-481), soumission fiable, OCR et notifications (ADR-003 : 2-475, 2-476, 2-484, 2-503), erreurs et contrat (ADR-004 : 2-485, 2-486).
 
 ## 7. Conséquences

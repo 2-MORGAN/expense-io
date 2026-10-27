@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { GetReceiptUrl } from './GetReceiptUrl'
-import { ExpenseNoteNotVisible } from '@/domain/validation/DecideExpenseNote'
+import { ReceiptNotVisible } from '@/domain/expense/ReceiptAccess'
 import type { ReceiptAccess, ReceiptAccessRepository } from '@/ports/ReceiptAccessRepository'
 import type { ReceiptStoragePort } from '@/ports/ReceiptStoragePort'
 
@@ -31,22 +31,22 @@ describe('GetReceiptUrl', () => {
     expect(receipts.getSignedUrl).toHaveBeenCalledWith('receipts/company-1/note-1.jpg')
   })
 
-  it('lève ExpenseNoteNotVisible pour une note introuvable, sans appeler le stockage', async () => {
+  it('lève ReceiptNotVisible pour une note introuvable, sans appeler le stockage', async () => {
     const repository: ReceiptAccessRepository = { findReceipt: vi.fn(async () => null) }
     const receipts = storage()
 
     await expect(new GetReceiptUrl(repository, receipts).execute('note-1', 'manager-1', 'team')).rejects.toBeInstanceOf(
-      ExpenseNoteNotVisible
+      ReceiptNotVisible
     )
     expect(receipts.getSignedUrl).not.toHaveBeenCalled()
   })
 
-  it('lève ExpenseNoteNotVisible hors du périmètre de la route, sans appeler le stockage', async () => {
+  it('lève ReceiptNotVisible hors du périmètre de la route, sans appeler le stockage', async () => {
     const repository: ReceiptAccessRepository = { findReceipt: vi.fn(async () => access) }
     const receipts = storage()
 
     await expect(new GetReceiptUrl(repository, receipts).execute('note-1', 'manager-1', 'own')).rejects.toBeInstanceOf(
-      ExpenseNoteNotVisible
+      ReceiptNotVisible
     )
     expect(receipts.getSignedUrl).not.toHaveBeenCalled()
   })

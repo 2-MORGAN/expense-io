@@ -1,21 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { canViewReceipt } from './ReceiptAccess'
-import type { DecisionActor, NoteSubmitter } from './DecideExpenseNote'
+import { canViewReceipt, type ReceiptOwner, type ReceiptViewer } from './ReceiptAccess'
 
 // Règle « qui voit quel reçu » : un périmètre par route receipt-url, à
 // l'identique des tests RECU-02, RECU-05, RECU-07 et RECU-08.
 
-const employee: DecisionActor = { id: 'employee-1', role: 'employee', companyId: 'company-1' }
-const manager: DecisionActor = { id: 'manager-1', role: 'manager', companyId: 'company-1' }
-const hr: DecisionActor = { id: 'hr-1', role: 'hr_admin', companyId: 'company-1' }
+const employee: ReceiptViewer = { id: 'employee-1', role: 'employee', companyId: 'company-1' }
+const manager: ReceiptViewer = { id: 'manager-1', role: 'manager', companyId: 'company-1' }
+const hr: ReceiptViewer = { id: 'hr-1', role: 'hr_admin', companyId: 'company-1' }
 
-const ownNote: NoteSubmitter = { id: 'employee-1', role: 'employee', managerId: 'manager-1', companyId: 'company-1' }
-const colleague: NoteSubmitter = { id: 'employee-2', role: 'employee', managerId: 'manager-1', companyId: 'company-1' }
-const otherTeam: NoteSubmitter = { id: 'employee-3', role: 'employee', managerId: 'manager-2', companyId: 'company-1' }
-const otherCompany: NoteSubmitter = { id: 'employee-4', role: 'employee', managerId: 'manager-1', companyId: 'company-2' }
-const rootManager: NoteSubmitter = { id: 'manager-1', role: 'manager', managerId: null, companyId: 'company-1' }
-const subManager: NoteSubmitter = { id: 'manager-3', role: 'manager', managerId: 'manager-1', companyId: 'company-1' }
-const foreignRootManager: NoteSubmitter = { id: 'manager-9', role: 'manager', managerId: null, companyId: 'company-2' }
+const ownNote: ReceiptOwner = { id: 'employee-1', role: 'employee', managerId: 'manager-1', companyId: 'company-1' }
+const colleague: ReceiptOwner = { id: 'employee-2', role: 'employee', managerId: 'manager-1', companyId: 'company-1' }
+const otherTeam: ReceiptOwner = { id: 'employee-3', role: 'employee', managerId: 'manager-2', companyId: 'company-1' }
+const otherCompany: ReceiptOwner = { id: 'employee-4', role: 'employee', managerId: 'manager-1', companyId: 'company-2' }
+const rootManager: ReceiptOwner = { id: 'manager-1', role: 'manager', managerId: null, companyId: 'company-1' }
+const subManager: ReceiptOwner = { id: 'manager-3', role: 'manager', managerId: 'manager-1', companyId: 'company-1' }
+const foreignRootManager: ReceiptOwner = { id: 'manager-9', role: 'manager', managerId: null, companyId: 'company-2' }
 
 describe('canViewReceipt', () => {
   describe('own (route employé)', () => {
