@@ -31,11 +31,30 @@ Le nom et le MIME déclarés ne suffisent pas. Cette validation de format ne pr�
 
 ## Erreurs et transition
 
-Les nouvelles erreurs de validation et les routes OCR utilisent `application/problem+json` : `type`, `title`, `status`, `detail`, `code`, `requestId`, et éventuellement `errors`. Les messages canoniques sont anglais, sans valeur soumise. Le membre `error` conserve transitoirement les textes historiques attendus par les écrans et les E2E.
+Les **16 opérations métier** utilisent `application/problem+json` : `type`, `title`, `status`, `detail`, `code`, `requestId`, et éventuellement `errors` (`{field, code, message}`). Les messages canoniques sont anglais, sans valeur soumise. Le statut du problème correspond au statut HTTP. L’en-tête obligatoire `X-Request-Id` reprend l’identifiant du corps.
 
-Les refus historiques des autres routes utilisent encore `application/json` et `LegacyError`. Le contrat décrit cette coexistence réelle, au lieu de prétendre que 2-485 est déjà livré. Le wrapper global, la suppression des fuites techniques des erreurs historiques, le catalogue commun et la traduction front restent **2-485**. Le fichier `ocrProblem.ts` doit rejoindre ce constructeur lors de sa livraison ; aucune seconde garde n’est créée ici.
+`src/http/problem.ts` est le catalogue et le constructeur commun. Les refus explicites, la garde `requireRole`, la validation et l’OCR passent par ce constructeur. `withApiErrors` attend toute l’opération : garde, parsing, cas d’usage, fin de transaction et sérialisation. Il capture donc les rejets des promesses retournées sans `await` dans les anciennes routes (Q1.3). Il ne vérifie ni session ni rôle : la garde existante de WS2 reste unique.
 
-Les autres travaux restent dans leurs tickets : sécurisation du tri et des ressources (2-471), atomicité/idempotence de création (2-476), sérialiseur et gardes uniques (2-487), cas d’usage métier (2-488). Aucun comportement futur de ces tickets n’est présenté comme déjà implémenté, notamment l’en-tête d’idempotence de la création de note.
+Une exception inattendue devient **500 `INTERNAL_ERROR`**, `An unexpected error occurred.` Aucun message d’exception, pile ou détail SQL n’est recopié dans la réponse. Le logger de 2-490 conserve le diagnostic filtré avec le même `requestId`, la méthode, le chemin modèle (sans query string) et l’utilisateur s’il est connu. L’identifiant est généré côté serveur et isolé entre requêtes concurrentes avec `AsyncLocalStorage`, sans dépendance supplémentaire. `onRequestError` garde son rôle de diagnostic pour les erreurs hors du handler.
+
+| Statut | Codes stables |
+|---|---|
+| 400 | `INVALID_JSON`, `VALIDATION_ERROR`, `RECEIPT_TOO_LARGE`, `RECEIPT_TYPE_NOT_ALLOWED`, `IMAGE_TOO_LARGE`, `INVALID_IDEMPOTENCY_KEY` |
+| 401 | `AUTHENTICATION_REQUIRED` |
+| 403 | `FORBIDDEN` |
+| 404 | `RESOURCE_NOT_FOUND` |
+| 409 | `ALREADY_DECIDED`, `INVALID_MANAGER` |
+| 422 | `IDEMPOTENCY_KEY_REUSED` |
+| 500 | `INTERNAL_ERROR` |
+| 503 | `OCR_UNAVAILABLE`, `OCR_TIMEOUT`, `OCR_OVERLOADED` (avec `Retry-After: 5`) |
+
+Le membre **`error` reste présent et déprécié** avec les textes publics historiques (`Unauthorized`, `Not found`, `Already decided`, `Invalid manager`, validations/reçus). Les variantes historiques anglaises de l’OCR sont également préservées. Il ne contient jamais un ancien message technique de 500. L’enveloppe `LegacyError` et le type de contenu historique ne sont plus publiés dans le contrat ; le membre `error` n’est pas supprimé.
+
+Les écrans utilisent `src/components/apiError.ts` : traduction française par code applicatif et par code de champ, sans afficher `error`, `detail` ou un texte serveur inconnu. Un code inconnu ou une réponse non JSON donne un message générique français ; le parcours OCR conserve son message générique contextuel. **MGR-05** affiche désormais « Cette note a déjà été tranchée. », conformément à l’ADR-004 §9 ; l’API conserve `error: "Already decided"`.
+
+Auth.js, HEAD/OPTIONS automatiques, méthodes non implémentées et erreurs émises avant le handler par l’infrastructure restent hors de cette garantie (ADR-004 §3.3). La création atomique et son idempotence restent le ticket **2-476** ; son futur handler doit conserver le wrapper commun. Les cas d’usage de décision et le sérialiseur partagés livrés sur `main` par 2-488 sont réutilisés, sans réintroduire de SQL dans ces routes.
+
+Vérification : ERR-01 injecte une panne PostgreSQL par un trigger limité à une note de test, nettoyé en `finally`, sans point d’entrée spécial en production. ERR-02 couvre les refus 401/403/404/409, ERR-03 la traduction et le repli pour code inconnu. Les tests unitaires couvrent aussi les rejets tardifs, les erreurs de sérialisation et l’isolation des identifiants de corrélation.
 
 ## Choix des outils
 
@@ -48,7 +67,7 @@ Les autres travaux restent dans leurs tickets : sécurisation du tri et des ress
 | `pdf-lib` (exécution) | Parseur PDF JavaScript avec types, sans outil système, pour dépasser le contrôle du seul préfixe `%PDF-` |
 | `sharp` (déjà présent) | Décodage des images et production des vraies fixtures JPEG/WebP ; aucun second décodeur d’images ajouté |
 
-Les entités métier, les lignes SQL et les DTO HTTP restent distincts. Le domaine importe uniquement la politique de reçus générée, sans dépendance au document HTTP ni aux validateurs Ajv. La centralisation des sept sérialisations est laissée à 2-487 ; leurs types de sortie sont déjà vérifiés contre le type généré.
+Les entités métier, les lignes SQL et les DTO HTTP restent distincts. Le domaine importe uniquement la politique de reçus générée, sans dépendance au document HTTP ni aux validateurs Ajv. Le sérialiseur commun de WS2 est réutilisé et son type de sortie est vérifié contre le type généré.
 
 ## Compatibilité
 

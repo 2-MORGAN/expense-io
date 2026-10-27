@@ -47,11 +47,11 @@ Décidé par l'ADR-005. Ce qui vérifie le code, et quand :
 | Moment | Ce qui tourne | Durée |
 |---|---|---|
 | `git commit` | hook pre-commit : ESLint avec cache | ≈ 3 s, 5 s à froid |
-| `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 25 s |
+| `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 35 s |
 | À la demande | E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` | ≈ 3 min pour la suite, Docker requis |
 | PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner | ≈ 1 min et 3 min 30 |
-| Claude Code : avant une commande shell | hook `PreToolUse` (`.claude/hooks/guard-git.mjs`) : refuse `--no-verify`, `git commit -n`, `HUSKY=0`, la modification de `core.hooksPath`, le push sur `main`, le force-push, et `gh pr create` sans `--repo` explicite ou vers le dépôt du cours | instantané |
-| Claude Code : fin de tour | hook `Stop` (`.claude/hooks/check-on-stop.mjs`) : `npm run check` si le code a changé depuis le dernier check vert ; rouge, le tour continue une fois avec l'erreur, puis l'utilisateur est averti | ≈ 25 s |
+| Claude Code : avant une commande shell | hook `PreToolUse` (`.claude/hooks/guard-git.mjs`) : refuse `--no-verify`, `git commit -n`, `HUSKY=0`, la modification de `core.hooksPath`, le push sur `main`, le force-push, `gh pr create` sans `--repo` explicite ou vers le dépôt du cours, et `eslint --suppress-all` ou `--suppress-rule` | instantané |
+| Claude Code : fin de tour | hook `Stop` (`.claude/hooks/check-on-stop.mjs`) : `npm run check` si le code a changé depuis le dernier check vert ; rouge, le tour continue une fois avec l'erreur, puis l'utilisateur est averti | ≈ 35 s |
 
 Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils donnent un retour rapide ; la garantie, c'est la CI. Les hooks Claude Code sont déclarés dans `.claude/settings.json`, versionné : ne pas les désactiver pour avancer, un refus signale un contournement du harnais.
 
@@ -60,7 +60,7 @@ Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils do
 1. **Avant de déclarer une tâche terminée**, `npm run check` doit passer. Si le changement touche `src/app`, `src/lib`, `migrations/` ou `scripts/`, lancer aussi les E2E concernés (IDs dans `docs/tests/E2E.md`) ou toute la suite. Dire explicitement ce qui n'a pas été lancé.
 2. **Un bug corrigé = un test** vu en échec avant la correction, en succès après : test Vitest à côté du code pour une règle métier, scénario Playwright avec un ID dans `e2e/` pour un comportement HTTP, UI ou en base.
 3. **Un test E2E rouge est une régression** : corriger le code, pas le test. Ne jamais modifier, désactiver ni supprimer un test existant pour faire passer la CI. Si un test doit changer, s'arrêter et demander : il faut une ADR acceptée (ADR-005 §2).
-4. **Ne rien contourner** : jamais de `--no-verify`, jamais de push sur `main`, jamais de `eslint-disable` sans commentaire qui le justifie.
+4. **Ne rien contourner** : jamais de `--no-verify`, jamais de push sur `main`, jamais de `eslint-disable` sans commentaire qui le justifie, jamais de `eslint --suppress-all` ni `--suppress-rule` pour faire taire un nouveau constat.
 5. **PR** : `gh pr create --repo 2-MORGAN/expense-io --base main`, en remplissant le modèle (`.github/pull_request_template.md`). Sans `--repo`, `gh` peut viser le dépôt parent du fork.
 
 ## Où placer le code
@@ -86,7 +86,7 @@ src/
 ├── instrumentation.ts       # journalise les erreurs captées par Next.js (onRequestError)
 └── proxy.ts                 # garde de navigation (ne couvre PAS /api)
 migrations/                  # SQL versionné — seule source de vérité du schéma
-scripts/                     # seed.mjs, ensure-bucket.mjs
+scripts/                     # seed.mjs, ensure-bucket.mjs, architecture/ (graphes de docs/architecture)
 ```
 
 Règles de placement pour tout **nouveau** code :
@@ -101,6 +101,10 @@ Règles de placement pour tout **nouveau** code :
 - Réutiliser avant de créer : le module OCR branche déjà ses cas d'usage, ports et adaptateurs. Les classes historiques `ExpenseNote`, `User` et plusieurs utilitaires restent à brancher (voir dette).
 
 `npm run lint` fait respecter une partie de ces règles (`eslint.config.mjs`, ADR-005 T6) : domaine sans infrastructure ; ni SQL ni accès base dans `src/app/` et `src/components/` ; `getPool()` réservé à `src/lib/db.ts` ; pas de SQL interpolé ; pas de test `.only`, `.skip`, `.fixme` ou `.fail`. Le code existant qui enfreint une règle est listé en exception (listes `LEGACY_*`). Ces listes ne font que raccourcir : retirer un fichier dès qu'il est conforme, **ne jamais en ajouter un** pour faire passer le lint.
+
+Le lint applique aussi les règles de SonarQube (`eslint-plugin-sonarjs`) : bugs, failles (regex au temps super-linéaire, donc ReDoS ; secrets en dur ; cookies ; cryptographie…) et code fragile. Leurs constats dans le code existant sont figés dans `eslint-suppressions.json`, par fichier et par règle. Un nouveau constat fait échouer le lint : corriger le code. Après une correction, la suppression devenue inutile fait aussi échouer le lint : `npx eslint --prune-suppressions` la retire, et le fichier se commite avec la correction. Ce fichier ne fait que raccourcir.
+
+Les graphes de [`docs/architecture/`](docs/architecture/README.md) complètent le lint. Le test `scripts/architecture/architecture.test.ts` (dans `npm run check`) vérifie la matrice entière des couches (`scripts/architecture/layers.ts`, ADR-002 §3.3) et la garde de chaque méthode de route, puis compare les graphes Mermaid versionnés au code. Un graphe qui a dérivé se régénère avec `npm run generate:architecture` et se commite avec le code. Une flèche interdite ou une route sans garde se corrigent dans le code, jamais en régénérant ni en ajoutant une exception (`LEGACY_EDGES` et `PUBLIC_ROUTES` ne font que raccourcir). Une nouvelle couche ou un nouveau droit se justifient dans la PR.
 
 ## Conventions
 
@@ -134,10 +138,9 @@ Règles de placement pour tout **nouveau** code :
 Constats de l'audit en cours — chacun à vérifier avant de s'y fier :
 
 - RLS contournée tant que l'application se connecte en superuser : l'isolation repose en pratique sur les `WHERE` manuels. Policies bornées par l'entreprise, RLS sur `users` et rôle restreint `expense_app` en place (2-478, tests ISO-07) ; la connexion bascule sur `expense_app` avec 2-481.
-- `lib/errors.ts` renvoie la stacktrace au client.
 - Classes métier historiques encore inutilisées ; `toExpenseNote()` et les contrôles de rôle dupliqués dans ~8 routes. Le module OCR utilise désormais domaine, cas d'usage, ports et adaptateurs.
 - Création de NDF : reçu stocké d'abord puis une seule transaction (2-476 étape 1, `SubmitExpenseNote`) ; renvoi sans doublon par `Idempotency-Key` (étape 2, colonnes `idempotency_key` et `request_fingerprint`) ; nettoyage de l'existant (étape 3) : contrainte `CHECK (receipt_key <> '')` posée `NOT VALID` par migration, puis `npm run clean:notes-without-receipt` (dry-run par défaut ; `-- --execute --out <dossier>` exporte en CSV, supprime les notes `pending` sans reçu, garde les décidées pour la RH et valide la contrainte quand il n'en reste plus). Réconciliation des objets orphelins (bonus) : `npm run reconcile:orphan-receipts` (dry-run par défaut ; `-- --execute` supprime les objets de `receipts/` non référencés par une note ni une analyse OCR et vieux de plus de 24 h), à planifier une fois par jour après un premier dry-run relu. Les bornes OCR et son parcours asynchrone, branché sur le socle commun de l'outbox (2-484), sont décrits dans `docs/ocr.md`.
-- Contrat global dans `openapi.yaml`, types et JSON de validation générés (2-486). L’unification des erreurs reste 2-485 (le journal des erreurs serveur est fait, 2-490).
+- Contrat global dans `openapi.yaml`, types et JSON de validation générés (2-486). Erreurs communes sans détail interne et traductions front (2-485), logger serveur de 2-490 réutilisé.
 
 Déjà corrigé : codes **401** sans session / **403** rôle refusé sur toutes les routes (Q1.1, PR #8) ; tests unitaires (Vitest, dans `npm run check` et la CI) et règles d'architecture vérifiées par le lint (2-489) ; OCR : montant lu sur la dernière ligne de total chiffrée, « TTC » en priorité, et description suggérée (nom du commerçant), règles pures dans `src/domain/receipt/parseReceiptText.ts` (PR #17) ; sécurité WS1 (2-471) : tri `?sort=` par liste blanche (S1), reçu manager limité à son équipe (S2), rattachement limité aux managers de l'entreprise (S3), `AUTH_SECRET` lu dans l'environnement (S5) ; identité (2-496) : invitations par la RH et vérification d'email du créateur, le domaine ne donne plus aucun droit (S7), rôle relu en base à chaque requête et session de 8 h d'inactivité (S9).
 

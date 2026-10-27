@@ -21,7 +21,11 @@ export function checkApiResponse(method: string, url: string, status: number, he
   if (!schema) throw new Error(`Undocumented Content-Type: ${method} ${path} → ${status} ${mediaType}`)
   const validate = compileContractSchema(schema.schema)
   if (!validate(body)) throw new Error(`Contract mismatch: ${method} ${path} → ${status}: ${JSON.stringify(validate.errors)}`)
-  if (mediaType === 'application/problem+json' && (body as { status?: number }).status !== status) throw new Error('Problem status differs from HTTP status')
+  if (mediaType === 'application/problem+json') {
+    const problem = body as { status: number; requestId: string }
+    if (problem.status !== status) throw new Error('Problem status differs from HTTP status')
+    if (problem.requestId !== headers['x-request-id']) throw new Error('Problem requestId differs from X-Request-Id')
+  }
   for (const [name, spec] of Object.entries(response.headers ?? {})) {
     const value = headers[name.toLowerCase()]
     if (spec.required && value === undefined) throw new Error(`Missing response header: ${name}`)

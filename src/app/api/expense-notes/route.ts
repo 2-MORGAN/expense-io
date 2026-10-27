@@ -2,13 +2,11 @@ import path from 'node:path'
 import type { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { withUserScope } from '@/lib/db'
-import { respondError } from '@/lib/errors'
+import { withApiErrors } from '@/http/withApiErrors'
 import { readExpenseInput } from '@/http/readExpenseInput'
 import { submitExpenseNote } from '@/composition/submissions'
 import { IdempotencyKeyReused, InvalidIdempotencyKey } from '@/application/SubmitExpenseNote'
-import { OcrError } from '@/domain/receipt/OcrError'
-import { ocrProblem } from '@/http/ocrProblem'
-import { InputError } from '@/http/validation'
+import { problemResponse } from '@/http/problem'
 import { toExpenseNoteDto } from '@/http/expenseNote'
 import { requireRole } from '@/http/requireRole'
 
@@ -37,52 +35,49 @@ function orderByFor(sort: string | null): string {
   return `${column} ${direction}`
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withApiErrors('/api/expense-notes', async function GET(request: NextRequest) {
+  const session = await auth()
+  const actor = requireRole(session)
+  if (actor instanceof Response) return actor
+
+  const url = new URL(request.url)
+  const orderBy = orderByFor(url.searchParams.get('sort'))
+
+  return withUserScope(actor.id, async (client) => {
+    const result = await client.query(
+      `SELECT * FROM expense_notes WHERE user_id = $1 ORDER BY ${orderBy}`,
+      [actor.id]
+    )
+    return Response.json(result.rows.map(toExpenseNoteDto))
+  })
+})
+
+export const POST = withApiErrors('/api/expense-notes', async function POST(request: NextRequest) {
+  const session = await auth()
+  const actor = requireRole(session)
+  if (actor instanceof Response) return actor
+
+  const { amount, expenseDate, description, receipt } = await readExpenseInput(request)
+
+  const extension = EXTENSION_BY_MIME[receipt.type] ?? path.extname(receipt.name) ?? ''
+  let result
   try {
-    const session = await auth()
-    const actor = requireRole(session)
-    if (actor instanceof Response) return actor
-
-    const url = new URL(request.url)
-    const orderBy = orderByFor(url.searchParams.get('sort'))
-
-    return withUserScope(actor.id, async (client) => {
-      const result = await client.query(
-        `SELECT * FROM expense_notes WHERE user_id = $1 ORDER BY ${orderBy}`,
-        [actor.id]
-      )
-      return Response.json(result.rows.map(toExpenseNoteDto))
-    })
-  } catch (error) {
-    return respondError(error)
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const session = await auth()
-    const actor = requireRole(session)
-    if (actor instanceof Response) return actor
-
-    const { amount, expenseDate, description, receipt } = await readExpenseInput(request)
-
-    const extension = EXTENSION_BY_MIME[receipt.type] ?? path.extname(receipt.name) ?? ''
-    const result = await submitExpenseNote.execute(actor.id, {
+    result = await submitExpenseNote.execute(actor.id, {
       amount,
       expenseDate,
       description,
       receipt: { data: Buffer.from(await receipt.arrayBuffer()), mimeType: receipt.type, extension },
       idempotencyKey: request.headers.get('idempotency-key'),
     })
-
-    return Response.json(toExpenseNoteDto(result.note), {
-      status: 201,
-      headers: result.replayed ? { 'Idempotent-Replayed': 'true' } : undefined,
-    })
   } catch (error) {
-    // Mêmes problèmes (RFC 9457) que l'analyse de reçu : 400 et 422 du contrat.
-    if (error instanceof InvalidIdempotencyKey) return respondError(new InputError('INVALID_IDEMPOTENCY_KEY'))
-    if (error instanceof IdempotencyKeyReused) return ocrProblem(new OcrError('IDEMPOTENCY_KEY_REUSED'))
-    return respondError(error)
+    // Problèmes communs (RFC 9457, 2-485) : 400 et 422 du contrat.
+    if (error instanceof InvalidIdempotencyKey) return problemResponse('INVALID_IDEMPOTENCY_KEY')
+    if (error instanceof IdempotencyKeyReused) return problemResponse('IDEMPOTENCY_KEY_REUSED')
+    throw error
   }
-}
+
+  return Response.json(toExpenseNoteDto(result.note), {
+    status: 201,
+    headers: result.replayed ? { 'Idempotent-Replayed': 'true' } : undefined,
+  })
+})

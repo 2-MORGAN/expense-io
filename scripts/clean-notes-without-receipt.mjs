@@ -82,7 +82,8 @@ try {
   } else if (remaining.rows[0].n > 0) {
     console.log(`Contrainte ${CONSTRAINT} non validée : ${remaining.rows[0].n} note(s) sans reçu subsistent (la contrainte refuse déjà toute nouvelle).`)
   } else {
-    await pool.query(`ALTER TABLE expense_notes VALIDATE CONSTRAINT ${CONSTRAINT}`)
+    // Nom écrit en clair : une commande DDL ne prend pas de paramètre.
+    await pool.query('ALTER TABLE expense_notes VALIDATE CONSTRAINT expense_notes_receipt_key_not_empty')
     console.log(`Contrainte ${CONSTRAINT} validée.`)
   }
 } finally {

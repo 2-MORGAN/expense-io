@@ -29,6 +29,10 @@ describe('guard-git : commandes refusées', () => {
     'cd /c/repo; git -C . push origin main',
     'gh pr create --base main --title "x"',
     'gh pr create --repo NathanPrats/expense-io --base main',
+    'npx eslint --suppress-all .',
+    'npx eslint --suppress-rule sonarjs/no-nested-conditional src',
+    'npm run lint -- --suppress-all',
+    'node node_modules/eslint/bin/eslint.js --suppress-rule=sonarjs/slow-regex .',
   ])('%s', (command) => {
     expect(refusal(command, on('feature'))).not.toBeNull()
   })
@@ -63,6 +67,9 @@ describe('guard-git : commandes admises', () => {
     'gh pr create --repo=someone/other-project --fill',
     'gh pr view 20 --repo 2-MORGAN/expense-io',
     'npm run check',
+    'npx eslint --prune-suppressions',
+    'git commit -m "chore: refuser eslint --suppress-all"',
+    'rg -n -- --suppress-all docs',
   ])('%s', (command) => {
     expect(refusal(command, on('feature'))).toBeNull()
   })

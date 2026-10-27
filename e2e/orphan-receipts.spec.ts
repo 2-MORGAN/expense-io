@@ -11,7 +11,7 @@ import { expect, test } from './support/fixtures'
 const SCRIPT = path.resolve('scripts/reconcile-orphan-receipts.mjs')
 
 const run = (args: string[]) =>
-  execFileSync('node', [SCRIPT, ...args], { env: { ...process.env, DATABASE_URL: databaseUrl() }, encoding: 'utf8' })
+  execFileSync(process.execPath, [SCRIPT, ...args], { env: { ...process.env, DATABASE_URL: databaseUrl() }, encoding: 'utf8' })
 
 async function put(s3: S3Client, key: string) {
   await s3.send(new PutObjectCommand({ Bucket: S3_BUCKET, Key: key, Body: Buffer.from('orphan'), ContentType: 'image/png' }))
