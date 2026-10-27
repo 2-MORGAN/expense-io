@@ -70,7 +70,7 @@ export interface paths {
         put?: never;
         /**
          * Crée une note avec son reçu pour l’utilisateur connecté.
-         * @description Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.
+         * @description Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads. The receipt is stored first, then the note is written in one transaction.
          */
         post: operations["createExpenseNote"];
         delete?: never;
@@ -729,7 +729,10 @@ export interface operations {
     createExpenseNote: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Renvoi identique (même montant, date, description et reçu) pour le même utilisateur ; renvoie la note déjà créée, sans doublon. Autre contenu avec la même clé donne 422. Sans en-tête, aucune déduplication. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -739,9 +742,11 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Note created */
+            /** @description Note created, or replay of the note already created for this Idempotency-Key */
             201: {
                 headers: {
+                    /** @description Présent uniquement lors d’un rejeu ; aucun reçu ni note n’a été créé. */
+                    "Idempotent-Replayed"?: "true";
                     [name: string]: unknown;
                 };
                 content: {
@@ -750,6 +755,7 @@ export interface operations {
             };
             400: components["responses"]["InvalidInput"];
             401: components["responses"]["AuthenticationRequired"];
+            422: components["responses"]["Problem"];
             500: components["responses"]["InternalError"];
         };
     };

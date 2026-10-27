@@ -70,6 +70,8 @@ export default function ExpensesPage() {
     loadNotes()
   }, [loadNotes])
 
+  const idempotencyKey = useRef<string | null>(null)
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSubmitting(true)
@@ -77,13 +79,24 @@ export default function ExpensesPage() {
     const form = event.currentTarget
     const formData = new FormData(form)
 
-    const response = await fetch('/api/expense-notes', {
-      method: 'POST',
-      body: formData,
-    })
+    // Même clé à chaque nouvel essai après une erreur, nouvelle clé après un
+    // succès (ADR-003 §4) : un renvoi ne crée jamais de doublon.
+    const post = (key: string) =>
+      fetch('/api/expense-notes', { method: 'POST', body: formData, headers: { 'Idempotency-Key': key } })
+    idempotencyKey.current ??= crypto.randomUUID()
+    let response = await post(idempotencyKey.current)
+    if (response.status === 422) {
+      // Formulaire modifié depuis l'essai précédent : c'est une autre demande.
+      const body = await response.clone().json().catch(() => null)
+      if (body?.code === 'IDEMPOTENCY_KEY_REUSED') {
+        idempotencyKey.current = crypto.randomUUID()
+        response = await post(idempotencyKey.current)
+      }
+    }
     setSubmitting(false)
 
     if (response.ok) {
+      idempotencyKey.current = null
       form.reset()
       setAmount('')
       setExpenseDate('')

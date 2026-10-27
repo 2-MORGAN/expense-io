@@ -5,6 +5,8 @@ import { withUserScope } from '@/lib/db'
 import { withApiErrors } from '@/http/withApiErrors'
 import { readExpenseInput } from '@/http/readExpenseInput'
 import { submitExpenseNote } from '@/composition/submissions'
+import { IdempotencyKeyReused, InvalidIdempotencyKey } from '@/application/SubmitExpenseNote'
+import { problemResponse } from '@/http/problem'
 import { toExpenseNoteDto } from '@/http/expenseNote'
 import { requireRole } from '@/http/requireRole'
 
@@ -58,12 +60,24 @@ export const POST = withApiErrors('/api/expense-notes', async function POST(requ
   const { amount, expenseDate, description, receipt } = await readExpenseInput(request)
 
   const extension = EXTENSION_BY_MIME[receipt.type] ?? path.extname(receipt.name) ?? ''
-  const note = await submitExpenseNote.execute(actor.id, {
-    amount,
-    expenseDate,
-    description,
-    receipt: { data: Buffer.from(await receipt.arrayBuffer()), mimeType: receipt.type, extension },
-  })
+  let result
+  try {
+    result = await submitExpenseNote.execute(actor.id, {
+      amount,
+      expenseDate,
+      description,
+      receipt: { data: Buffer.from(await receipt.arrayBuffer()), mimeType: receipt.type, extension },
+      idempotencyKey: request.headers.get('idempotency-key'),
+    })
+  } catch (error) {
+    // Problèmes communs (RFC 9457, 2-485) : 400 et 422 du contrat.
+    if (error instanceof InvalidIdempotencyKey) return problemResponse('INVALID_IDEMPOTENCY_KEY')
+    if (error instanceof IdempotencyKeyReused) return problemResponse('IDEMPOTENCY_KEY_REUSED')
+    throw error
+  }
 
-  return Response.json(toExpenseNoteDto(note), { status: 201 })
+  return Response.json(toExpenseNoteDto(result.note), {
+    status: 201,
+    headers: result.replayed ? { 'Idempotent-Replayed': 'true' } : undefined,
+  })
 })
