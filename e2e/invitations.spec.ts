@@ -268,7 +268,8 @@ test.describe('API des invitations', () => {
     // JSON malformé : même code que les autres opérations JSON (ADR-004 §6).
     const malformed = await hr.request.post('/api/hr/invitations', {
       headers: { 'Content-Type': 'application/json' },
-      data: '{"email": ',
+      // Buffer : une chaîne serait sérialisée par Playwright en JSON valide.
+      data: Buffer.from('{"email": '),
     })
     expect(malformed.status()).toBe(400)
     expect(await malformed.json()).toMatchObject({ code: 'INVALID_JSON' })
