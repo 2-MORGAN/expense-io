@@ -3,3 +3,4 @@
 # périmés.
 src/types/*.d.ts text eol=lf
 src/generated/** text eol=lf
+docs/architecture/** text eol=lf

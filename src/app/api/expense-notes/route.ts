@@ -2,7 +2,7 @@ import path from 'node:path'
 import type { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { withUserScope } from '@/lib/db'
-import { respondError } from '@/lib/errors'
+import { withApiErrors } from '@/http/withApiErrors'
 import { readExpenseInput } from '@/http/readExpenseInput'
 import { submitExpenseNote } from '@/composition/submissions'
 import { toExpenseNoteDto } from '@/http/expenseNote'
@@ -33,45 +33,37 @@ function orderByFor(sort: string | null): string {
   return `${column} ${direction}`
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await auth()
-    const actor = requireRole(session)
-    if (actor instanceof Response) return actor
+export const GET = withApiErrors('/api/expense-notes', async function GET(request: NextRequest) {
+  const session = await auth()
+  const actor = requireRole(session)
+  if (actor instanceof Response) return actor
 
-    const url = new URL(request.url)
-    const orderBy = orderByFor(url.searchParams.get('sort'))
+  const url = new URL(request.url)
+  const orderBy = orderByFor(url.searchParams.get('sort'))
 
-    return withUserScope(actor.id, async (client) => {
-      const result = await client.query(
-        `SELECT * FROM expense_notes WHERE user_id = $1 ORDER BY ${orderBy}`,
-        [actor.id]
-      )
-      return Response.json(result.rows.map(toExpenseNoteDto))
-    })
-  } catch (error) {
-    return respondError(error)
-  }
-}
+  return withUserScope(actor.id, async (client) => {
+    const result = await client.query(
+      `SELECT * FROM expense_notes WHERE user_id = $1 ORDER BY ${orderBy}`,
+      [actor.id]
+    )
+    return Response.json(result.rows.map(toExpenseNoteDto))
+  })
+})
 
-export async function POST(request: NextRequest) {
-  try {
-    const session = await auth()
-    const actor = requireRole(session)
-    if (actor instanceof Response) return actor
+export const POST = withApiErrors('/api/expense-notes', async function POST(request: NextRequest) {
+  const session = await auth()
+  const actor = requireRole(session)
+  if (actor instanceof Response) return actor
 
-    const { amount, expenseDate, description, receipt } = await readExpenseInput(request)
+  const { amount, expenseDate, description, receipt } = await readExpenseInput(request)
 
-    const extension = EXTENSION_BY_MIME[receipt.type] ?? path.extname(receipt.name) ?? ''
-    const note = await submitExpenseNote.execute(actor.id, {
-      amount,
-      expenseDate,
-      description,
-      receipt: { data: Buffer.from(await receipt.arrayBuffer()), mimeType: receipt.type, extension },
-    })
+  const extension = EXTENSION_BY_MIME[receipt.type] ?? path.extname(receipt.name) ?? ''
+  const note = await submitExpenseNote.execute(actor.id, {
+    amount,
+    expenseDate,
+    description,
+    receipt: { data: Buffer.from(await receipt.arrayBuffer()), mimeType: receipt.type, extension },
+  })
 
-    return Response.json(toExpenseNoteDto(note), { status: 201 })
-  } catch (error) {
-    return respondError(error)
-  }
-}
+  return Response.json(toExpenseNoteDto(note), { status: 201 })
+})

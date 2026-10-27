@@ -171,6 +171,18 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | RECU-07 | `GET /api/hr/expense-notes/:id/receipt-url` : 200 pour un manager racine de l'entreprise ; 404 pour une note d'employé, de manager non racine, d'une autre entreprise ou inconnue | API |
 | RECU-08 | `GET /api/manager/expense-notes/:id/receipt-url` : 404 pour la note d'un employé d'un autre manager, d'une autre entreprise ou du manager lui-même (faille S2 corrigée) | API |
 
+### Erreurs communes — `e2e/api-errors.spec.ts`
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| ERR-01 | Panne PostgreSQL injectée sur une note : 500 `INTERNAL_ERROR` générique, sans pile ni message interne, `requestId` identique à `X-Request-Id`, décision annulée | API + base |
+| ERR-02 | 401/403/404/409 au format commun, codes stables, champ `error` historique préservé | API |
+| ERR-03 | L’écran traduit un code connu ; code inconnu → message générique français, aucun texte brut de l’API affiché | UI |
+
+ERR-01 crée temporairement un trigger limité à sa note et le supprime en `finally`. Il n’utilise ni date invalide comme déclencheur de 500, ni endpoint de test en production (ADR-001/004). La base des fixtures doit autoriser ce DDL. Les tests unitaires vérifient la même corrélation dans les logs et la capture des rejets tardifs, des erreurs synchrones et des erreurs de sérialisation.
+
+**Évolution autorisée de MGR-05** : « Already decided » → « Cette note a déjà été tranchée. » (ADR-004 §9). L’assertion et le titre de ce seul scénario existant changent dans un commit de tests séparé ; les tests API continuent à attendre `error: "Already decided"`.
+
 ### Validation ou rejet par le manager — `e2e/manager-approval.spec.ts`
 
 | ID | Scénario | Niveau |
@@ -179,7 +191,7 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | MGR-02 | Sans note : « En attente (0) », « Aucune note en attente. » | UI |
 | MGR-03 | « Approuver » → la note quitte la liste, l'employé la voit « approuvée » | UI |
 | MGR-04 | « Rejeter » → la note quitte la liste, l'employé la voit « rejetée » | UI |
-| MGR-05 | Note tranchée entre-temps → message « Already decided » | UI |
+| MGR-05 | Note tranchée entre-temps → « Cette note a déjà été tranchée. », traduit depuis `ALREADY_DECIDED` (ADR-004 §9, 2-485) | UI |
 | MGR-06 | Liste API = notes `pending` des subordonnés **directs**, plus anciennes d'abord (exclut : notes tranchées, ses propres notes, N+2, autre équipe, autre entreprise) | API |
 | MGR-07 | approve → 200 + note `approved` ; nouvelle décision → 409 « Already decided » | API |
 | MGR-08 | reject → 200 + note `rejected` ; nouvelle décision → 409 | API |
@@ -333,6 +345,12 @@ Un PostgreSQL 17 natif occupait déjà le port 5433 de ce poste : le Postgres de
 
 macOS : résultat rapporté par Florent dans la mise à jour du 20 octobre de l'ADR-005 ; le commit et la durée n'ont pas été consignés.
 
+### Vérification 2-485 (26 octobre 2026)
+
+Sur macOS, branche de 2-485 intégrant `origin/main` @ `65f13f6` et le contrat de 2-486 : **136/136** avec `npx playwright test --workers=4` en **46,4 s**. Serveur Next.js de développement et worker réels, PostgreSQL/LocalStack/Mailpit via Docker, Chromium 153 de Playwright. Une base dédiée a été créée pour cette campagne ; la base locale existante et `.env` n’ont pas été modifiés.
+
+Avant l’adaptation autorisée de MGR-05 : **135/136**, seul échec sur le texte désormais traduit. Après : **136/136**. Les tests de reproduction unitaires de S6 et Q1.3 ont été observés rouges avant la correction, puis verts. `npm run check` passe : **346 tests unitaires**, lint, types et contrat OpenAPI couvrant les 16 opérations métier. `npm run build` passe également (Turbopack, après nettoyage du cache issu de l’exécution restreinte) ; le build Webpack a aussi été vérifié.
+
 ### Campagne initiale (11 octobre 2026)
 
 Environnement Linux isolé, **sans Docker** (registre inaccessible) : PostgreSQL 16.15 et LocalStack 3.8.1 (mêmes versions que `docker-compose.yml`) y tournaient en natif, avec Node 24.21.0, Playwright 1.63.0 et un Chromium 141 (`E2E_CHROMIUM_PATH`) plus ancien que celui fourni par Playwright (153). Google Fonts était inaccessible : police de repli, sans effet sur les tests, et polices simulées localement pour le build de prod. Commande : `npm run test:e2e`, 1 worker, sur une base de dev déjà peuplée par le seed.
@@ -354,7 +372,7 @@ Les références renvoient à `CLAUDE.md` (« Dette connue ») et à l'audit API
 
 | Comportement actuel | Réf. |
 |---|---|
-| Message interne et stacktrace renvoyés dans les erreurs 500 ; certaines erreurs SQL échappent au `catch` | B4, Q1.3 |
+| Erreurs 500 sans détail interne et rejets asynchrones capturés : désormais couverts par ERR-01 à ERR-03 et les tests unitaires du wrapper | B4/S6, Q1.3, 2-485 |
 | Corps JSON invalide ou sans `managerId` sur `PUT …/manager` = détachement silencieux (200) | B7 |
 | Validation stricte B7 : désormais couverte par API-01 à API-04 et les tests unitaires de frontière ; refus avant DB/S3 | 2-486 |
 | Cycles hiérarchiques acceptés (A → B puis B → A) | B13 |
