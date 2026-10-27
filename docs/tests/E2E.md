@@ -239,6 +239,7 @@ ERR-01 crée temporairement un trigger limité à sa note et le supprime en `fin
 | ORG-07 | Manager invalide (soi-même, employé, RH, inconnu) → 409 « Invalid manager », rien ne change | API |
 | ORG-08 | Cible RH, d'une autre entreprise ou inconnue → 404 « Not found » | API |
 | ORG-09 | `PUT /api/hr/users/:id/manager` vers un manager d'une autre entreprise → 409 « Invalid manager », rattachement inchangé (faille S3 corrigée) | API |
+| ORG-10 | Manager proposé rétrogradé par une transaction concurrente non encore validée : le rattachement l'attend, puis 409 « Invalid manager », rattachement inchangé | API + base |
 
 ### Contrôle d'accès et isolation — `e2e/access-control.spec.ts`
 

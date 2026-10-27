@@ -44,9 +44,13 @@ export class PostgresCompanyDirectory implements CompanyDirectory {
         if (managerId === userId) return { kind: 'invalid_manager' }
         // Le manager choisi doit avoir le rôle manager et appartenir à
         // l'entreprise de la RH (donc de la cible) : un manager d'une autre
-        // entreprise est refusé comme un id inconnu.
+        // entreprise est refusé comme un id inconnu. FOR SHARE garde la ligne
+        // du manager jusqu'à l'écriture : une rétrogradation concurrente
+        // attend la fin du rattachement, ou le rattachement attend la sienne
+        // et relit alors le rôle à jour (l'entreprise est déjà garantie par la
+        // clé étrangère composite (manager_id, company_id)).
         const manager = await client.query(
-          `SELECT id FROM users WHERE id = $1 AND role = 'manager' AND company_id = nullif(current_setting('app.current_company_id', true), '')::uuid`,
+          `SELECT id FROM users WHERE id = $1 AND role = 'manager' AND company_id = nullif(current_setting('app.current_company_id', true), '')::uuid FOR SHARE`,
           [managerId]
         )
         if (!manager.rows[0]) return { kind: 'invalid_manager' }
