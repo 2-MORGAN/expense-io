@@ -1,7 +1,9 @@
+import { enqueueDecided } from '@/adapters/PgNotificationEvents'
 import { withUserScope } from '@/lib/db'
 import { ExpenseNote } from '@/domain/ExpenseNote'
 import { toExpenseNoteDto } from '@/http/expenseNote'
 import {
+  ExpenseNoteAlreadyDecided,
   ExpenseNoteNotVisible,
   decideExpenseNote,
   type Decision,
@@ -82,12 +84,17 @@ export class PostgresExpenseNoteDecisionRepository implements ExpenseNoteDecisio
       })
       const decided = decideExpenseNote(note, submitter, actor, decision)
 
+      // `AND status = 'pending'` en plus du verrou (B8, NOTIF-10) : une
+      // décision qui ne touche aucune ligne n'émet aucun événement.
       const updated = await client.query<NoteRow>(
         `UPDATE expense_notes SET status = $1, decided_by = $2, decided_at = now()
-         WHERE id = $3 RETURNING *`,
+         WHERE id = $3 AND status = 'pending' RETURNING *`,
         [decided.status, actor.id, noteId]
       )
-      return toDto(updated.rows[0], decision)
+      const row = updated.rows[0]
+      if (!row) throw new ExpenseNoteAlreadyDecided()
+      await enqueueDecided(client, { id: row.id, description: row.description, userId: row.user_id }, decision)
+      return toDto(row, decision)
     })
   }
 }

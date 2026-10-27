@@ -2,7 +2,7 @@ import { config } from 'dotenv'
 import { closePool } from '@/lib/db'
 import { buildHandlers } from '@/worker/handlers'
 import { describeError, log } from '@/worker/log'
-import { processNextEvent } from '@/worker/processNextEvent'
+import { processNextEvent, type OutboxHandlers } from '@/worker/processNextEvent'
 import { runReceiptCleanup } from '@/worker/receiptAnalysis'
 import { runWorker } from '@/worker/runWorker'
 
@@ -19,7 +19,22 @@ async function main(): Promise<void> {
     throw new Error('WORKER_POLL_INTERVAL_MS must be a positive number of milliseconds')
   }
 
-  const handlers = buildHandlers(process.env)
+  if (!process.env.DATABASE_URL) {
+    log('error', 'worker.config', { error: 'DATABASE_URL is not set' })
+    process.exitCode = 1
+    return
+  }
+
+  // Configuration incomplète en production (APP_URL, SMTP_HOST) : le worker
+  // refuse de démarrer plutôt que d'échouer à chaque email (2-484).
+  let handlers: OutboxHandlers
+  try {
+    handlers = buildHandlers(process.env)
+  } catch (error) {
+    log('error', 'worker.config', { error: describeError(error) })
+    process.exitCode = 1
+    return
+  }
   log('info', 'worker.started', { types: Object.keys(handlers) })
 
   // `once` : un second signal retrouve le comportement par défaut et tue le

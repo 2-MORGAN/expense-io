@@ -49,6 +49,6 @@ export class SmtpEmailAdapter implements EmailPort {
   }
 
   async send(message: EmailMessage): Promise<void> {
-    await this.transport.sendMail({ from: this.from, ...message })
+    await this.transport.sendMail({ ...message, from: this.from })
   }
 }

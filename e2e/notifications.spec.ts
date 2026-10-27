@@ -1,0 +1,169 @@
+import { randomUUID } from 'node:crypto'
+import { EmailNotificationAdapter } from '@/adapters/EmailNotificationAdapter'
+import { closePool } from '@/lib/db'
+import { createEmailSender } from '@/lib/email'
+import type { NotificationPort } from '@/ports/NotificationPort'
+import { notificationHandlers } from '@/worker/notificationHandlers'
+import { processNextEvent } from '@/worker/processNextEvent'
+import { expectApiError, statusOf, UNKNOWN_ID } from './support/api'
+import { addUser, createOrg, expect, test } from './support/fixtures'
+import { countEmails, waitForEmail } from './support/mailpit'
+import { insertOutboxEvent, outboxEvent, outboxEventsForNote } from './support/outbox'
+
+test.afterAll(closePool)
+
+const realNotifier = () => new EmailNotificationAdapter(createEmailSender(process.env), 'http://localhost:3000')
+
+// Traite les événements de l'entreprise (et d'elle seule : les tests tournent en parallèle).
+async function drain(companyId: string, notifier: NotificationPort = realNotifier()) {
+  const handlers = notificationHandlers(notifier)
+  while (await processNextEvent(handlers, { companyId })) { /* jusqu’à épuisement */ }
+}
+
+test.describe('Notifications — émission', () => {
+  test('[NOTIF-01] soumission d’un employé → un événement pour son manager', async ({ org, apiAs }) => {
+    const note = await (await apiAs(org.employee)).submitNote({ description: 'Taxi gare' })
+    expect(await outboxEventsForNote(note.id)).toMatchObject([{
+      type: 'expense_note.submitted', companyId: org.company.id,
+      payload: { noteId: note.id, description: 'Taxi gare', submitterName: 'Emile Employe', recipientIds: [org.manager.id] },
+    }])
+  })
+
+  test('[NOTIF-02] soumission d’un manager racine → un événement par RH de l’entreprise', async ({ org, apiAs }) => {
+    const hr2 = await addUser(org, { name: 'Helene Rh', role: 'hr_admin' })
+    const note = await (await apiAs(org.manager)).submitNote({ description: 'Hôtel' })
+    const events = await outboxEventsForNote(note.id)
+    // Un événement par RH, chacun avec un seul destinataire.
+    expect(events.map((event) => event.type)).toEqual(['expense_note.submitted', 'expense_note.submitted'])
+    expect(events.map((event) => (event.payload.recipientIds as string[]).length)).toEqual([1, 1])
+    expect(new Set(events.flatMap((event) => event.payload.recipientIds as string[]))).toEqual(new Set([org.hr.id, hr2.id]))
+  })
+
+  test('[NOTIF-03] soumetteur sans approbateur → note créée, aucun événement', async ({ org, apiAs }) => {
+    const alone = await addUser(org, { name: 'Sans Manager', role: 'employee', managerId: null })
+    const note = await (await apiAs(alone)).submitNote({ description: 'Repas' })
+    expect(await outboxEventsForNote(note.id)).toEqual([])
+  })
+
+  test('[NOTIF-04] décision du manager → un seul événement, même après des décisions répétées', async ({ org, apiAs }) => {
+    const note = await (await apiAs(org.employee)).submitNote({ description: 'Train' })
+    const managerApi = await apiAs(org.manager)
+    expect((await managerApi.managerDecide(note.id, 'approve')).status()).toBe(200)
+    await expectApiError(await managerApi.managerDecide(note.id, 'approve'), 409, 'Already decided')
+    await expectApiError(await managerApi.managerDecide(note.id, 'reject'), 409, 'Already decided')
+
+    const decided = (await outboxEventsForNote(note.id)).filter((event) => event.type === 'expense_note.decided')
+    expect(decided).toMatchObject([{ payload: { noteId: note.id, description: 'Train', decision: 'approved', recipientIds: [org.employee.id] } }])
+  })
+
+  test('[NOTIF-05] rejet par la RH d’une note de manager racine → événement pour le manager', async ({ org, apiAs }) => {
+    const note = await (await apiAs(org.manager)).submitNote({ description: 'Salon' })
+    expect((await (await apiAs(org.hr)).hrDecide(note.id, 'reject')).status()).toBe(200)
+    const decided = (await outboxEventsForNote(note.id)).filter((event) => event.type === 'expense_note.decided')
+    expect(decided).toMatchObject([{ payload: { decision: 'rejected', recipientIds: [org.manager.id] } }])
+  })
+})
+
+test.describe('Notifications — envoi par le worker', () => {
+  test('[NOTIF-06] note soumise → email au manager, sans montant', async ({ org, apiAs, request }) => {
+    const note = await (await apiAs(org.employee)).submitNote({ description: 'Taxi gare', amount: '18.40' })
+    await drain(org.company.id)
+    const mail = await waitForEmail(request, org.manager.email)
+    expect(mail.Subject).toBe('Nouvelle note de frais à valider')
+    expect(mail.Text).toContain('« Taxi gare »')
+    expect(mail.Text).toContain('http://localhost:3000/manager')
+    expect(mail.Text).not.toMatch(/18[.,]40/)
+    const [event] = await outboxEventsForNote(note.id)
+    expect(mail.MessageID).toBe(`${event.id}.${org.manager.id}@expense.io`)
+    // Un worker lancé en parallèle peut avoir envoyé l'email avant de valider « sent » : on attend.
+    await expect.poll(async () => (await outboxEvent(event.id)).status).toBe('sent')
+  })
+
+  test('[NOTIF-07] note approuvée → email au soumetteur', async ({ org, apiAs, request }) => {
+    const note = await (await apiAs(org.employee)).submitNote({ description: 'Train' })
+    await (await apiAs(org.manager)).managerDecide(note.id, 'approve')
+    await drain(org.company.id)
+    const mail = await waitForEmail(request, org.employee.email)
+    expect(mail.Subject).toBe('Votre note de frais a été approuvée')
+    expect(mail.Text).toContain('http://localhost:3000/expenses')
+  })
+
+  test('[NOTIF-08] destinataire d’une autre entreprise dans le payload → écarté', async ({ org, request }) => {
+    const other = await createOrg('autre-entreprise')
+    const id = await insertOutboxEvent({
+      companyId: org.company.id, type: 'expense_note.decided',
+      payload: { noteId: UNKNOWN_ID, description: 'Forgée', decision: 'approved', recipientIds: [org.employee.id, other.employee.id] },
+    })
+    await drain(org.company.id)
+    await waitForEmail(request, org.employee.email)
+    expect(await countEmails(request, other.employee.email)).toBe(0)
+    await expect.poll(async () => (await outboxEvent(id)).status).toBe('sent')
+  })
+
+  test('[NOTIF-09] envoi en panne → décision acquise, email reprogrammé', async ({ org, apiAs }) => {
+    const employeeApi = await apiAs(org.employee)
+    const note = await employeeApi.submitNote({ description: 'Parking' })
+    expect((await (await apiAs(org.manager)).managerDecide(note.id, 'approve')).status()).toBe(200)
+    expect(await statusOf(employeeApi, note.id)).toBe('approved')
+
+    // La relance se vérifie sur un événement de test d'un type unique, que seul ce test réclame :
+    // un worker lancé en parallèle ne peut pas l'enlever (ADR-003 §5 : les E2E ne dépendent pas du worker).
+    const failing: NotificationPort = {
+      notifySubmitted: async () => { throw new Error('SMTP indisponible') },
+      notifyDecision: async () => { throw new Error('SMTP indisponible') },
+    }
+    const testType = `test.notif-09.${randomUUID()}`
+    const handlers = { [testType]: notificationHandlers(failing)['expense_note.decided'] }
+    const id = await insertOutboxEvent({
+      companyId: org.company.id, type: testType,
+      payload: { noteId: note.id, description: 'Parking', decision: 'approved', recipientIds: [org.employee.id] },
+    })
+    expect(await processNextEvent(handlers, { companyId: org.company.id })).toBe(true)
+
+    expect(await outboxEvent(id)).toMatchObject({ status: 'pending', attempts: 1, lastError: 'SMTP indisponible' })
+  })
+})
+
+test.describe('Notifications — pannes partielles', () => {
+  test('[NOTIF-11] une adresse RH en échec ne renvoie pas l’email aux autres RH', async ({ org, request }) => {
+    const hr2 = await addUser(org, { name: 'Helene Rh', role: 'hr_admin' })
+    const real = realNotifier()
+    const partial: NotificationPort = {
+      notifySubmitted: async (recipients, ...rest) => {
+        if (recipients.some((recipient) => recipient.id === hr2.id)) throw new Error('SMTP refuse cette adresse')
+        await real.notifySubmitted(recipients, ...rest)
+      },
+      notifyDecision: (...args) => real.notifyDecision(...args),
+    }
+    // Deux événements (un par RH, comme NOTIF-02) d'un type unique que seul ce test réclame :
+    // un worker lancé en parallèle ne peut pas les traiter avant lui.
+    const testType = `test.notif-11.${randomUUID()}`
+    const payload = (recipientId: string) => ({
+      noteId: UNKNOWN_ID, description: 'Séminaire', submitterName: 'Manon Manager', recipientIds: [recipientId],
+    })
+    const hrEventId = await insertOutboxEvent({ companyId: org.company.id, type: testType, payload: payload(org.hr.id) })
+    const hr2EventId = await insertOutboxEvent({ companyId: org.company.id, type: testType, payload: payload(hr2.id) })
+    const handlers = { [testType]: notificationHandlers(partial)['expense_note.submitted'] }
+    while (await processNextEvent(handlers, { companyId: org.company.id })) { /* jusqu’à épuisement */ }
+
+    await waitForEmail(request, org.hr.email)
+    expect(await countEmails(request, org.hr.email)).toBe(1)
+    expect(await outboxEvent(hrEventId)).toMatchObject({ status: 'sent' })
+    expect(await outboxEvent(hr2EventId)).toMatchObject({ status: 'pending', attempts: 1 })
+  })
+})
+
+test.describe('Notifications — concurrence', () => {
+  test('[NOTIF-10] deux décisions simultanées → une seule réussit, un seul événement', async ({ org, apiAs }) => {
+    const note = await (await apiAs(org.employee)).submitNote({ description: 'Péage' })
+    const managerApi = await apiAs(org.manager)
+    const responses = await Promise.all([
+      managerApi.managerDecide(note.id, 'approve'),
+      managerApi.managerDecide(note.id, 'reject'),
+    ])
+    expect(responses.map((response) => response.status()).sort()).toEqual([200, 409])
+
+    const decided = (await outboxEventsForNote(note.id)).filter((event) => event.type === 'expense_note.decided')
+    expect(decided).toHaveLength(1)
+  })
+})

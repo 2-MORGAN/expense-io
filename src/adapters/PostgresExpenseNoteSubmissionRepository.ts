@@ -1,3 +1,4 @@
+import { enqueueSubmitted } from '@/adapters/PgNotificationEvents'
 import { withUserScope } from '@/lib/db'
 import {
   DuplicateIdempotencyKey,
@@ -31,7 +32,11 @@ export class PostgresExpenseNoteSubmissionRepository implements ExpenseNoteSubmi
             note.idempotency?.key ?? null, note.idempotency?.fingerprint ?? null,
           ]
         )
-        return inserted.rows[0]
+        const created = inserted.rows[0]
+        // Notification de l'approbateur dans la même transaction (outbox, 2-484) :
+        // pas d'email pour une note qui n'existe pas, pas de note sans email.
+        await enqueueSubmitted(client, { id: created.id, description: created.description, userId })
+        return created
       })
     } catch (error) {
       const violation = error as { code?: string; constraint?: string }

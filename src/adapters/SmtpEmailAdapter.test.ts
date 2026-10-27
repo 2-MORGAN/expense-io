@@ -13,6 +13,12 @@ describe('SmtpEmailAdapter', () => {
       from: FROM, to: 'jane@acme.test', subject: 'Sujet', text: 'Corps', messageId: '<evt-1.u1@expense.io>',
     })
   })
+  it('ne laisse pas un champ `from` du message écraser l’expéditeur configuré', async () => {
+    const sendMail = vi.fn().mockResolvedValue({})
+    const forged = { to: 'jane@acme.test', subject: 'Sujet', text: 'Corps', from: 'pirate@evil.test' }
+    await new SmtpEmailAdapter({ sendMail }, FROM).send(forged)
+    expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ from: FROM }))
+  })
   it('propage l’échec du transport (le worker relancera)', async () => {
     const sendMail = vi.fn().mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:1025'))
     await expect(new SmtpEmailAdapter({ sendMail }, FROM).send({ to: 'a@b.test', subject: 's', text: 't' }))
