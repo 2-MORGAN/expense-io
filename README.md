@@ -92,7 +92,7 @@ sort de la machine.
 
 | Commande | Ce qu'elle vérifie | Docker |
 |---|---|---|
-| `npm run check` | lint (règles d'architecture comprises), types, tests unitaires, contrat API valide et types générés à jour, graphes des couches et des routes à jour ([`docs/architecture/`](docs/architecture/README.md)) | non |
+| `npm run check` | lint (règles d'architecture et de SonarQube comprises), types, tests unitaires, contrat API valide et types générés à jour, graphes des couches et des routes à jour ([`docs/architecture/`](docs/architecture/README.md)) | non |
 | `npx playwright test -g "<ID>"` | un scénario E2E désigné par son ID ([`docs/tests/E2E.md`](docs/tests/E2E.md)), sur le serveur de `make dev` s'il tourne | oui |
 | `make test-e2e` | toute la suite E2E de non-régression, environ 3 min | oui |
 | `make verify` | tout ce que vérifie la CI : `npm run check`, build de production, puis la suite E2E | oui |
@@ -108,7 +108,7 @@ Ce qui tourne sans qu'on le demande ([ADR-005](docs/adr/ADR-005-harnais-de-valid
 | `git commit` | ESLint (hook pre-commit) |
 | `git push` | `npm run check` (hook pre-push) |
 | PR vers `main`, push sur `main` | CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) : `check` (lint, types, tests unitaires, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner |
-| Avec Claude Code | les hooks de [`.claude/settings.json`](.claude/settings.json) refusent `--no-verify`, le push sur `main` et le force-push, et lancent `npm run check` en fin de tour si du code a changé |
+| Avec Claude Code | les hooks de [`.claude/settings.json`](.claude/settings.json) refusent `--no-verify`, le push sur `main`, le force-push et `eslint --suppress-all`, et lancent `npm run check` en fin de tour si du code a changé |
 
 Les hooks git s'installent avec `npm install`.
 
@@ -177,6 +177,8 @@ make clean     # arrête les conteneurs et supprime les données locales
 |---|---|
 | `npm run migrate:up` : erreur d'authentification de l'utilisateur `expense` (code `28P01`) | Un autre PostgreSQL occupe le port 5433 (`netstat -ano \| findstr :5433` sous Windows). L'arrêter, ou exposer le conteneur sur un autre port et y faire pointer `DATABASE_URL` |
 | `npm run check` échoue juste après un pull | Une dépendance a changé : `npm install` |
+| Lint : erreur `sonarjs/…` | Règle de SonarQube : corriger le code. Les constats du code existant sont figés dans `eslint-suppressions.json`, qui ne fait que raccourcir ([`CLAUDE.md`](CLAUDE.md), « Où placer le code ») |
+| Lint : « There are suppressions left that do not occur anymore » | Un constat figé a été corrigé : `npx eslint --prune-suppressions`, puis commiter `eslint-suppressions.json` avec la correction |
 | `npm run check` : « docs/architecture/… a dérivé du code » | Un import entre couches ou une route a changé : `npm run generate:architecture`, relire le diff, le commiter avec le code. Une flèche interdite ou une route sans garde se corrigent dans le code ([`docs/architecture/`](docs/architecture/README.md)) |
 | Sous Windows, `npm run check` signale des types générés « not up-to-date » sans modification | Fichier extrait en fins de ligne CRLF avant l'ajout de `.gitattributes` : le supprimer, puis `git checkout -- <fichier>` |
 | Test E2E : « Executable doesn't exist » | Navigateur absent : `npx playwright install chromium` |

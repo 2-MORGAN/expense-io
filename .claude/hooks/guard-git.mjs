@@ -72,6 +72,17 @@ function gitInvocation(words) {
   return { globals, subcommand: words[i], args: words.slice(i + 1) }
 }
 
+/**
+ * `eslint --suppress-all` ou `--suppress-rule` : fige de nouveaux constats dans
+ * eslint-suppressions.json, qui ne fait que raccourcir. `--prune-suppressions`
+ * reste permis.
+ */
+function suppressesLint(words) {
+  const eslint = words.some((word) => /(^|[\\/])eslint(\.js|\.cmd)?$/i.test(word))
+    || (words.includes('run') && words.includes('lint'))
+  return eslint && words.some((word) => /^--suppress-(all|rule)(=|$)/.test(word))
+}
+
 /** `git commit -n`, seul ou groupé (`-anm`), avant une option qui prend une valeur. */
 function hasShortNoVerify(args) {
   return args.some((arg) => {
@@ -131,6 +142,9 @@ export function refusal(command, currentBranch, shell = 'Bash') {
       return '`HUSKY=0` désactive les hooks git (CLAUDE.md, règle 4) : corriger la cause de l’échec du hook.'
     }
     const words = segment.trim().split(/\s+/).filter(Boolean)
+    if (suppressesLint(words)) {
+      return '`--suppress-all` et `--suppress-rule` figent de nouveaux constats dans eslint-suppressions.json (CLAUDE.md, règle 4) : corriger le code. Après une correction, `npx eslint --prune-suppressions` raccourcit la liste.'
+    }
     if (words[0] === 'gh' && words[1] === 'pr' && words[2] === 'create') {
       const flag = words.findIndex((word) => word === '--repo' || word === '-R')
       const target = flag === -1 ? words.find((word) => word.startsWith('--repo='))?.slice('--repo='.length) : words[flag + 1]
