@@ -64,6 +64,8 @@ jobs:
     name: e2e (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      E2E_CHROMIUM_PATH: /usr/bin/google-chrome
     strategy:
       # Un shard en échec n'arrête pas l'autre : le rapport fusionné reste complet.
       fail-fast: false
@@ -78,16 +80,14 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      # Le navigateur est mis en cache par version de Playwright (lockfile) ;
-      # seules les dépendances système passent encore par apt.
-      - name: Cache du navigateur Playwright
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      # Tests en mode headless : seul chromium-headless-shell est utilisé.
-      - name: Installer Chromium pour Playwright
-        run: npx playwright install --with-deps --only-shell chromium
+      # Aucun téléchargement ni `apt` : l'image ubuntu-latest fournit Google
+      # Chrome et ses dépendances système. `playwright install --with-deps`
+      # prenait jusqu'à 13 min (apt, hors cache). playwright.config.ts le lance
+      # via E2E_CHROMIUM_PATH (docs/tests/E2E.md).
+      - name: Chrome du runner
+        run: |
+          test -x "$E2E_CHROMIUM_PATH"
+          "$E2E_CHROMIUM_PATH" --version
       # Mêmes prérequis que `make test-e2e` : .env depuis .env.example (base et
       # S3 jetables, aucun secret GitHub), Docker, migrations, bucket. Avec
       # CI=true, playwright.config.ts interdit test.only, autorise un nouvel
