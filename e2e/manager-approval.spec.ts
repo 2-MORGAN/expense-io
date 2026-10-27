@@ -96,7 +96,7 @@ test.describe('Validation par le manager — interface', () => {
     await expectEmployeeSeesStatus(await pageAs(org.employee), 'Parking non justifié', 'rejected')
   })
 
-  test('[MGR-05] note déjà tranchée entre-temps → message « Already decided » affiché', async ({
+  test('[MGR-05] note déjà tranchée entre-temps → message français traduit depuis ALREADY_DECIDED', async ({
     org,
     apiAs,
     pageAs,
@@ -113,7 +113,7 @@ test.describe('Validation par le manager — interface', () => {
       .getByRole('row', { name: /Double décision/ })
       .getByRole('button', { name: 'Approuver' })
       .click()
-    await expect(managerPage.getByRole('main').getByRole('alert')).toHaveText('Already decided')
+    await expect(managerPage.getByRole('main').getByRole('alert')).toHaveText('Cette note a déjà été tranchée.')
   })
 })
 

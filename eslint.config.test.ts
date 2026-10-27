@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { ESLint } from 'eslint'
 import { describe, expect, it } from 'vitest'
@@ -137,6 +137,14 @@ describe('règles d’architecture', () => {
       )
       expect(messages.join('\n')).toMatch(/'skip' is restricted/)
     })
+
+    it('refusent aussi .only dans les tests de scripts/', async () => {
+      const messages = await messagesFor(
+        `declare const it: Record<string, (...a: unknown[]) => void>\nit.only('a', () => {})`,
+        'scripts/architecture/new.test.ts'
+      )
+      expect(messages.join('\n')).toMatch(/'only' is restricted/)
+    })
   })
 })
 
@@ -168,4 +176,58 @@ describe('listes LEGACY_*', () => {
       expect(messages.join('\n')).toMatch(/interpolation/)
     }
   )
+})
+
+async function errorRulesFor(code: string, filePath: string): Promise<string[]> {
+  const [result] = await eslint.lintText(code, { filePath: join(process.cwd(), filePath) })
+  return result.messages.filter((m) => m.severity === 2).map((m) => m.ruleId ?? '')
+}
+
+describe('règles SonarJS', () => {
+  it('refusent une regex au temps super-linéaire (ReDoS)', async () => {
+    const rules = await errorRulesFor(String.raw`export const EMAIL = /^[^\s@]+@([^\s@]+\.[^\s@]+)$/`, 'src/lib/new.ts')
+    expect(rules).toContain('sonarjs/super-linear-regex')
+  })
+
+  it('refusent un mot de passe en dur, sauf dans les données de test et de démonstration', async () => {
+    // SonarJS écarte les valeurs d'exemple (« secret », « changeme »…) : une
+    // valeur de la forme des comptes de démonstration.
+    const code = `export const account = { email: 'hr@expense.io', password: 'manager1234' }`
+    expect(await errorRulesFor(code, 'src/lib/new.ts')).toContain('sonarjs/no-hardcoded-passwords')
+    for (const path of ['e2e/new.spec.ts', 'scripts/seed.mjs', 'src/lib/new.test.ts']) {
+      expect(await errorRulesFor(code, path)).not.toContain('sonarjs/no-hardcoded-passwords')
+    }
+  })
+
+  it('ne jugent pas les types générés par openapi-typescript', async () => {
+    const code = `export interface paths { '/x': { get: never } }`
+    expect(await errorRulesFor(code, 'src/types/new.d.ts')).toContain('sonarjs/class-name')
+    expect(await errorRulesFor(code, 'src/types/api.d.ts')).not.toContain('sonarjs/class-name')
+  })
+
+  it('coupent les règles AWS CDK, sans changer la version de React vue par Next.js', async () => {
+    const config = await eslint.calculateConfigForFile(join(process.cwd(), 'src/app/page.tsx'))
+    expect(config.rules['sonarjs/aws-s3-bucket-versioning']?.[0]).toBe(0)
+    expect(config.rules['sonarjs/super-linear-regex']?.[0]).toBe(2)
+    expect(config.settings.react?.version).not.toBe('999.999.999')
+  })
+})
+
+// Les constats SonarJS du code existant, figés par `eslint --suppress-all`.
+// ESLint échoue déjà sur un constat de plus ou sur une suppression qui ne sert
+// plus, mais pas sur l'entrée d'un fichier supprimé ou renommé. Les règles
+// d'architecture, elles, ont leurs listes LEGACY_*, relues en revue.
+describe('eslint-suppressions.json', () => {
+  const suppressions: Record<string, Record<string, { count: number }>> = JSON.parse(
+    readFileSync('eslint-suppressions.json', 'utf8')
+  )
+
+  it('ne fige que des constats SonarJS', () => {
+    const rules = Object.values(suppressions).flatMap((byRule) => Object.keys(byRule))
+    expect(rules.filter((rule) => !rule.startsWith('sonarjs/'))).toEqual([])
+  })
+
+  it('ne vise que des fichiers qui existent', () => {
+    expect(Object.keys(suppressions).filter((path) => !existsSync(path))).toEqual([])
+  })
 })
