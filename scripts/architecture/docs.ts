@@ -75,8 +75,11 @@ export function pageWith(page: string, diagrams: Readonly<Record<string, string>
   return out
 }
 
-const CREATE_TABLE = /^\s*CREATE TABLE (?:IF NOT EXISTS )?(\w+)/i
-const DROP_TABLE = /^\s*DROP TABLE (?:IF EXISTS )?(\w+)/i
+// Nom de table, avec ou sans schéma `public.`, entre guillemets ou non.
+const TABLE = String.raw`(?:"?public"?\.)?"?(\w+)"?`
+const CREATE_TABLE = new RegExp(String.raw`^\s*CREATE TABLE (?:IF NOT EXISTS )?${TABLE}`, 'i')
+const DROP_TABLE = new RegExp(String.raw`^\s*DROP TABLE (?:IF EXISTS )?${TABLE}`, 'i')
+const RENAME_TABLE = new RegExp(String.raw`^\s*ALTER TABLE (?:IF EXISTS )?(?:ONLY )?${TABLE} RENAME TO "?(\w+)"?`, 'i')
 
 /** Tables que laissent les migrations, prises dans l'ordre, partie « Up » seulement. */
 export function migrationTables(migrations: readonly SourceFile[]): string[] {
@@ -85,12 +88,28 @@ export function migrationTables(migrations: readonly SourceFile[]): string[] {
     const up = lf(text).split('-- Down Migration')[0]
     for (const line of up.split('\n')) {
       const created = CREATE_TABLE.exec(line)?.[1]
-      if (created) tables.add(created)
+      if (created) tables.add(created.toLowerCase())
       const dropped = DROP_TABLE.exec(line)?.[1]
-      if (dropped) tables.delete(dropped)
+      if (dropped) tables.delete(dropped.toLowerCase())
+      const renamed = RENAME_TABLE.exec(line)
+      if (renamed && tables.delete(renamed[1].toLowerCase())) tables.add(renamed[2].toLowerCase())
     }
   }
   return [...tables].sort(byText)
+}
+
+const SCRIPT_TAG = /<script\b[^>]*>/gi
+
+/**
+ * Scripts externes de la page sans empreinte (SRI) ni `crossorigin` : un
+ * fichier modifié sur le CDN y serait exécuté. Un script inline n'est pas visé.
+ */
+export function unpinnedScripts(page: string): string[] {
+  return [...page.matchAll(SCRIPT_TAG)]
+    .map((match) => match[0])
+    .filter((tag) => /\ssrc=/i.test(tag))
+    .filter((tag) => !/\sintegrity="sha(256|384|512)-[\w+/=]+"/i.test(tag) || !/\scrossorigin=/i.test(tag))
+    .map((tag) => /\ssrc="([^"]*)"/i.exec(tag)?.[1] ?? tag)
 }
 
 const ER_ENTITY = /^\s*(\w+)\s*\{/
@@ -153,6 +172,8 @@ export interface DocGaps {
   staleEntities: string[]
   /** Types d'événements de l'outbox que la page ne cite pas. */
   events: string[]
+  /** Scripts externes chargés sans empreinte SRI. */
+  scripts: string[]
 }
 
 /** Ce qui manque à la page, ou ce qu'elle présente encore à tort. */
@@ -169,6 +190,7 @@ export function docGaps(page: string, diagrams: Readonly<Record<string, string>>
     tables: tables.filter((table) => !entities.includes(table)),
     staleEntities: entities.filter((entity) => !tables.includes(entity)),
     events: outboxEventTypes(inputs.sources).filter((type) => !page.includes(type)),
+    scripts: unpinnedScripts(page),
   }
 }
 
@@ -182,5 +204,6 @@ export function docProblems(gaps: DocGaps): string[] {
     ...list(`table absente de ${DIAGRAMS}/${DATA_VIEW}`, gaps.tables),
     ...list(`entité de ${DIAGRAMS}/${DATA_VIEW} qui n'est plus une table`, gaps.staleEntities),
     ...list(`type d'événement de l'outbox absent de ${DOC_PAGE}`, gaps.events),
+    ...list(`script externe sans integrity="sha384-…" ni crossorigin dans ${DOC_PAGE}`, gaps.scripts),
   ]
 }

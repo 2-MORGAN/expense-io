@@ -82,3 +82,8 @@ erDiagram
     timestamptz created_at
     timestamptz expires_at "24 h"
   }
+  login_attempts {
+    text key PK "empreinte SHA-256 de l'email ou de l'IP"
+    int failures "échecs dans la fenêtre"
+    timestamptz window_end "15 min ; jamais de blocage définitif"
+  }

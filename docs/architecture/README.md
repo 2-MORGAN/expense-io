@@ -13,7 +13,7 @@ La matrice des couches, les exceptions legacy (`LEGACY_EDGES`) et les routes pub
 
 Ces deux graphes et les vues écrites à la main de [`vues/`](vues/) (services, parcours, données, ADR…) illustrent la doc des développeurs, [`docs/index.html`](../index.html). `npm run generate:architecture` les recopie dans la page entre leurs marqueurs `<!-- début : … -->` et `<!-- fin : … -->`, échappés pour le HTML ; la page les dessine avec Mermaid. Une vue se modifie dans son `.mmd`, jamais dans la page.
 
-Le même test échoue si la page a dérivé de ses schémas, si un schéma n'y a pas de marqueurs ou un marqueur plus de schéma, si une ADR n'a pas sa fiche (`id="adr-NNN"`), si [`vues/schema.mmd`](vues/schema.mmd) n'a pas exactement les tables des migrations, ou si un type d'événement de l'outbox n'est pas cité. Le reste se tient à jour à la main, dans la même PR que le code : `CLAUDE.md`, « Documentation développeur ».
+Le même test échoue si la page a dérivé de ses schémas, si un schéma n'y a pas de marqueurs ou un marqueur plus de schéma, si une ADR n'a pas sa fiche (`id="adr-NNN"`), si [`vues/schema.mmd`](vues/schema.mmd) n'a pas exactement les tables des migrations, si un type d'événement de l'outbox n'est pas cité, ou si un script externe est chargé sans empreinte SRI. Le reste se tient à jour à la main, dans la même PR que le code : `CLAUDE.md`, « Documentation développeur ».
 
 ## Quand le test échoue
 

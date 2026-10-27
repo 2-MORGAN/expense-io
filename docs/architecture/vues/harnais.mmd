@@ -7,7 +7,7 @@ flowchart TB
   push["git push<br/>pre-push : npm run check"]
   pr["Pull request vers main<br/>modèle rempli, relue par un pair"]
   ci{"CI GitHub Actions"}
-  checkJob["check<br/>lint, SonarJS, types, Vitest,<br/>contrat, graphes, doc, build"]
+  checkJob["check<br/>lint, SonarJS, types, Vitest,<br/>contrat, graphes, doc,<br/>oasdiff (sans rupture), build"]
   e2eJob["e2e<br/>Playwright en 2 shards<br/>Postgres, LocalStack, Mailpit"]
   mainBranch[("main<br/>squash, historique linéaire")]
 

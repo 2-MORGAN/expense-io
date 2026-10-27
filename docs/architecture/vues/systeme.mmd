@@ -16,6 +16,7 @@ flowchart TB
     loops["2 boucles sur l'outbox<br/>SKIP LOCKED · bail de 5 min"]
     handlers["Handlers de buildHandlers()<br/>emails · notifications<br/>analyse de reçu"]
     cleanup["Nettoyage des analyses<br/>toutes les 10 s"]
+    stats["Métriques outbox.stats<br/>chaque minute (journal)"]
   end
 
   pg[("PostgreSQL 16<br/>port 5433<br/>RLS · outbox_events")]
@@ -24,6 +25,7 @@ flowchart TB
   smtp["SMTP : Mailpit<br/>1025 · interface 8025"]
   mailbox(["Boîte mail<br/>liens d'invitation<br/>et de vérification"])
   ops["Scripts npm<br/>migrate:up · seed<br/>ensure-bucket<br/>réconciliation, nettoyage"]
+  cron["Tâche planifiée quotidienne<br/>ops/cron : réconciliation<br/>des reçus orphelins"]
 
   user -->|"pages, formulaires"| pages
   user -->|"fetch JSON, multipart"| api
@@ -33,6 +35,8 @@ flowchart TB
   core -->|"reçus"| s3
   user ~~~ loops
   user ~~~ cleanup
+  user ~~~ stats
+  stats -->|"pending, dead, âge"| pg
   loops -->|"expense_worker :<br/>prise en charge"| pg
   loops --> handlers
   handlers -->|"emails"| smtp
@@ -44,12 +48,13 @@ flowchart TB
   user ~~~ ops
   ops --> pg
   ops --> s3
+  cron -->|"expense_worker"| ops
 
   classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
   classDef externe fill:#f3f4f6,stroke:#6b7280,color:#111827
-  class pages,api,loops,handlers,cleanup entree
+  class pages,api,loops,handlers,cleanup,stats entree
   class core coeur
   class pg,s3,ocr,smtp infra
-  class user,mailbox,ops externe
+  class user,mailbox,ops,cron externe

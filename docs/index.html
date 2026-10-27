@@ -412,7 +412,7 @@ npm run dev                   <span class="c"># next dev et le worker, ensemble 
       </div>
 
       <h3>Variables d'environnement</h3>
-      <p><code>.env.example</code> fait foi ; <code>make dev</code> le copie en <code>.env</code> et y génère les mots de passe des deux rôles restreints, que <code>npm run migrate:up</code> pose ensuite en base. Aucun secret ne s'écrit dans le code.</p>
+      <p><code>.env.example</code> fait foi ; <code>make dev</code> le copie en <code>.env</code> et y génère <code>AUTH_SECRET</code> et les mots de passe des deux rôles restreints, que <code>npm run migrate:up</code> pose ensuite en base. Aucun secret ne s'écrit dans le code.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Variable</th><th>Rôle</th></tr></thead>
@@ -421,11 +421,13 @@ npm run dev                   <span class="c"># next dev et le worker, ensemble 
             <tr><td><code>WORKER_DATABASE_URL</code></td><td>connexion du worker et de la réconciliation des reçus, sous <code>expense_worker</code></td></tr>
             <tr><td><code>MIGRATION_DATABASE_URL</code></td><td>propriétaire des tables : migrations, seed, nettoyage ponctuel</td></tr>
             <tr><td><code>E2E_DATABASE_URL</code></td><td>préparation des données des tests E2E, sous le propriétaire</td></tr>
-            <tr><td><code>AUTH_SECRET</code>, <code>AUTH_TRUST_HOST</code></td><td>signature des sessions Auth.js ; <code>AUTH_TRUST_HOST</code> en production seulement</td></tr>
+            <tr><td><code>AUTH_SECRET</code>, <code>AUTH_TRUST_HOST</code></td><td>signature des sessions Auth.js ; en production, le serveur refuse de démarrer si le secret est absent, fait moins de 32 caractères ou vaut la valeur d'exemple (CONF-01). Rotation : remplacer la valeur et redémarrer, toutes les sessions sont invalidées. <code>AUTH_TRUST_HOST</code> en production seulement</td></tr>
+            <tr><td><code>LOGIN_MAX_FAILURES_PER_EMAIL</code>, <code>LOGIN_MAX_FAILURES_PER_IP</code>, <code>LOGIN_WINDOW_SECONDS</code></td><td>limite de tentatives de connexion : 10 échecs par email et 100 par IP sur 15 min par défaut (AUTH-11)</td></tr>
             <tr><td><code>S3_ENDPOINT</code>, <code>S3_REGION</code>, <code>S3_ACCESS_KEY_ID</code>, <code>S3_SECRET_ACCESS_KEY</code>, <code>S3_BUCKET</code>, <code>S3_FORCE_PATH_STYLE</code></td><td>stockage des reçus</td></tr>
             <tr><td><code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_FROM</code> (puis <code>SMTP_SECURE</code>, <code>SMTP_USER</code>, <code>SMTP_PASSWORD</code> en production)</td><td>envoi des emails ; sans <code>SMTP_HOST</code> en production, le worker refuse de démarrer</td></tr>
             <tr><td><code>APP_URL</code></td><td>adresse publique, pour les liens d'invitation et de vérification</td></tr>
             <tr><td><code>WORKER_POLL_INTERVAL_MS</code></td><td>intervalle d'interrogation de l'outbox (2000 par défaut)</td></tr>
+            <tr><td><code>OUTBOX_STATS_INTERVAL_MS</code></td><td>intervalle de la ligne de métriques <code>outbox.stats</code> du worker (60000 par défaut)</td></tr>
           </tbody>
         </table>
       </div>
@@ -593,6 +595,7 @@ flowchart TB
     loops["2 boucles sur l'outbox&lt;br/&gt;SKIP LOCKED · bail de 5 min"]
     handlers["Handlers de buildHandlers()&lt;br/&gt;emails · notifications&lt;br/&gt;analyse de reçu"]
     cleanup["Nettoyage des analyses&lt;br/&gt;toutes les 10 s"]
+    stats["Métriques outbox.stats&lt;br/&gt;chaque minute (journal)"]
   end
 
   pg[("PostgreSQL 16&lt;br/&gt;port 5433&lt;br/&gt;RLS · outbox_events")]
@@ -601,6 +604,7 @@ flowchart TB
   smtp["SMTP : Mailpit&lt;br/&gt;1025 · interface 8025"]
   mailbox(["Boîte mail&lt;br/&gt;liens d'invitation&lt;br/&gt;et de vérification"])
   ops["Scripts npm&lt;br/&gt;migrate:up · seed&lt;br/&gt;ensure-bucket&lt;br/&gt;réconciliation, nettoyage"]
+  cron["Tâche planifiée quotidienne&lt;br/&gt;ops/cron : réconciliation&lt;br/&gt;des reçus orphelins"]
 
   user --&gt;|"pages, formulaires"| pages
   user --&gt;|"fetch JSON, multipart"| api
@@ -610,6 +614,8 @@ flowchart TB
   core --&gt;|"reçus"| s3
   user ~~~ loops
   user ~~~ cleanup
+  user ~~~ stats
+  stats --&gt;|"pending, dead, âge"| pg
   loops --&gt;|"expense_worker :&lt;br/&gt;prise en charge"| pg
   loops --&gt; handlers
   handlers --&gt;|"emails"| smtp
@@ -621,15 +627,16 @@ flowchart TB
   user ~~~ ops
   ops --&gt; pg
   ops --&gt; s3
+  cron --&gt;|"expense_worker"| ops
 
   classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
   classDef externe fill:#f3f4f6,stroke:#6b7280,color:#111827
-  class pages,api,loops,handlers,cleanup entree
+  class pages,api,loops,handlers,cleanup,stats entree
   class core coeur
   class pg,s3,ocr,smtp infra
-  class user,mailbox,ops externe
+  class user,mailbox,ops,cron externe
 </pre>
 <!-- fin : vues/systeme.mmd -->
         </div>
@@ -798,11 +805,13 @@ flowchart TB
   m_composition["composition"]
   m_lib_2f_auth["lib/auth"]
   m_lib_2f_authErrors["lib/authErrors"]
+  m_lib_2f_authSecret["lib/authSecret"]
   m_lib_2f_db["lib/db"]
   m_lib_2f_dbRole["lib/dbRole"]
   m_lib_2f_email["lib/email"]
   m_lib_2f_errors["lib/errors"]
   m_lib_2f_log["lib/log"]
+  m_lib_2f_loginThrottle["lib/loginThrottle"]
   m_lib_2f_outbox["lib/outbox"]
   m_lib_2f_sessionUser["lib/sessionUser"]
   m_lib_2f_storage["lib/storage"]
@@ -868,19 +877,25 @@ flowchart TB
   m_http --&gt; m_ports
   m_http --&gt; m_types
   m_instrumentation --&gt; p_next
+  m_instrumentation --&gt; m_lib_2f_authSecret
   m_instrumentation --&gt; m_lib_2f_dbRole
   m_instrumentation --&gt; m_lib_2f_log
+  m_lib_2f_auth --&gt; p_next
   m_lib_2f_auth --&gt; p_next_2d_auth
   m_lib_2f_auth --&gt; m_lib_2f_authErrors
   m_lib_2f_auth --&gt; m_lib_2f_db
+  m_lib_2f_auth --&gt; m_lib_2f_log
+  m_lib_2f_auth --&gt; m_lib_2f_loginThrottle
   m_lib_2f_auth --&gt; m_lib_2f_sessionUser
   m_lib_2f_authErrors --&gt; p_next_2d_auth
+  m_lib_2f_authSecret --&gt; m_lib_2f_log
   m_lib_2f_db --&gt; p_pg
   m_lib_2f_dbRole --&gt; m_lib_2f_db
   m_lib_2f_dbRole --&gt; m_lib_2f_log
   m_lib_2f_email --&gt; m_adapters
   m_lib_2f_email --&gt; m_ports
   m_lib_2f_errors --&gt; m_http
+  m_lib_2f_loginThrottle --&gt; m_lib_2f_db
   m_lib_2f_outbox --&gt; p_pg
   m_lib_2f_outbox --&gt; m_lib_2f_db
   m_lib_2f_outbox --&gt; m_ports
@@ -911,7 +926,7 @@ flowchart TB
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
   class m_application,m_domain,m_generated,m_ports,m_utils coeur
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
-  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_tokens infra
+  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_tokens infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
   class p__40_aws_2d_sdk,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react,p_sharp paquet
 </pre>
@@ -1094,7 +1109,7 @@ sequenceDiagram
       <div class="grid">
         <div class="card"><h4>Jamais de note sans reçu</h4><p>Un échec d'upload ne crée aucune ligne ; une contrainte <code>CHECK (receipt_key &lt;&gt; '')</code> l'interdit aussi en base.</p></div>
         <div class="card"><h4>Renvoi sans doublon</h4><p>Le formulaire garde son <code>Idempotency-Key</code> jusqu'au succès : même clé et même contenu rendent la même note (<code>Idempotent-Replayed: true</code>), autre contenu donne 422.</p></div>
-        <div class="card"><h4>Rien d'orphelin pour longtemps</h4><p><code>npm run reconcile:orphan-receipts</code> supprime chaque jour les objets non référencés de plus de 24 h ; dry-run par défaut.</p></div>
+        <div class="card"><h4>Rien d'orphelin pour longtemps</h4><p><code>npm run reconcile:orphan-receipts</code> supprime les objets non référencés de plus de 24 h ; dry-run par défaut. La tâche quotidienne (03:17 UTC, sous <code>expense_worker</code>) est décrite dans <code>ops/cron/expense-io.crontab</code>, à installer sur l'hôte après un premier <code>make reconcile</code> relu.</p></div>
       </div>
 
       <h3 id="outbox">L'outbox et le worker<a class="anchor" href="#outbox" aria-label="Lien vers cette section">#</a></h3>
@@ -1268,6 +1283,7 @@ sequenceDiagram
 
       <h3 id="identite">Inscription, invitations et session<a class="anchor" href="#identite" aria-label="Lien vers cette section">#</a></h3>
       <p>Le domaine de l'email ne donne aucun droit (faille S7 corrigée, <a href="#adr-001">ADR-001 §3</a>). Les écritures sensibles passent par des fonctions <code>SECURITY DEFINER</code> à surface étroite, et les jetons ne sont stockés qu'en empreinte SHA-256 : le worker les crée au moment d'envoyer l'email, l'outbox ne transporte que des ids.</p>
+      <p>La connexion est limitée (<a href="#adr-001">ADR-001 §4</a>, AUTH-11) : au-delà de 10 échecs pour un même email, ou de 100 pour une même IP, en 15 min, elle est refusée jusqu'à la fin de la fenêtre, même avec le bon mot de passe. <code>/login</code> affiche « Trop de tentatives de connexion », l'appel direct de <code>/api/auth/callback/credentials</code> répond <strong>429</strong> <code>TOO_MANY_LOGIN_ATTEMPTS</code> avec <code>Retry-After</code>. Les compteurs (<code>login_attempts</code>) ne gardent que l'empreinte de l'adresse ; un email inconnu coûte le même <code>bcrypt.compare</code> qu'un mauvais mot de passe.</p>
       <figure class="diagram" id="fig-identite">
         <figcaption>
           <span class="fig-title">Créer son entreprise ou rejoindre celle de sa RH</span>
@@ -1425,6 +1441,11 @@ erDiagram
     timestamptz created_at
     timestamptz expires_at "24 h"
   }
+  login_attempts {
+    text key PK "empreinte SHA-256 de l'email ou de l'IP"
+    int failures "échecs dans la fenêtre"
+    timestamptz window_end "15 min ; jamais de blocage définitif"
+  }
 </pre>
 <!-- fin : vues/schema.mmd -->
         </div>
@@ -1511,7 +1532,7 @@ flowchart TB
           <h4>Fonctions <code>SECURITY DEFINER</code></h4>
           <p>Pour ce qui se fait avant de connaître l'utilisateur, ou qui porte sur toutes les entreprises sans ouvrir un rôle <code>BYPASSRLS</code>, avec un <code>search_path</code> fixé :</p>
           <ul class="pills">
-            <li><code>auth_find_user</code></li><li><code>register_user</code></li><li><code>accept_invitation</code></li><li><code>invitation_preview</code></li><li><code>verify_email</code></li><li><code>request_email_verification</code></li><li><code>issue_invitation_token</code></li><li><code>issue_verification_token</code></li><li><code>purge_unverified_account</code></li><li><code>receipt_cleanup_candidates</code></li><li><code>purge_expired_receipt_analyses</code></li><li><code>referenced_receipt_keys</code></li><li><code>pending_receipt_analyses</code></li>
+            <li><code>auth_find_user</code></li><li><code>register_user</code></li><li><code>accept_invitation</code></li><li><code>invitation_preview</code></li><li><code>verify_email</code></li><li><code>request_email_verification</code></li><li><code>issue_invitation_token</code></li><li><code>issue_verification_token</code></li><li><code>purge_unverified_account</code></li><li><code>receipt_cleanup_candidates</code></li><li><code>purge_expired_receipt_analyses</code></li><li><code>referenced_receipt_keys</code></li><li><code>pending_receipt_analyses</code></li><li><code>login_attempts_for</code></li><li><code>record_login_failure</code></li>
           </ul>
         </div>
       </div>
@@ -1578,6 +1599,7 @@ flowchart LR
           <h4>Conventions</h4>
           <ul>
             <li>URL actuelles, sans <code>/v1</code> ; listes complètes, sans pagination.</li>
+            <li>Pas de rupture sans décision : sur chaque PR, la CI compare <code>openapi.yaml</code> à celui de <code>main</code> avec oasdiff (<code>make api-breaking</code> en local). Un nouveau code d'erreur n'est qu'un avertissement ; une rupture voulue demande une ADR et le label <code>rupture-contrat</code>.</li>
             <li>Messages canoniques en anglais avec un <code>code</code> stable ; le front traduit (<code>src/components/apiError.ts</code>).</li>
             <li>Validation stricte, sans coercition ni valeur par défaut, après la garde et avant toute écriture ou upload.</li>
             <li><code>Idempotency-Key</code> facultatif sur la création de note et le lancement d'une analyse.</li>
@@ -1674,6 +1696,7 @@ X-Request-Id: 5d693674-3f69-4ea2-bb6b-c9d502eefad9
             <tr><td>404</td><td><code>RESOURCE_NOT_FOUND</code></td><td>ressource inconnue ou non visible : même réponse dans les deux cas</td></tr>
             <tr><td>409</td><td><code>ALREADY_DECIDED</code>, <code>INVALID_MANAGER</code></td><td>transition impossible, manager non admissible</td></tr>
             <tr><td>422</td><td><code>IDEMPOTENCY_KEY_REUSED</code></td><td>même clé, autre contenu</td></tr>
+            <tr><td>429</td><td><code>TOO_MANY_LOGIN_ATTEMPTS</code></td><td>connexion seulement (<code>/api/auth/callback/credentials</code>, hors contrat car servie par Auth.js), avec <code>Retry-After</code></td></tr>
             <tr><td>500</td><td><code>INTERNAL_ERROR</code></td><td>exception imprévue, détaillée seulement dans le journal du serveur</td></tr>
             <tr><td>503</td><td><code>OCR_UNAVAILABLE</code>, <code>OCR_TIMEOUT</code>, <code>OCR_OVERLOADED</code></td><td>moteur en panne, trop lent ou saturé ; avec <code>Retry-After: 5</code></td></tr>
           </tbody>
@@ -1823,10 +1846,10 @@ flowchart TB
             <li>Preuves par la suite E2E : ISO-04 à 09, SIGNUP-08, AUTH-10 ; une instance par région pour l'international.</li>
           </ul>
           <h4>Livré</h4>
-          <ul class="pills"><li>2-471 · S1, S2, S3, S5 (PR #19)</li><li>2-478 · rôles, policies, RLS sur users (PR #21)</li><li>2-496 · invitations, vérification, S9 (PR #25)</li><li>2-481 · web et worker sous rôles restreints (PR #37)</li></ul>
+          <ul class="pills"><li>2-471 · S1, S2, S3, S5 (PR #19)</li><li>2-478 · rôles, policies, RLS sur users (PR #21)</li><li>2-496 · invitations, vérification, S9 (PR #25)</li><li>2-481 · web et worker sous rôles restreints (PR #37)</li><li>secret vérifié au démarrage, limite de tentatives (PR #39)</li></ul>
           <h4>Reste à faire</h4>
           <ul>
-            <li>Limite de tentatives de connexion.</li>
+            <li>Proposés au PO : <code>session_version</code> pour « déconnecter partout », limite sur l'inscription.</li>
           </ul>
         </article>
 
@@ -1852,7 +1875,7 @@ flowchart TB
         <article class="card adr yellow" id="adr-003">
           <header><span class="num">ADR-003</span><span class="tag tag-ok">Acceptée</span></header>
           <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-003-ocr-soumission-notifications.md">OCR / IA, fiabilité de la soumission et notifications</a></h3>
-          <p class="meta">Jacques Dai (WS3, asynchrone) · acceptée le 20/10/2026, amendée le 23/10</p>
+          <p class="meta">Jacques Dai (WS3, asynchrone) · acceptée le 20/10/2026, amendée le 23/10, mise à jour le 27/10</p>
           <h4>Décide</h4>
           <ul>
             <li>OCR borné (octets, pixels, concurrence, durée), puis asynchrone : 202 et polling.</li>
@@ -1861,10 +1884,10 @@ flowchart TB
             <li>B11 : une panne donne 503 et <code>Retry-After</code>, « rien trouvé » reste 200 et vide.</li>
           </ul>
           <h4>Livré</h4>
-          <ul class="pills"><li>2-475 · OCR (PR #13, #17)</li><li>2-476 · soumission (PR #27 à #30)</li><li>2-484 · SMTP, outbox, notifications (PR #14 à #16)</li></ul>
+          <ul class="pills"><li>2-475 · OCR (PR #13, #17)</li><li>2-476 · soumission (PR #27 à #30)</li><li>2-484 · SMTP, outbox, notifications (PR #14 à #16)</li><li>T9 · métriques OCR et outbox ; T5 · réconciliation planifiée (PR #39)</li></ul>
           <h4>Reste à faire</h4>
           <ul>
-            <li>Métriques de l'OCR et de l'outbox ; planifier la réconciliation quotidienne.</li>
+            <li>Installer la tâche de <code>ops/cron/</code> sur l'hôte, une fois un environnement déployé ; passer à un broker si l'outbox prend plus d'une minute de retard (déclencheur de l'ADR).</li>
           </ul>
         </article>
 
@@ -1880,7 +1903,7 @@ flowchart TB
             <li>Pas de <code>/v1</code>, pas de pagination ; 401, 403, 404 et 409 avec un sens précis.</li>
           </ul>
           <h4>Livré</h4>
-          <ul class="pills"><li>Q1.1 · 401 et 403 (PR #8)</li><li>2-486 · contrat et validation (PR #20)</li><li>2-485 · erreurs communes (PR #24)</li></ul>
+          <ul class="pills"><li>Q1.1 · 401 et 403 (PR #8)</li><li>2-486 · contrat et validation (PR #20)</li><li>2-485 · erreurs communes (PR #24)</li><li>contrat sans rupture vérifié par oasdiff en CI (PR #39)</li></ul>
           <h4>Reste à faire</h4>
           <ul>
             <li>Retirer le membre <code>error</code> déprécié, après migration de ses consommateurs.</li>
@@ -1890,16 +1913,16 @@ flowchart TB
         <article class="card adr violet" id="adr-005">
           <header><span class="num">ADR-005</span><span class="tag tag-ok">Acceptée</span></header>
           <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-005-harnais-de-validation.md">Harnais de validation : tests, CI et garde-fous</a></h3>
-          <p class="meta">Stanislas Beguin (WS5, qualité) · acceptée le 20/10/2026, points ouverts listés</p>
+          <p class="meta">Stanislas Beguin (WS5, qualité) · acceptée le 20/10/2026, amendée le 27/10, points ouverts listés</p>
           <h4>Décide</h4>
           <ul>
             <li>Cinq niveaux de vérification : statique, unitaire, contrat, intégration base, E2E.</li>
             <li>Un E2E rouge est une régression, sauf changement décidé par une ADR acceptée.</li>
             <li>CI <code>check</code> et <code>e2e</code> obligatoires, <code>main</code> protégée ; hooks git ; CLAUDE.md, README, modèle d'ADR et hooks Claude Code.</li>
-            <li>Journal JSON des erreurs serveur, sans donnée sensible.</li>
+            <li>Journal JSON des erreurs serveur, sans donnée sensible ; métriques dérivées des logs (amendement du 27/10), sans traces distribuées.</li>
           </ul>
           <h4>Livré</h4>
-          <ul class="pills"><li>E2E (PR #4)</li><li>CI (PR #5)</li><li>Vitest et lint d'architecture (PR #10)</li><li>garde-fous (PR #11)</li><li>journal et hooks Claude (PR #23)</li><li>graphes (PR #31)</li><li>SonarJS (PR #32)</li></ul>
+          <ul class="pills"><li>E2E (PR #4)</li><li>CI (PR #5)</li><li>Vitest et lint d'architecture (PR #10)</li><li>garde-fous (PR #11)</li><li>journal et hooks Claude (PR #23)</li><li>graphes (PR #31)</li><li>SonarJS (PR #32)</li><li>oasdiff, métriques (PR #39)</li><li>cette page (PR #38)</li></ul>
           <h4>Reste à faire</h4>
           <ul>
             <li><code>CODEOWNERS</code> pour les fichiers du harnais ; points ouverts de l'ADR.</li>
@@ -1954,7 +1977,7 @@ flowchart TB
   push["git push&lt;br/&gt;pre-push : npm run check"]
   pr["Pull request vers main&lt;br/&gt;modèle rempli, relue par un pair"]
   ci{"CI GitHub Actions"}
-  checkJob["check&lt;br/&gt;lint, SonarJS, types, Vitest,&lt;br/&gt;contrat, graphes, doc, build"]
+  checkJob["check&lt;br/&gt;lint, SonarJS, types, Vitest,&lt;br/&gt;contrat, graphes, doc,&lt;br/&gt;oasdiff (sans rupture), build"]
   e2eJob["e2e&lt;br/&gt;Playwright en 2 shards&lt;br/&gt;Postgres, LocalStack, Mailpit"]
   mainBranch[("main&lt;br/&gt;squash, historique linéaire")]
 
@@ -1989,7 +2012,7 @@ flowchart TB
             <tr><td>Statique</td><td>ESLint, SonarJS, <code>tsc</code> strict</td><td>erreurs de code et de types, règles d'architecture de CLAUDE.md</td><td><code>eslint.config.mjs</code></td></tr>
             <tr><td>Unitaire</td><td>Vitest</td><td>règles métier pures, en millisecondes, sans infrastructure</td><td><code>*.test.ts</code> à côté du code</td></tr>
             <tr><td>Architecture et doc</td><td>Vitest</td><td>matrice des couches, garde de chaque route, graphes et cette page à jour</td><td><code>scripts/architecture</code></td></tr>
-            <tr><td>Contrat</td><td>Redocly, openapi-typescript, Ajv</td><td>contrat valide, artefacts à jour, chaque route dans le contrat, chaque réponse E2E conforme</td><td><code>npm run check:api</code>, <code>e2e/support/api.ts</code></td></tr>
+            <tr><td>Contrat</td><td>Redocly, openapi-typescript, Ajv, oasdiff</td><td>contrat valide, artefacts à jour, chaque route dans le contrat, chaque réponse E2E conforme, aucune rupture par rapport à <code>main</code></td><td><code>npm run check:api</code>, <code>e2e/support/api.ts</code>, <code>scripts/check-api-breaking.sh</code></td></tr>
             <tr><td>Intégration base</td><td>Playwright sans navigateur</td><td>ce que le HTTP ne voit pas : policies RLS, concurrence, pannes injectées, worker</td><td><code>e2e/</code> (ISO-07, OUTBOX…)</td></tr>
             <tr><td>E2E</td><td>Playwright</td><td>comportement observable : parcours, codes HTTP, JSON, droits, isolation</td><td><code>e2e/</code>, IDs dans <code>docs/tests/E2E.md</code></td></tr>
           </tbody>
@@ -2003,12 +2026,23 @@ flowchart TB
             <tr><td><code>git commit</code></td><td>hook pre-commit : ESLint avec cache</td><td>≈ 3 s</td></tr>
             <tr><td><code>git push</code></td><td>hook pre-push : <code>npm run check</code></td><td>≈ 35 s</td></tr>
             <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI)</td><td>≈ 3 min pour la suite</td></tr>
-            <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, build) et <code>e2e</code> (2 shards), obligatoires</td><td>≈ 1 min et 3 min 30</td></tr>
+            <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, oasdiff sur les PR, build) et <code>e2e</code> (2 shards), obligatoires</td><td>≈ 1 min et 3 min 30</td></tr>
             <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
           </tbody>
         </table>
       </div>
 
+      <h3 id="journal">Journal et métriques<a class="anchor" href="#journal" aria-label="Lien vers cette section">#</a></h3>
+      <p>Serveur et worker écrivent une ligne JSON par événement, sans email, jeton ni URL pré-signée (<a href="#adr-005">ADR-005 §5</a>). Une réponse d'erreur porte son <code>requestId</code> (corps et <code>X-Request-Id</code>), repris dans la ligne <code>http.error</code>. Deux lignes servent de métriques à un collecteur de logs (<a href="#adr-003">ADR-003</a>, mise à jour du 27/10) :</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ligne</th><th>Métrique</th><th>Écrite par</th></tr></thead>
+          <tbody>
+            <tr><td><code>ocr.request</code></td><td><code>ocr_requests_total{outcome}</code> : <code>found</code>, <code>empty</code>, <code>rejected</code>, <code>failed</code>, <code>timeout</code>, <code>overloaded</code>, avec <code>durationMs</code> et <code>requestId</code></td><td>le serveur, à chaque suggestion OCR</td></tr>
+            <tr><td><code>outbox.stats</code></td><td>événements <code>pending</code> et <code>dead</code>, âge du plus ancien en attente, au total et par type (OBS-01)</td><td>le worker, chaque minute</td></tr>
+          </tbody>
+        </table>
+      </div>
       <div class="callout ok">
         <span class="callout-title">Avant de déclarer une tâche terminée</span>
         <code>npm run check</code> passe. Si le changement touche <code>src/app</code>, <code>src/lib</code>, <code>migrations/</code> ou <code>scripts/</code>, les E2E concernés passent aussi, ou toute la suite. Un bug corrigé vient avec un test vu rouge avant la correction et vert après. Dire explicitement ce qui n'a pas été lancé.
@@ -2026,12 +2060,8 @@ flowchart TB
           <p>Les routes de lecture listées dans <code>LEGACY_DB_ACCESS</code> font encore leur SQL, et les routes d'URL de reçu appellent <code>lib/storage</code> : ce sont les flèches orange du <a href="#graphe-couches">graphe des couches</a>.</p>
         </div>
         <div class="card yellow">
-          <h4><span class="tag tag-todo">identité</span> Tentatives de connexion</h4>
-          <p>La limite de tentatives prévue par l'ADR-001 (§4) n'est pas livrée.</p>
-        </div>
-        <div class="card yellow">
-          <h4><span class="tag tag-todo">exploitation</span> Tâches et métriques</h4>
-          <p>Nettoyage unique des notes sans reçu à exécuter puis valider (<code>npm run clean:notes-without-receipt</code>), réconciliation quotidienne à planifier ; pas de métriques OCR ni d'outbox.</p>
+          <h4><span class="tag tag-todo">exploitation</span> Tâches et observabilité</h4>
+          <p>Nettoyage unique des notes sans reçu à exécuter puis valider (<code>npm run clean:notes-without-receipt</code>) ; tâche quotidienne de <code>ops/cron/</code> à installer une fois un environnement déployé. Les métriques sont des lignes de journal (<code>ocr.request</code>, <code>outbox.stats</code>) : sans collecteur de logs, ni tableau de bord ni alerte ; pas de traces distribuées (<a href="#adr-005">ADR-005 §5</a>).</p>
         </div>
         <div class="card">
           <h4><span class="tag tag-todo">qualité</span> Constats figés</h4>
@@ -2095,7 +2125,7 @@ flowchart TB
         </div>
       </div>
 
-      <p><code>npm run check</code> (<code>scripts/architecture/architecture.test.ts</code>) échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou si un marqueur n'a plus de schéma, si une ADR de <code>docs/adr</code> n'a pas sa fiche, si une table des migrations manque au schéma des données (ou s'il y en a une de trop), ou si un type d'événement de l'outbox n'est pas cité. Le texte, lui, ne se vérifie pas : d'où la règle suivante.</p>
+      <p><code>npm run check</code> (<code>scripts/architecture/architecture.test.ts</code>) échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou si un marqueur n'a plus de schéma, si une ADR de <code>docs/adr</code> n'a pas sa fiche, si une table des migrations manque au schéma des données (ou s'il y en a une de trop), si un type d'événement de l'outbox n'est pas cité, ou si un script externe est chargé sans empreinte SRI. Le texte, lui, ne se vérifie pas : d'où la règle suivante.</p>
 
       <div class="table-wrap">
         <table>
@@ -2160,7 +2190,10 @@ flowchart TB
   <div class="zoom-body" id="zoom-body"></div>
 </dialog>
 
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<!-- Mermaid en version fixe, avec son empreinte (SRI) : un fichier modifié sur le CDN n'est pas exécuté.
+     Empreinte de dist/mermaid.min.js du paquet npm mermaid@11.4.1 :
+     npm pack mermaid@11.4.1 && tar xzf mermaid-11.4.1.tgz package/dist/mermaid.min.js && openssl dgst -sha384 -binary package/dist/mermaid.min.js | openssl base64 -A -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js" integrity="sha384-rbtjAdnIQE/aQJGEgXrVUlMibdfTSa4PQju4HDhN3sR2PmaKFzhEafuePsl9H/9I" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 (function () {
   'use strict'

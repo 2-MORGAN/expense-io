@@ -102,6 +102,10 @@ describe(`page des développeurs (${DOC_PAGE})`, () => {
     expect(page, `${DOC_PAGE} : ${REGENERATE}`).toBe(pageWith(page, diagrams))
   })
 
+  it('charge ses scripts externes avec une empreinte SRI', () => {
+    expect(gaps.scripts, 'ajouter integrity="sha384-…" et crossorigin="anonymous" (commande en commentaire dans la page)').toEqual([])
+  })
+
   it('présente chaque ADR de docs/adr', () => {
     expect(gaps.adrs, 'ajouter sa fiche (id="adr-NNN") à la section ADR de la page').toEqual([])
   })

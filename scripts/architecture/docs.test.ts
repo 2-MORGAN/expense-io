@@ -10,6 +10,7 @@ import {
   pageDiagrams,
   pageMarkers,
   pageWith,
+  unpinnedScripts,
 } from './docs'
 
 // La page des développeurs (docs.ts) : les schémas recopiés entre leurs
@@ -71,6 +72,24 @@ describe('ce que la page doit présenter', () => {
     expect(migrationTables(migrations)).toEqual(['later', 'notes'])
   })
 
+  it('tables : schéma public et guillemets acceptés, renommage suivi', () => {
+    const migrations = [
+      { path: 'migrations/1_a.sql', text: 'CREATE TABLE public.attempts (k text);\nCREATE TABLE "Quoted" (id uuid);\n' },
+      { path: 'migrations/2_b.sql', text: 'ALTER TABLE public.attempts RENAME TO login_attempts;\nALTER TABLE quoted ADD COLUMN x int;\n' },
+    ]
+    expect(migrationTables(migrations)).toEqual(['login_attempts', 'quoted'])
+  })
+
+  it('scripts externes : empreinte SRI et crossorigin exigées, script inline ignoré', () => {
+    const page = [
+      '<script src="https://cdn.example/a.js"></script>',
+      '<script src="https://cdn.example/b.js" integrity="sha384-abc+/=" crossorigin="anonymous"></script>',
+      '<script src="https://cdn.example/c.js" integrity="sha384-abc"></script>',
+      '<script>console.log(1)</script>',
+    ].join('\n')
+    expect(unpinnedScripts(page)).toEqual(['https://cdn.example/a.js', 'https://cdn.example/c.js'])
+  })
+
   it('entités du schéma des données : chaque bloc « nom { », pas les relations', () => {
     expect(erEntities('erDiagram\n  b ||--o{ a : "x"\n  b {\n    uuid id PK\n  }\n  a{\n  }\n')).toEqual(['a', 'b'])
   })
@@ -116,8 +135,10 @@ describe('ce que la page doit présenter', () => {
       tables: ['users'],
       staleEntities: ['gone'],
       events: ['b.done'],
+      scripts: [],
     })
     expect(docProblems(gaps)).toHaveLength(6)
-    expect(docProblems({ unplaced: [], staleMarkers: [], adrs: [], tables: [], staleEntities: [], events: [] })).toEqual([])
+    expect(docProblems({ ...gaps, scripts: ['https://cdn.example/a.js'] })).toHaveLength(7)
+    expect(docProblems({ unplaced: [], staleMarkers: [], adrs: [], tables: [], staleEntities: [], events: [], scripts: [] })).toEqual([])
   })
 })
