@@ -22,11 +22,8 @@ const literal = (path) => path.replace(/[[\]]/g, '\\$&')
 // liste quand elle passe par un cas d'usage (2-488, ADR-002 §6).
 export const LEGACY_DB_ACCESS = [
   'src/app/api/expense-notes/route.ts',
-  'src/app/api/expense-notes/[id]/receipt-url/route.ts',
   'src/app/api/hr/expense-notes/route.ts',
-  'src/app/api/hr/expense-notes/[id]/receipt-url/route.ts',
   'src/app/api/manager/expense-notes/route.ts',
-  'src/app/api/manager/expense-notes/[id]/receipt-url/route.ts',
 ].map(literal)
 
 

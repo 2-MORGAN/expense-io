@@ -190,11 +190,6 @@ export const LEGACY_EDGES: readonly LegacyEdge[] = [
     to: 'src/lib/db',
     why: 'SQL dans les routes (LEGACY_DB_ACCESS) : chacune en sort en passant par un cas d’usage (2-488, ADR-002 §6)',
   },
-  {
-    from: 'src/app/api',
-    to: 'src/lib/storage',
-    why: 'upload et URL pré-signées appelés depuis les routes, au lieu d’un port (ADR-002 §3.3)',
-  },
 ]
 
 // Méthodes de route servies sans garde, par nature : `MÉTHODE /chemin`.

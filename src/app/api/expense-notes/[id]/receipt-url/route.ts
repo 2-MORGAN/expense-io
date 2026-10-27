@@ -1,10 +1,8 @@
 import { validateId } from '@/http/validation'
 import { auth } from '@/lib/auth'
-import { withUserScope } from '@/lib/db'
 import { withApiErrors } from '@/http/withApiErrors'
-import { problemResponse } from '@/http/problem'
+import { getReceiptUrl } from '@/composition/receiptUrls'
 import { requireRole } from '@/http/requireRole'
-import { getReceiptUrl } from '@/lib/storage'
 
 export const GET = withApiErrors('/api/expense-notes/[id]/receipt-url', async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -13,17 +11,7 @@ export const GET = withApiErrors('/api/expense-notes/[id]/receipt-url', async fu
   const { id } = await params
   validateId(id)
 
-  const note = await withUserScope(actor.id, async (client) => {
-    const result = await client.query(
-      'SELECT receipt_key FROM expense_notes WHERE id = $1 AND user_id = $2',
-      [id, actor.id]
-    )
-    return result.rows[0]
-  })
-  if (!note) {
-    return problemResponse('RESOURCE_NOT_FOUND')
-  }
-
-  const url = await getReceiptUrl(note.receipt_key)
+  // Sa propre note seulement ; sinon 404 (ExpenseNoteNotVisible).
+  const url = await getReceiptUrl.execute(id, actor.id, 'own')
   return Response.json({ url })
 })
