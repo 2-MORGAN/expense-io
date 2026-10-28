@@ -39,6 +39,20 @@ describe('normalizeInvitationEmail', () => {
     expect(normalizeInvitationEmail('bob@')).toBeNull()
     expect(normalizeInvitationEmail(undefined)).toBeNull()
   })
+  it('refuse les adresses que le contrat refuserait en réponse (format email)', () => {
+    for (const address of [
+      'a..b@example.org', '.a@example.org', 'a.@example.org', 'a(b)@example.org', 'a,b@example.org',
+      'a"b@example.org', 'a<b>@example.org', 'é@example.org', 'a@-example.org', 'a@example-.org',
+      'a@example..org', 'a@.example.org', 'a@exa_mple.org', 'a@exa!mple.org', 'a@exämple.org', 'a@[1.2.3.4]',
+    ]) {
+      expect(normalizeInvitationEmail(address), address).toBeNull()
+    }
+  })
+  it('accepte les adresses usuelles', () => {
+    for (const address of ['bob@acme.example', "o'neil+rh@sub.acme-corp.example", 'inv-01.1a2b3c4d@invite.e2e.test', 'a@b.c']) {
+      expect(normalizeInvitationEmail(address), address).toBe(address)
+    }
+  })
 })
 
 describe('règles d’inscription', () => {

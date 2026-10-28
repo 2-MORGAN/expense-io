@@ -69,11 +69,14 @@ export function validateId(id: string): void {
   }
 }
 
-export async function readManagerInput(request: Request): Promise<Schemas['SetManager']> {
-  let body: unknown
-  try { body = await request.json() }
+/** Corps JSON de la requête ; un JSON malformé donne 400 `INVALID_JSON` (ADR-004 §6). */
+export async function readJsonBody(request: Request): Promise<unknown> {
+  try { return await request.json() }
   catch { throw new InputError('INVALID_JSON') }
-  return validateInput('SetManager', body)
+}
+
+export async function readManagerInput(request: Request): Promise<Schemas['SetManager']> {
+  return validateInput('SetManager', await readJsonBody(request))
 }
 
 export function inputProblem(error: InputError): Response {

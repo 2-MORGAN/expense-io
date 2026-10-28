@@ -109,6 +109,7 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | SIGNUP-13 | Renvoi de l'email de vérification depuis `/signup/verify` (lien depuis la connexion refusée) : nouveau lien valide, ancien invalide ; même message pour une adresse inconnue ou déjà vérifiée, sans email | UI |
 | INV-01 | `POST /api/hr/invitations` : 401 sans session, 403 employé et manager, 400 `INVALID_EMAIL`, 201 `{ id, email, expiresAt }` (adresse normalisée) ; relance de la même adresse → même invitation, nouvel email, ancien lien invalide | API |
 | INV-02 | Sous `expense_app` : invitation visible de la RH de son entreprise seulement (ni RH d'une autre entreprise, ni employé, ni manager) ; insertion pour une autre entreprise ou par un employé refusée (42501) | Base |
+| INV-03 | `POST /api/hr/invitations` : JSON malformé → 400 `INVALID_JSON` ; corps sans `email`, `email` non textuel ou corps non objet → 400 `VALIDATION_ERROR` ; adresse hors du format email du contrat (`a..b@…`, `é@…`, domaine commençant par un tiret…) → 400 `INVALID_EMAIL`, aucune invitation créée | API |
 
 ### Connexion et session — `e2e/auth.spec.ts`
 
@@ -239,6 +240,7 @@ ERR-01 crée temporairement un trigger limité à sa note et le supprime en `fin
 | ORG-07 | Manager invalide (soi-même, employé, RH, inconnu) → 409 « Invalid manager », rien ne change | API |
 | ORG-08 | Cible RH, d'une autre entreprise ou inconnue → 404 « Not found » | API |
 | ORG-09 | `PUT /api/hr/users/:id/manager` vers un manager d'une autre entreprise → 409 « Invalid manager », rattachement inchangé (faille S3 corrigée) | API |
+| ORG-10 | Manager proposé rétrogradé par une transaction concurrente non encore validée : le rattachement l'attend, puis 409 « Invalid manager », rattachement inchangé | API + base |
 
 ### Contrôle d'accès et isolation — `e2e/access-control.spec.ts`
 
@@ -364,6 +366,15 @@ La suite reste verte avec ou sans `make worker` en cours d'exécution (ADR-003 �
 | NOTIF-09 | Envoi en panne : la décision reste acquise, l'événement (de test, type unique) repasse « pending » avec 1 essai et l'erreur | Intégration |
 | NOTIF-10 | Deux décisions simultanées du manager (approve et reject) : une seule réussit (200 et 409), un seul événement `expense_note.decided` | API |
 | NOTIF-11 | Une adresse RH en échec : l'autre RH ne reçoit pas l'email une seconde fois (un seul email pour elle, événement « sent »), l'événement de l'adresse en échec repasse « pending » avec 1 essai | Intégration |
+
+### Ordre stable des listes — `e2e/list-order.spec.ts`
+
+Les lignes à égalité sont insérées dans un ordre ni croissant ni décroissant par id : sans départage, PostgreSQL les rendrait dans l'ordre de lecture (ADR-004 §7.2).
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| TRI-01 | Notes identiques sur toutes les colonnes triables : `GET /api/expense-notes` (défaut et les 10 tris `?sort=`) départage par id dans le sens du tri ; listes manager et RH par id croissant | API |
+| TRI-02 | `GET /api/hr/users` : homonymes départagés par id croissant | API |
 
 ## Résultat de la dernière exécution
 

@@ -107,7 +107,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Manager direct : notes pending, liste complète triée par created_at ASC.
+         * Manager direct : notes pending, liste complète triée par created_at ASC, id ASC.
          * @description Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.
          */
         get: operations["listManagerExpenseNotes"];
@@ -187,7 +187,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * RH : managers racines de son entreprise : notes pending, liste complète triée par created_at ASC.
+         * RH : managers racines de son entreprise : notes pending, liste complète triée par created_at ASC, id ASC.
          * @description Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.
          */
         get: operations["listHrExpenseNotes"];
@@ -267,7 +267,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * RH : employés et managers de son entreprise, triés par nom, sans pagination.
+         * RH : employés et managers de son entreprise, triés par nom puis id, sans pagination.
          * @description Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.
          */
         get: operations["listCompanyUsers"];
@@ -310,7 +310,7 @@ export interface paths {
         put?: never;
         /**
          * RH : inviter un salarié à rejoindre son entreprise (S7, ADR-001 §3).
-         * @description Session required, hr_admin only. The invitation belongs to the caller's company, read in the database. An address is trimmed and lower-cased before use. Inviting an address that already has a pending invitation in the same company returns that invitation with a new expiry and invalidates the previous link. The email itself is sent asynchronously through the outbox.
+         * @description Session required, hr_admin only. The invitation belongs to the caller's company, read in the database. An address is trimmed and lower-cased before use. Inviting an address that already has a pending invitation in the same company returns that invitation with a new expiry and invalidates the previous link. The email itself is sent asynchronously through the outbox. Malformed JSON returns INVALID_JSON; a body outside CreateInvitation returns VALIDATION_ERROR; an address that does not satisfy the email format of the Invitation response returns INVALID_EMAIL.
          */
         post: operations["inviteEmployee"];
         delete?: never;
@@ -351,6 +351,7 @@ export interface components {
             error?: components["schemas"]["Problem"];
         } & (unknown & unknown);
         /**
+         * @description Problème RFC 9457. Chaque code n'existe qu'avec un statut HTTP (catalogue d'ADR-004 §3.1) : les contrôles du contrat refusent par exemple FORBIDDEN avec 400.
          * @example {
          *       "type": "/problems/validation-error",
          *       "title": "Validation failed",
@@ -387,7 +388,7 @@ export interface components {
                 /** @description Public English message; never includes the submitted value. */
                 message: string;
             }[];
-        };
+        } & (unknown & unknown & unknown & unknown & unknown & unknown & unknown & unknown);
         /** Format: uuid */
         Uuid: string;
         /**
@@ -704,7 +705,7 @@ export interface operations {
     listExpenseNotes: {
         parameters: {
             query?: {
-                /** @description Tri historique. Tris légitimes : created_at, amount, expense_date, description, status, avec ASC/DESC. Défaut created_at DESC. La sécurisation par liste blanche est portée par 2-471 ; aucune expression SQL arbitraire ne constitue un usage garanti. */
+                /** @description Tri historique. Tris légitimes : created_at, amount, expense_date, description, status, avec ASC/DESC, puis id dans le même sens pour un ordre stable. Défaut created_at DESC, id DESC. La sécurisation par liste blanche est portée par 2-471 ; aucune expression SQL arbitraire ne constitue un usage garanti. */
                 sort?: string;
             };
             header?: never;

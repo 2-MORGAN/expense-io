@@ -1,5 +1,7 @@
 import { expect, it } from 'vitest'
 import { checkApiResponse } from './contractResponses'
+import { problemBody, problemCatalogue, type ProblemCode } from './problem'
+import { schemaValidator } from './validation'
 
 const url = 'http://localhost/api/receipt-analyses'
 const id = '00000000-0000-4000-8000-000000000001'
@@ -25,4 +27,20 @@ it('requires a problem with matching status and correlation, and rejects extra i
   expect(() => checkApiResponse('POST', url, 500, problemHeaders, { ...body, stack: 'private' })).toThrow('Contract mismatch')
   expect(() => checkApiResponse('POST', url, 500, { ...problemHeaders, 'x-request-id': '00000000-0000-4000-8000-000000000002' }, body)).toThrow('Problem requestId differs')
   expect(() => checkApiResponse('POST', url, 500, problemHeaders, { ...body, status: 400 })).toThrow('Problem status differs')
+})
+
+// Point 5 de la revue de l'API (27/10) : un code d'erreur n'est valide qu'avec
+// son statut HTTP. Le schéma Problem du contrat porte cette correspondance.
+it('rejects a problem code paired with another HTTP status', () => {
+  const invitations = 'http://localhost/api/hr/invitations'
+  const problemHeaders = { 'content-type': 'application/problem+json', 'x-request-id': id }
+  const problem = (code: ProblemCode, status: number) => ({ ...problemBody(code, { requestId: id }), status })
+  expect(() => checkApiResponse('POST', invitations, 400, problemHeaders, problem('INVALID_EMAIL', 400))).not.toThrow()
+  expect(() => checkApiResponse('POST', invitations, 400, problemHeaders, problem('FORBIDDEN', 400))).toThrow('Contract mismatch')
+  expect(() => checkApiResponse('POST', invitations, 403, problemHeaders, problem('INVALID_EMAIL', 403))).toThrow('Contract mismatch')
+  expect(() => checkApiResponse('POST', invitations, 500, problemHeaders, problem('AUTHENTICATION_REQUIRED', 500))).toThrow('Contract mismatch')
+})
+
+it.each(Object.keys(problemCatalogue) as ProblemCode[])('the catalogue status of %s satisfies the contract', (code) => {
+  expect(schemaValidator('Problem')(problemBody(code, { requestId: id }))).toBe(true)
 })

@@ -27,10 +27,30 @@ export function parseEmail(value: unknown): ParsedEmail | null {
   return match ? { email: value, domain: match[1].toLowerCase() } : null
 }
 
-/** Adresse d'une invitation : sans espaces autour, en minuscules, sinon `null`. */
+// Syntaxe d'adresse du contrat (`format: email` d'OpenAPI, ajv-formats en mode
+// full) : partie locale en atomes séparés par des points, domaine en libellés
+// DNS d'au plus 63 caractères, sans tiret au bord. Vérifiée morceau par
+// morceau pour rester en temps linéaire (pas de regex à retour arrière).
+const LOCAL_ATOM = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+$/i
+const DOMAIN_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i
+
+function hasContractSyntax(email: string): boolean {
+  const at = email.indexOf('@')
+  if (at !== email.lastIndexOf('@')) return false
+  const labels = email.slice(at + 1).split('.')
+  return email.slice(0, at).split('.').every((atom) => LOCAL_ATOM.test(atom))
+    && labels.length >= 2 && labels.every((label) => DOMAIN_LABEL.test(label))
+}
+
+/**
+ * Adresse d'une invitation : sans espaces autour, en minuscules, sinon `null`.
+ * Plus stricte que l'inscription : l'adresse acceptée est renvoyée en 201 et
+ * doit respecter le format email du contrat (`Invitation.email`).
+ */
 export function normalizeInvitationEmail(value: unknown): string | null {
   if (typeof value !== 'string') return null
-  return parseEmail(value.trim().toLowerCase())?.email ?? null
+  const email = parseEmail(value.trim().toLowerCase())?.email
+  return email !== undefined && hasContractSyntax(email) ? email : null
 }
 
 export function invitationExpiry(now: Date): Date {

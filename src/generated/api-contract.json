@@ -230,7 +230,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Tri historique. Tris légitimes : created_at, amount, expense_date, description, status, avec ASC/DESC. Défaut created_at DESC. La sécurisation par liste blanche est portée par 2-471 ; aucune expression SQL arbitraire ne constitue un usage garanti."
+            "description": "Tri historique. Tris légitimes : created_at, amount, expense_date, description, status, avec ASC/DESC, puis id dans le même sens pour un ordre stable. Défaut created_at DESC, id DESC. La sécurisation par liste blanche est portée par 2-471 ; aucune expression SQL arbitraire ne constitue un usage garanti."
           }
         ],
         "tags": [
@@ -348,7 +348,7 @@
     "/api/manager/expense-notes": {
       "get": {
         "operationId": "listManagerExpenseNotes",
-        "summary": "Manager direct : notes pending, liste complète triée par created_at ASC.",
+        "summary": "Manager direct : notes pending, liste complète triée par created_at ASC, id ASC.",
         "description": "Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.",
         "responses": {
           "200": {
@@ -529,7 +529,7 @@
     "/api/hr/expense-notes": {
       "get": {
         "operationId": "listHrExpenseNotes",
-        "summary": "RH : managers racines de son entreprise : notes pending, liste complète triée par created_at ASC.",
+        "summary": "RH : managers racines de son entreprise : notes pending, liste complète triée par created_at ASC, id ASC.",
         "description": "Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.",
         "responses": {
           "200": {
@@ -710,7 +710,7 @@
     "/api/hr/users": {
       "get": {
         "operationId": "listCompanyUsers",
-        "summary": "RH : employés et managers de son entreprise, triés par nom, sans pagination.",
+        "summary": "RH : employés et managers de son entreprise, triés par nom puis id, sans pagination.",
         "description": "Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.",
         "responses": {
           "200": {
@@ -805,7 +805,7 @@
       "post": {
         "operationId": "inviteEmployee",
         "summary": "RH : inviter un salarié à rejoindre son entreprise (S7, ADR-001 §3).",
-        "description": "Session required, hr_admin only. The invitation belongs to the caller's company, read in the database. An address is trimmed and lower-cased before use. Inviting an address that already has a pending invitation in the same company returns that invitation with a new expiry and invalidates the previous link. The email itself is sent asynchronously through the outbox.",
+        "description": "Session required, hr_admin only. The invitation belongs to the caller's company, read in the database. An address is trimmed and lower-cased before use. Inviting an address that already has a pending invitation in the same company returns that invitation with a new expiry and invalidates the previous link. The email itself is sent asynchronously through the outbox. Malformed JSON returns INVALID_JSON; a body outside CreateInvitation returns VALIDATION_ERROR; an address that does not satisfy the email format of the Invitation response returns INVALID_EMAIL.",
         "responses": {
           "201": {
             "description": "Invitation created or renewed; email queued.",
@@ -1149,6 +1149,186 @@
       "Problem": {
         "type": "object",
         "additionalProperties": false,
+        "description": "Problème RFC 9457. Chaque code n'existe qu'avec un statut HTTP (catalogue d'ADR-004 §3.1) : les contrôles du contrat refusent par exemple FORBIDDEN avec 400.",
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "INVALID_JSON",
+                    "VALIDATION_ERROR",
+                    "RECEIPT_TOO_LARGE",
+                    "RECEIPT_TYPE_NOT_ALLOWED",
+                    "IMAGE_TOO_LARGE",
+                    "INVALID_IDEMPOTENCY_KEY",
+                    "INVALID_EMAIL"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 400
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "AUTHENTICATION_REQUIRED"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 401
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "FORBIDDEN"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 403
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "RESOURCE_NOT_FOUND"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 404
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "ALREADY_DECIDED",
+                    "INVALID_MANAGER"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 409
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "IDEMPOTENCY_KEY_REUSED"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 422
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "INTERNAL_ERROR"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 500
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "OCR_UNAVAILABLE",
+                    "OCR_TIMEOUT",
+                    "OCR_OVERLOADED"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 503
+                }
+              }
+            }
+          }
+        ],
         "required": [
           "type",
           "title",
