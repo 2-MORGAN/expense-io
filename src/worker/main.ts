@@ -1,6 +1,10 @@
+// En premier : la télémétrie (ADR-007) démarre avant le chargement de pg.
+import { telemetry } from '@/worker/telemetry'
 import { config } from 'dotenv'
 import { closePool, configureDatabase } from '@/lib/db'
 import { checkDatabaseRole } from '@/lib/dbRole'
+import { outboxStats } from '@/lib/outbox'
+import { backlogOf, observeOutboxBacklog } from '@/lib/telemetry/outbox'
 import { buildHandlers } from '@/worker/handlers'
 import { describeError, log } from '@/worker/log'
 import { DEFAULT_STATS_INTERVAL_MS, runOutboxStats } from '@/worker/outboxStats'
@@ -46,6 +50,11 @@ async function main(): Promise<void> {
     return
   }
   log('info', 'worker.started', { types: Object.keys(handlers) })
+  // Mêmes chiffres que la ligne `outbox.stats`, en jauges OpenTelemetry (ADR-007).
+  if (telemetry) {
+    const types = Object.keys(handlers)
+    observeOutboxBacklog(telemetry.meterProvider.getMeter('expense-io'), async () => backlogOf(await outboxStats(), types))
+  }
 
   // `once` : un second signal retrouve le comportement par défaut et tue le
   // processus si l'événement en cours ne se termine pas.
@@ -66,11 +75,16 @@ async function main(): Promise<void> {
     runOutboxStats(controller.signal, Number.isFinite(statsIntervalMs) && statsIntervalMs > 0 ? statsIntervalMs : DEFAULT_STATS_INTERVAL_MS),
   ])
 
-  await closePool()
   log('info', 'worker.stopped')
+  // Dernier envoi de la télémétrie avant de fermer la base : la mesure de
+  // l'outbox la relit une dernière fois.
+  await telemetry?.shutdown()
+  await closePool()
 }
 
-main().catch((error) => {
-  log('error', 'worker.crashed', { error: describeError(error) })
-  process.exitCode = 1
-})
+main()
+  .catch((error) => {
+    log('error', 'worker.crashed', { error: describeError(error) })
+    process.exitCode = 1
+  })
+  .finally(() => telemetry?.shutdown())

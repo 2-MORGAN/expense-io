@@ -74,8 +74,13 @@ export const LAYERS: readonly Layer[] = [
   { path: 'src/components', group: 'entrees', may: UI },
   { path: 'src/http', group: 'entrees', may: HTTP_ENTRY },
   { path: 'src/proxy', group: 'entrees', may: ['src/lib/auth', 'next', 'next-auth'] },
-  // Contrôles au démarrage du serveur : secret des sessions (S5, CONF-01) et rôle de base (2-481).
-  { path: 'src/instrumentation', group: 'entrees', may: ['src/lib/authSecret', 'src/lib/dbRole', 'src/lib/log', 'next'] },
+  // Au démarrage du serveur : observabilité (ADR-007), puis contrôles du secret
+  // des sessions (S5, CONF-01) et du rôle de base (2-481).
+  {
+    path: 'src/instrumentation',
+    group: 'entrees',
+    may: ['src/lib/authSecret', 'src/lib/dbRole', 'src/lib/log', 'src/lib/telemetry', 'next'],
+  },
   { path: 'src/types', group: 'entrees', may: ['next-auth'] },
   // Le worker est un processus à part, adaptateur entrant de l'outbox : il
   // fait aussi sa propre composition (ADR-003).
@@ -92,6 +97,7 @@ export const LAYERS: readonly Layer[] = [
       'src/lib/email',
       'src/lib/log',
       'src/lib/outbox',
+      'src/lib/telemetry',
       'src/lib/tokens',
       'src/ports',
       'src/utils',
@@ -171,13 +177,16 @@ export const LAYERS: readonly Layer[] = [
   { path: 'src/lib/email', group: 'infra', may: ['src/adapters', 'src/lib/log', 'src/ports'] },
   // Réponses d'erreur HTTP : peut reprendre celles de src/http (ADR-004).
   { path: 'src/lib/errors', group: 'infra', may: ['src/http', 'src/lib/log', 'next'] },
-  { path: 'src/lib/log', group: 'infra', may: [] },
+  // Le journal part aussi au collecteur OpenTelemetry quand l'observabilité est activée (ADR-007).
+  { path: 'src/lib/log', group: 'infra', may: ['@opentelemetry'] },
   // Limite de tentatives de connexion, compteurs en base (AUTH-11, ADR-001 §4 point 3).
   { path: 'src/lib/loginThrottle', group: 'infra', may: ['src/lib/db'] },
   { path: 'src/lib/outbox', group: 'infra', may: ['src/domain', 'src/lib/db', 'src/lib/log', 'src/ports', 'pg'] },
   // Rôle de la session relu en base à chaque auth() (2-496, S9).
   { path: 'src/lib/sessionUser', group: 'infra', may: ['src/domain', 'src/lib/db', 'react'] },
   { path: 'src/lib/storage', group: 'infra', may: ['src/domain', 'src/lib/log', '@aws-sdk'] },
+  // Observabilité (ADR-007) : SDK OpenTelemetry, mesures HTTP et de l'outbox.
+  { path: 'src/lib/telemetry', group: 'infra', may: ['src/lib/log', 'src/lib/outbox', '@opentelemetry'] },
   // Jetons des liens d'invitation et de vérification (node:crypto).
   { path: 'src/lib/tokens', group: 'infra', may: [] },
 ]
@@ -186,6 +195,7 @@ export const LAYERS: readonly Layer[] = [
 // autres (modules de Node, utilitaires) ne sont jugés que depuis le cœur.
 export const PACKAGES: readonly ExternalPackage[] = [
   { name: '@aws-sdk', packages: ['@aws-sdk/*'] },
+  { name: '@opentelemetry', packages: ['@opentelemetry/*'] },
   { name: 'next', packages: ['next'] },
   { name: 'next-auth', packages: ['next-auth', '@auth/*'] },
   { name: 'nodemailer', packages: ['nodemailer'] },

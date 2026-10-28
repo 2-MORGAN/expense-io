@@ -819,8 +819,10 @@ flowchart TB
   m_lib_2f_outbox["lib/outbox"]
   m_lib_2f_sessionUser["lib/sessionUser"]
   m_lib_2f_storage["lib/storage"]
+  m_lib_2f_telemetry["lib/telemetry"]
   m_lib_2f_tokens["lib/tokens"]
   p__40_aws_2d_sdk(["@aws-sdk"])
+  p__40_opentelemetry(["@opentelemetry"])
   p_next(["next"])
   p_next_2d_auth(["next-auth"])
   p_node_3a_crypto(["node:crypto"])
@@ -882,6 +884,7 @@ flowchart TB
   m_instrumentation --&gt; m_lib_2f_authSecret
   m_instrumentation --&gt; m_lib_2f_dbRole
   m_instrumentation --&gt; m_lib_2f_log
+  m_instrumentation --&gt; m_lib_2f_telemetry
   m_lib_2f_auth --&gt; p_next
   m_lib_2f_auth --&gt; p_next_2d_auth
   m_lib_2f_auth --&gt; m_lib_2f_authErrors
@@ -897,6 +900,7 @@ flowchart TB
   m_lib_2f_email --&gt; m_adapters
   m_lib_2f_email --&gt; m_ports
   m_lib_2f_errors --&gt; m_http
+  m_lib_2f_log --&gt; p__40_opentelemetry
   m_lib_2f_loginThrottle --&gt; m_lib_2f_db
   m_lib_2f_outbox --&gt; p_pg
   m_lib_2f_outbox --&gt; m_lib_2f_db
@@ -906,6 +910,9 @@ flowchart TB
   m_lib_2f_sessionUser --&gt; m_lib_2f_db
   m_lib_2f_storage --&gt; p__40_aws_2d_sdk
   m_lib_2f_storage --&gt; m_domain
+  m_lib_2f_telemetry --&gt; p__40_opentelemetry
+  m_lib_2f_telemetry --&gt; m_lib_2f_log
+  m_lib_2f_telemetry --&gt; m_lib_2f_outbox
   m_ports --&gt; m_domain
   m_proxy --&gt; p_next
   m_proxy --&gt; m_lib_2f_auth
@@ -920,6 +927,7 @@ flowchart TB
   m_worker --&gt; m_lib_2f_email
   m_worker --&gt; m_lib_2f_log
   m_worker --&gt; m_lib_2f_outbox
+  m_worker --&gt; m_lib_2f_telemetry
   m_worker --&gt; m_lib_2f_tokens
   m_worker --&gt; m_ports
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
@@ -927,9 +935,9 @@ flowchart TB
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
   class m_application,m_domain,m_generated,m_ports,m_utils coeur
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
-  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_tokens infra
+  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_telemetry,m_lib_2f_tokens infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
-  class p__40_aws_2d_sdk,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react,p_sharp paquet
+  class p__40_aws_2d_sdk,p__40_opentelemetry,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react,p_sharp paquet
 </pre>
 <!-- fin : layers.mmd -->
         </div>
@@ -1813,6 +1821,7 @@ flowchart TB
   adr3["ADR-003 · OCR, soumission, notifications&lt;br/&gt;upload d'abord, outbox, worker"]
   adr4["ADR-004 · Contrat d'API&lt;br/&gt;OpenAPI, RFC 9457, codes stables"]
   adr6["ADR-006 · Stratégie de migration&lt;br/&gt;Strangler Fig, Branch by Abstraction"]
+  adr7["ADR-007 · Observabilité&lt;br/&gt;OpenTelemetry, Grafana, optionnelle"]
 
   adr2 --&gt;|"module de permissions"| adr1
   adr2 --&gt;|"ports, worker = adaptateur entrant"| adr3
@@ -1820,6 +1829,8 @@ flowchart TB
   adr4 &lt;--&gt;|"202 + polling, 503, Idempotency-Key"| adr3
   adr6 --&gt;|"comment atteindre la cible"| adr2
   adr6 --&gt;|"façade : contrat inchangé"| adr4
+  adr7 --&gt;|"amende §5 : traces et métriques en option"| adr5
+  adr7 --&gt;|"mesure l'outbox et l'OCR"| adr3
   adr5 -.-&gt;|"vérifie : E2E, lint, contrat"| adr1 &amp; adr2 &amp; adr3 &amp; adr4 &amp; adr6
 
   classDef securite fill:#fee2e2,stroke:#dc2626,color:#111827
@@ -1831,7 +1842,7 @@ flowchart TB
   class adr2,adr6 archi
   class adr3 asynchrone
   class adr4 api
-  class adr5 qualite
+  class adr5,adr7 qualite
 </pre>
 <!-- fin : vues/adr.mmd -->
         </div>
@@ -1949,6 +1960,23 @@ flowchart TB
           <h4>Reste à faire</h4>
           <ul>
             <li>Acceptation par le PO.</li>
+          </ul>
+        </article>
+
+        <article class="card adr violet" id="adr-007">
+          <header><span class="num">ADR-007</span><span class="tag tag-ok">Acceptée</span></header>
+          <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-007-observabilite.md">Observabilité : OpenTelemetry et Grafana</a></h3>
+          <p class="meta">Stanislas Beguin (WS5, qualité) · acceptée le 28/10/2026 par le PO</p>
+          <h4>Décide</h4>
+          <ul>
+            <li>Traces, métriques et journaux OpenTelemetry du serveur et du worker, seulement si <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> est défini : rien ne démarre par défaut, en CI ni dans les E2E.</li>
+            <li>Mesure HTTP par route tirée des spans de Next.js ; état de l'outbox en jauges, lu par la même requête que la ligne <code>outbox.stats</code> (PR #39).</li>
+            <li>Pile Grafana locale et optionnelle (<code>make observability</code>) : tableau de bord, six alertes envoyées à Mailpit ; Loki y compte les lignes <code>ocr.request</code> et <code>outbox.stats</code>.</li>
+            <li>Revient, en option, sur l'amendement du 27/10 de l'ADR-005 : 14 dépendances OpenTelemetry et des traces distribuées.</li>
+          </ul>
+          <h4>Reste à faire</h4>
+          <ul>
+            <li>Propagation d'une trace à travers l'outbox.</li>
           </ul>
         </article>
 

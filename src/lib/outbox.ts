@@ -137,17 +137,41 @@ export interface OutboxTypeStats {
 }
 
 /**
- * État de l'outbox par type d'événement (ADR-003 §6, Q5) : nombre
- * d'événements en attente et morts (DLQ), âge du plus ancien en attente. Lu
- * par le worker (`expense_worker`), qui voit toutes les entreprises.
+ * Ce que la supervision OpenTelemetry (ADR-007) lit en plus : les événements
+ * `pending` dont l'heure est venue, et le retard du plus ancien d'entre eux sur
+ * son heure prévue. Un retard qui croît signale un worker bloqué ou débordé,
+ * alors que l'âge du plus ancien en attente compte aussi les relances
+ * planifiées.
  */
-export async function outboxStats(): Promise<OutboxTypeStats[]> {
+export interface OutboxTypeBacklog extends OutboxTypeStats {
+  due: number
+  /** En secondes, `null` s'il n'y a aucun événement dû. */
+  dueLagSeconds: number | null
+}
+
+/**
+ * État de l'outbox par type d'événement (ADR-003 §6, Q5) : nombre
+ * d'événements en attente, dus et morts (DLQ), âge du plus ancien en attente
+ * et retard du plus ancien dû. Lu par le worker (`expense_worker`), qui voit
+ * toutes les entreprises.
+ */
+export async function outboxStats(): Promise<OutboxTypeBacklog[]> {
   return withSystemTransaction(async (client) => {
-    const result = await client.query<{ type: string; pending: string; dead: string; oldest: number | null }>(
+    const result = await client.query<{
+      type: string
+      pending: string
+      due: string
+      dead: string
+      oldest: number | null
+      lag: number | null
+    }>(
       `SELECT type,
               count(*) FILTER (WHERE status = 'pending') AS pending,
+              count(*) FILTER (WHERE status = 'pending' AND next_attempt_at <= now()) AS due,
               count(*) FILTER (WHERE status = 'dead') AS dead,
-              extract(epoch FROM now() - min(created_at) FILTER (WHERE status = 'pending'))::float8 AS oldest
+              extract(epoch FROM now() - min(created_at) FILTER (WHERE status = 'pending'))::float8 AS oldest,
+              extract(epoch FROM now() - min(next_attempt_at)
+                FILTER (WHERE status = 'pending' AND next_attempt_at <= now()))::float8 AS lag
        FROM outbox_events
        WHERE status IN ('pending', 'dead')
        GROUP BY type
@@ -156,8 +180,10 @@ export async function outboxStats(): Promise<OutboxTypeStats[]> {
     return result.rows.map((row) => ({
       type: row.type,
       pending: Number(row.pending),
+      due: Number(row.due),
       dead: Number(row.dead),
       oldestPendingAgeSeconds: row.oldest === null ? null : Math.floor(row.oldest),
+      dueLagSeconds: row.lag === null ? null : Math.floor(row.lag),
     }))
   })
 }

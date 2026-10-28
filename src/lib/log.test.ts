@@ -1,5 +1,7 @@
+import { logs, SeverityNumber } from '@opentelemetry/api-logs'
+import { InMemoryLogRecordExporter, LoggerProvider, SimpleLogRecordProcessor } from '@opentelemetry/sdk-logs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { describeError, log, logError } from '@/lib/log'
+import { describeError, describeStack, log, logError } from '@/lib/log'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -21,6 +23,30 @@ describe('log', () => {
     expect(info).toHaveBeenCalledWith(
       '{"time":"2026-10-25T10:00:00.000Z","level":"info","msg":"worker.started","types":["email.send"]}'
     )
+  })
+
+  it('observabilité activée (ADR-007) : la même entrée part au collecteur OpenTelemetry', () => {
+    const exporter = new InMemoryLogRecordExporter()
+    logs.setGlobalLoggerProvider(new LoggerProvider({ processors: [new SimpleLogRecordProcessor({ exporter })] }))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      log('warn', 'outbox.retry', { eventId: 'e1', attempts: 2, types: ['email.send'], digest: undefined })
+    } finally {
+      logs.disable()
+    }
+
+    const [record] = exporter.getFinishedLogRecords()
+    expect(record.severityNumber).toBe(SeverityNumber.WARN)
+    expect(record.severityText).toBe('WARN')
+    expect(record.body).toBe('outbox.retry')
+    expect(record.attributes).toEqual({ eventId: 'e1', attempts: 2, types: '["email.send"]' })
+  })
+})
+
+describe('describeStack', () => {
+  it('nettoie une pile comme un message d’erreur, bornée à 4 000 caractères', () => {
+    expect(describeStack('Error: owner jane@acme.test\n    at f (file.ts:1:1)')).toBe('Error: owner [email]\n    at f (file.ts:1:1)')
+    expect(describeStack('x'.repeat(5000))).toHaveLength(4000)
   })
 })
 

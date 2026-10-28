@@ -62,8 +62,10 @@ flowchart TB
   m_lib_2f_outbox["lib/outbox"]
   m_lib_2f_sessionUser["lib/sessionUser"]
   m_lib_2f_storage["lib/storage"]
+  m_lib_2f_telemetry["lib/telemetry"]
   m_lib_2f_tokens["lib/tokens"]
   p__40_aws_2d_sdk(["@aws-sdk"])
+  p__40_opentelemetry(["@opentelemetry"])
   p_next(["next"])
   p_next_2d_auth(["next-auth"])
   p_node_3a_crypto(["node:crypto"])
@@ -125,6 +127,7 @@ flowchart TB
   m_instrumentation --> m_lib_2f_authSecret
   m_instrumentation --> m_lib_2f_dbRole
   m_instrumentation --> m_lib_2f_log
+  m_instrumentation --> m_lib_2f_telemetry
   m_lib_2f_auth --> p_next
   m_lib_2f_auth --> p_next_2d_auth
   m_lib_2f_auth --> m_lib_2f_authErrors
@@ -140,6 +143,7 @@ flowchart TB
   m_lib_2f_email --> m_adapters
   m_lib_2f_email --> m_ports
   m_lib_2f_errors --> m_http
+  m_lib_2f_log --> p__40_opentelemetry
   m_lib_2f_loginThrottle --> m_lib_2f_db
   m_lib_2f_outbox --> p_pg
   m_lib_2f_outbox --> m_lib_2f_db
@@ -149,6 +153,9 @@ flowchart TB
   m_lib_2f_sessionUser --> m_lib_2f_db
   m_lib_2f_storage --> p__40_aws_2d_sdk
   m_lib_2f_storage --> m_domain
+  m_lib_2f_telemetry --> p__40_opentelemetry
+  m_lib_2f_telemetry --> m_lib_2f_log
+  m_lib_2f_telemetry --> m_lib_2f_outbox
   m_ports --> m_domain
   m_proxy --> p_next
   m_proxy --> m_lib_2f_auth
@@ -163,6 +170,7 @@ flowchart TB
   m_worker --> m_lib_2f_email
   m_worker --> m_lib_2f_log
   m_worker --> m_lib_2f_outbox
+  m_worker --> m_lib_2f_telemetry
   m_worker --> m_lib_2f_tokens
   m_worker --> m_ports
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
@@ -170,9 +178,9 @@ flowchart TB
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
   class m_application,m_domain,m_generated,m_ports,m_utils coeur
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
-  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_tokens infra
+  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_telemetry,m_lib_2f_tokens infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
-  class p__40_aws_2d_sdk,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react,p_sharp paquet
+  class p__40_aws_2d_sdk,p__40_opentelemetry,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react,p_sharp paquet
 ```
 <!-- fin : layers.mmd -->
 
