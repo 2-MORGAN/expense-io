@@ -8,6 +8,7 @@ import {
   scopeToCompany,
   type OutboxEvent,
 } from '@/lib/outbox'
+import { recordOutboxOutcome, traceOutboxEvent, type OutboxOutcome } from '@/lib/telemetry/outbox'
 import { NonRetryableError } from '@/ports/EventOutbox'
 import { describeError, log } from '@/worker/log'
 import { nextAttemptAfterFailure } from '@/worker/retry'
@@ -43,27 +44,32 @@ export interface DetachedOutboxHandler extends RetryPolicy {
 
 export type OutboxHandlers = Record<string, OutboxHandler | DetachedOutboxHandler>
 
-type HandlerOutcome = { ok: true } | { ok: false; error: unknown }
+/** Issue du handler et sa durée en secondes, pour la supervision (ADR-007). */
+type HandlerOutcome = ({ ok: true } | { ok: false; error: unknown }) & { seconds: number }
 
 function isDetached(handler: OutboxHandler | DetachedOutboxHandler): handler is DetachedOutboxHandler {
   return 'run' in handler
 }
 
+const secondsSince = (start: number): number => (performance.now() - start) / 1000
+
 async function runHandler(handler: OutboxHandler, event: OutboxEvent, client: PoolClient): Promise<HandlerOutcome> {
+  const start = performance.now()
   try {
     await withSavepoint(client, () => handler.handle(event, client))
-    return { ok: true }
+    return { ok: true, seconds: secondsSince(start) }
   } catch (error) {
-    return { ok: false, error }
+    return { ok: false, error, seconds: secondsSince(start) }
   }
 }
 
 async function runDetached(handler: DetachedOutboxHandler, event: OutboxEvent, signal: AbortSignal): Promise<HandlerOutcome> {
+  const start = performance.now()
   try {
     await handler.run(event, signal)
-    return { ok: true }
+    return { ok: true, seconds: secondsSince(start) }
   } catch (error) {
-    return { ok: false, error }
+    return { ok: false, error, seconds: secondsSince(start) }
   }
 }
 
@@ -93,7 +99,7 @@ export async function processNextEvent(
   const leased = await leaseNextDueEvent(types, filter?.companyId)
   if (!leased) return false
 
-  await handleLeasedEvent(handlers, leased, filter?.signal)
+  await traceOutboxEvent(leased, () => handleLeasedEvent(handlers, leased, filter?.signal))
   return true
 }
 
@@ -113,9 +119,9 @@ export async function handleLeasedEvent(
     return
   }
 
-  await withSystemTransaction(async (client) => {
+  const recorded = await withSystemTransaction(async (client): Promise<RecordedOutcome | undefined> => {
     const event = await lockPendingEvent(client, leased.id, leased.attempts)
-    if (!event) return
+    if (!event) return undefined
 
     await scopeToCompany(client, event.companyId)
     const attempts = event.attempts // numéro de l'essai en cours, déjà compté
@@ -123,11 +129,12 @@ export async function handleLeasedEvent(
     if (attempts > handler.maxRetries + 1) {
       await recordFailure(client, event.id, { status: 'dead' }, UNFINISHED_ERROR)
       log('error', 'outbox.dead', { eventId: event.id, type: event.type, attempts, error: UNFINISHED_ERROR })
-      return
+      return { outcome: 'dead' }
     }
 
-    await recordOutcome(client, event, handler, await runHandler(handler, event, client))
+    return recordOutcome(client, event, handler, await runHandler(handler, event, client))
   })
+  if (recorded) recordOutboxOutcome(leased.type, recorded.outcome, recorded.seconds)
 }
 
 /**
@@ -139,24 +146,31 @@ export async function handleLeasedEvent(
  */
 async function handleDetachedEvent(handler: DetachedOutboxHandler, leased: OutboxEvent, signal: AbortSignal): Promise<void> {
   const outcome = await runDetached(handler, leased, signal)
-  await withSystemTransaction(async (client) => {
+  const recorded = await withSystemTransaction(async (client): Promise<RecordedOutcome | undefined> => {
     const event = await lockPendingEvent(client, leased.id, leased.attempts)
-    if (!event) return
-    await recordOutcome(client, event, handler, outcome)
+    if (!event) return undefined
+    return recordOutcome(client, event, handler, outcome)
   })
+  if (recorded) recordOutboxOutcome(leased.type, recorded.outcome, recorded.seconds)
 }
+
+/**
+ * Issue enregistrée en base, mesurée par l'appelant une fois la transaction
+ * validée (ADR-007) : un COMMIT en échec ne compte pas un essai qui sera rejoué.
+ */
+type RecordedOutcome = { outcome: OutboxOutcome; seconds?: number }
 
 async function recordOutcome(
   client: PoolClient,
   event: OutboxEvent,
   handler: OutboxHandler | DetachedOutboxHandler,
   outcome: HandlerOutcome
-): Promise<void> {
+): Promise<RecordedOutcome> {
   const attempts = event.attempts
   if (outcome.ok) {
     await markSent(client, event.id)
     log('info', 'outbox.sent', { eventId: event.id, type: event.type, attempts })
-    return
+    return { outcome: 'sent', seconds: outcome.seconds }
   }
 
   const error = describeError(outcome.error)
@@ -168,7 +182,8 @@ async function recordOutcome(
     log('warn', 'outbox.retry', {
       eventId: event.id, type: event.type, attempts, retryInSeconds: update.delaySeconds, error,
     })
-  } else {
-    log('error', 'outbox.dead', { eventId: event.id, type: event.type, attempts, error })
+    return { outcome: 'retry', seconds: outcome.seconds }
   }
+  log('error', 'outbox.dead', { eventId: event.id, type: event.type, attempts, error })
+  return { outcome: 'dead', seconds: outcome.seconds }
 }

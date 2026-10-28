@@ -8,6 +8,7 @@ flowchart TB
   adr3["ADR-003 · OCR, soumission, notifications<br/>upload d'abord, outbox, worker"]
   adr4["ADR-004 · Contrat d'API<br/>OpenAPI, RFC 9457, codes stables"]
   adr6["ADR-006 · Stratégie de migration<br/>Strangler Fig, Branch by Abstraction"]
+  adr7["ADR-007 · Observabilité<br/>OpenTelemetry, Grafana, optionnelle"]
 
   adr2 -->|"module de permissions"| adr1
   adr2 -->|"ports, worker = adaptateur entrant"| adr3
@@ -15,6 +16,8 @@ flowchart TB
   adr4 <-->|"202 + polling, 503, Idempotency-Key"| adr3
   adr6 -->|"comment atteindre la cible"| adr2
   adr6 -->|"façade : contrat inchangé"| adr4
+  adr7 -->|"amende §5 : traces et métriques en option"| adr5
+  adr7 -->|"mesure l'outbox et l'OCR"| adr3
   adr5 -.->|"vérifie : E2E, lint, contrat"| adr1 & adr2 & adr3 & adr4 & adr6
 
   classDef securite fill:#fee2e2,stroke:#dc2626,color:#111827
@@ -26,4 +29,4 @@ flowchart TB
   class adr2,adr6 archi
   class adr3 asynchrone
   class adr4 api
-  class adr5 qualite
+  class adr5,adr7 qualite

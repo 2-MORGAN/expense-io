@@ -1,0 +1,51 @@
+# Observabilité d'Expense.io (ADR-007, docs/observability.md) : Grafana avec
+# métriques, traces et journaux. Pile optionnelle, séparée de
+# docker-compose.yml : `make dev`, `make test-e2e` et la CI ne la lancent pas.
+#
+#   make observability        (docker compose -f docker-compose.observability.yml up -d --wait)
+#   Grafana : http://localhost:3001, sans mot de passe
+#   puis, dans .env : OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318, et relancer `make dev`
+#
+# `grafana/otel-lgtm` réunit le collecteur OpenTelemetry, Prometheus, Loki,
+# Tempo et Grafana dans un conteneur prévu pour le développement et la
+# démonstration, pas pour la production (ADR-007).
+name: expense-io-observability
+
+services:
+  lgtm:
+    image: grafana/otel-lgtm:0.36.0
+    ports:
+      # Sur localhost seulement : Grafana y est ouvert sans mot de passe.
+      - '127.0.0.1:${GRAFANA_PORT:-3001}:3000'
+      # OTLP/HTTP : traces, métriques et journaux du serveur et du worker.
+      - '127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318'
+    environment:
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /otel-lgtm/expense-io/dashboards/expense-io.json
+      # Alertes envoyées par email à Mailpit (docker-compose.yml) : http://localhost:8025.
+      GF_SMTP_ENABLED: 'true'
+      GF_SMTP_HOST: ${GRAFANA_SMTP_HOST:-host.docker.internal:1025}
+      GF_SMTP_FROM_ADDRESS: grafana@expense.io
+      GF_SMTP_FROM_NAME: Grafana Expense.io
+      GF_SMTP_STARTTLS_POLICY: NoStartTLS
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./observability/prometheus.yaml:/otel-lgtm/prometheus.yaml:ro
+      - ./observability/grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/expense-io.yaml:ro
+      - ./observability/grafana/dashboards:/otel-lgtm/expense-io/dashboards:ro
+      - ./observability/grafana/alerting:/otel-lgtm/grafana/conf/provisioning/alerting:ro
+      - lgtm-data:/data
+
+  # Métriques du serveur PostgreSQL de docker-compose.yml (connexions,
+  # transactions, cache, taille), collectées par le Prometheus de `lgtm`.
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      # Base vue depuis le conteneur. Autre port publié (5434…) : définir
+      # OBSERVABILITY_DATABASE_URL dans l'environnement ou dans .env.
+      DATA_SOURCE_NAME: ${OBSERVABILITY_DATABASE_URL:-postgresql://expense:expense@host.docker.internal:5433/expense_io?sslmode=disable}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+volumes:
+  lgtm-data:
