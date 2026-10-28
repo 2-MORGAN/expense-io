@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Proposée** |
+| Statut | **Acceptée** le 28/10/2026 par Florent (PO) |
 | Date | 27 octobre 2026 |
 | Auteur | Amalraj Soupramanien (WS1) |
 | Validateur | Florent (PO) |
@@ -72,7 +72,7 @@ Hors périmètre : l'international (une instance par région, ADR-001) relève d
 - **Risque** : une étape qui migre une route et change en même temps son comportement. Parade : contrat inchangé, E2E de la famille verts sans modification (ADR-005 §2).
 - **Dette soldée par l'application de cette ADR** : la fin d'A1 et d'A2 (audit WS2) pour les routes.
 - **Étapes de 2-536** : (a) URL de reçu par cas d'usage et `ReceiptStoragePort` ; (b) listes par repository. Aucune étape pour l'interrupteur : il naît avec le second adaptateur qui le justifie (décision 2).
-- **État au 27/10** : étapes (a) et (b) appliquées, un commit chacune (cas d'usage `GetReceiptUrl` et `ListExpenseNotes`). `LEGACY_DB_ACCESS`, `LEGACY_SQL_INTERPOLATION` et `LEGACY_EDGES` sont vides : la migration des routes est terminée. Contrat vérifié identique avant et après (statuts, ordre, corps JSON), suite E2E complète verte sans modification.
+- **Application** : étapes (a) et (b) appliquées par 2-536 (PR #40).
 
 ## Comportement observable
 
