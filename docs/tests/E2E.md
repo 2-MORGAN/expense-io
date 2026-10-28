@@ -109,6 +109,7 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | SIGNUP-13 | Renvoi de l'email de vérification depuis `/signup/verify` (lien depuis la connexion refusée) : nouveau lien valide, ancien invalide ; même message pour une adresse inconnue ou déjà vérifiée, sans email | UI |
 | INV-01 | `POST /api/hr/invitations` : 401 sans session, 403 employé et manager, 400 `INVALID_EMAIL`, 201 `{ id, email, expiresAt }` (adresse normalisée) ; relance de la même adresse → même invitation, nouvel email, ancien lien invalide | API |
 | INV-02 | Sous `expense_app` : invitation visible de la RH de son entreprise seulement (ni RH d'une autre entreprise, ni employé, ni manager) ; insertion pour une autre entreprise ou par un employé refusée (42501) | Base |
+| INV-03 | `POST /api/hr/invitations` : JSON malformé → 400 `INVALID_JSON` ; corps sans `email`, `email` non textuel ou corps non objet → 400 `VALIDATION_ERROR` ; adresse hors du format email du contrat (`a..b@…`, `é@…`, domaine commençant par un tiret…) → 400 `INVALID_EMAIL`, aucune invitation créée | API |
 
 ### Connexion et session — `e2e/auth.spec.ts`
 
