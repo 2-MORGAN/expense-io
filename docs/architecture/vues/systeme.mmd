@@ -26,6 +26,7 @@ flowchart TB
   mailbox(["Boîte mail<br/>liens d'invitation<br/>et de vérification"])
   ops["Scripts npm<br/>migrate:up · seed<br/>ensure-bucket<br/>réconciliation, nettoyage"]
   cron["Tâche planifiée quotidienne<br/>ops/cron : réconciliation<br/>des reçus orphelins"]
+  umami[("Umami, en option<br/>port 3002 · sa propre base<br/>mesure d'usage, ADR-008")]
 
   user -->|"pages, formulaires"| pages
   user -->|"fetch JSON, multipart"| api
@@ -45,6 +46,7 @@ flowchart TB
   cleanup -->|"reçus analysés"| s3
   smtp --> mailbox
   user -.->|"reçu par URL pré-signée"| s3
+  user -.->|"pages vues, 3 événements,<br/>si UMAMI_WEBSITE_ID est défini"| umami
   user ~~~ ops
   ops --> pg
   ops --> s3
@@ -56,5 +58,5 @@ flowchart TB
   classDef externe fill:#f3f4f6,stroke:#6b7280,color:#111827
   class pages,api,loops,handlers,cleanup,stats entree
   class core coeur
-  class pg,s3,ocr,smtp infra
+  class pg,s3,ocr,smtp,umami infra
   class user,mailbox,ops,cron externe

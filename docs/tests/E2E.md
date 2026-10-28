@@ -347,6 +347,14 @@ ADR-003 §6 : état de l'outbox que le worker journalise chaque minute (`outbox.
 |---|---|---|
 | OBS-01 | `outboxStats()` par type : 2 en attente, 1 mort, 1 envoyé ignoré ; âge du plus ancien en attente ≥ 120 s, sans compter l'événement mort plus ancien | Intégration |
 
+### Mesure d'usage — `e2e/analytics.spec.ts`
+
+ADR-008 : le script d'Umami n'est chargé que si `UMAMI_SCRIPT_URL` et `UMAMI_WEBSITE_ID` sont définis, lus dans `.env` comme par l'application. Le contrôle de chaque envoi (`beforeSend` : chaîne de requête, identification, événements hors liste) est couvert par `src/components/analytics.test.ts`.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| USAGE-01 | Sans configuration (CI), `/login` ne charge aucun script d'Umami ; configuré, la balise porte le site, `data-exclude-search`, `data-exclude-hash` et sa fonction `data-before-send` | UI |
+
 ### Notifications — `e2e/notifications.spec.ts`
 
 NOTIF-01 à 05 et NOTIF-10 appellent l'API puis lisent `outbox_events` en connexion d'administration : ce que la soumission et la décision écrivent dans la même transaction. NOTIF-06 à 09 et NOTIF-11 font tourner `processNextEvent` avec les handlers de notification (`notificationHandlers`) sur la vraie base, limité à l'entreprise du test, et lisent les emails arrivés dans Mailpit ; NOTIF-09 remplace l'envoi par un `NotificationPort` en panne, sur un événement de test d'un type unique ; NOTIF-11 insère un événement par RH sous un type unique, fait échouer l'envoi pour une seule RH et délègue le reste à l'adaptateur réel.

@@ -393,6 +393,7 @@ npm run dev                   <span class="c"># next dev et le worker, ensemble 
                 <tr><td>Mailpit (tous les emails)</td><td><a href="http://localhost:8025">http://localhost:8025</a>, SMTP sur 1025</td></tr>
                 <tr><td>PostgreSQL</td><td><code>localhost:5433</code>, base <code>expense_io</code></td></tr>
                 <tr><td>S3 (LocalStack)</td><td><code>http://localhost:4567</code>, bucket <code>receipts</code></td></tr>
+                <tr><td>Umami, en option (<code>make analytics</code>)</td><td><a href="http://localhost:3002">http://localhost:3002</a>, compte <code>admin</code> / <code>umami</code></td></tr>
               </tbody>
             </table>
           </div>
@@ -429,6 +430,7 @@ npm run dev                   <span class="c"># next dev et le worker, ensemble 
             <tr><td><code>APP_URL</code></td><td>adresse publique, pour les liens d'invitation et de vérification</td></tr>
             <tr><td><code>WORKER_POLL_INTERVAL_MS</code></td><td>intervalle d'interrogation de l'outbox (2000 par défaut)</td></tr>
             <tr><td><code>OUTBOX_STATS_INTERVAL_MS</code></td><td>intervalle de la ligne de métriques <code>outbox.stats</code> du worker (60000 par défaut)</td></tr>
+            <tr><td><code>UMAMI_SCRIPT_URL</code>, <code>UMAMI_WEBSITE_ID</code></td><td>mesure d'usage optionnelle (ADR-008, <code>docs/analytics.md</code>) : sans elles, aucune page ne charge Umami ; <code>make analytics</code> les affiche</td></tr>
           </tbody>
         </table>
       </div>
@@ -608,6 +610,7 @@ flowchart TB
   mailbox(["Boîte mail&lt;br/&gt;liens d'invitation&lt;br/&gt;et de vérification"])
   ops["Scripts npm&lt;br/&gt;migrate:up · seed&lt;br/&gt;ensure-bucket&lt;br/&gt;réconciliation, nettoyage"]
   cron["Tâche planifiée quotidienne&lt;br/&gt;ops/cron : réconciliation&lt;br/&gt;des reçus orphelins"]
+  umami[("Umami, en option&lt;br/&gt;port 3002 · sa propre base&lt;br/&gt;mesure d'usage, ADR-008")]
 
   user --&gt;|"pages, formulaires"| pages
   user --&gt;|"fetch JSON, multipart"| api
@@ -627,6 +630,7 @@ flowchart TB
   cleanup --&gt;|"reçus analysés"| s3
   smtp --&gt; mailbox
   user -.-&gt;|"reçu par URL pré-signée"| s3
+  user -.-&gt;|"pages vues, 3 événements,&lt;br/&gt;si UMAMI_WEBSITE_ID est défini"| umami
   user ~~~ ops
   ops --&gt; pg
   ops --&gt; s3
@@ -638,7 +642,7 @@ flowchart TB
   classDef externe fill:#f3f4f6,stroke:#6b7280,color:#111827
   class pages,api,loops,handlers,cleanup,stats entree
   class core coeur
-  class pg,s3,ocr,smtp infra
+  class pg,s3,ocr,smtp,umami infra
   class user,mailbox,ops,cron externe
 </pre>
 <!-- fin : vues/systeme.mmd -->
@@ -664,6 +668,7 @@ flowchart TB
             <tr><td><strong>S3</strong></td><td>reçus des notes et des analyses, sous <code>receipts/{companyId}/…</code></td><td>LocalStack 3.8.1, port 4567</td><td>tout stockage compatible S3</td><td><code>src/lib/storage.ts</code>, <code>src/adapters/S3ReceiptAdapter.ts</code></td></tr>
             <tr><td><strong>SMTP</strong></td><td>invitations, vérifications d'email, notifications</td><td>Mailpit : SMTP 1025, interface 8025, aucun email ne sort</td><td>fournisseur transactionnel (port 465, <code>SMTP_SECURE</code>)</td><td><code>src/lib/email.ts</code>, <code>src/adapters/SmtpEmailAdapter.ts</code></td></tr>
             <tr><td><strong>Scripts</strong></td><td>migrations, seed, bucket, réconciliation des reçus orphelins, nettoyage des notes sans reçu</td><td><code>npm run …</code> (dry-run par défaut pour les deux derniers)</td><td>réconciliation planifiée une fois par jour</td><td><code>scripts/</code></td></tr>
+            <tr><td><strong>Umami</strong>, en option</td><td>mesure d'usage : pages vues et trois événements envoyés par le navigateur, sans cookie ni identifiant (ADR-008)</td><td><code>make analytics</code>, port 3002, sa propre base ; actif si <code>UMAMI_WEBSITE_ID</code> est défini</td><td>instance auto-hébergée ou Umami Cloud</td><td><code>src/components/analytics.ts</code>, <code>docker-compose.analytics.yml</code></td></tr>
           </tbody>
         </table>
       </div>
@@ -1823,6 +1828,7 @@ flowchart TB
   adr4["ADR-004 · Contrat d'API&lt;br/&gt;OpenAPI, RFC 9457, codes stables"]
   adr6["ADR-006 · Stratégie de migration&lt;br/&gt;Strangler Fig, Branch by Abstraction"]
   adr7["ADR-007 · Observabilité&lt;br/&gt;OpenTelemetry, Grafana, optionnelle"]
+  adr8["ADR-008 · Mesure d'usage&lt;br/&gt;Umami, optionnelle"]
 
   adr2 --&gt;|"module de permissions"| adr1
   adr2 --&gt;|"ports, worker = adaptateur entrant"| adr3
@@ -1832,6 +1838,8 @@ flowchart TB
   adr6 --&gt;|"façade : contrat inchangé"| adr4
   adr7 --&gt;|"amende §5 : traces et métriques en option"| adr5
   adr7 --&gt;|"mesure l'outbox et l'OCR"| adr3
+  adr8 --&gt;|"complète : l'usage, côté navigateur"| adr7
+  adr8 --&gt;|"applique §5 : rien de sensible ne sort"| adr5
   adr5 -.-&gt;|"vérifie : E2E, lint, contrat"| adr1 &amp; adr2 &amp; adr3 &amp; adr4 &amp; adr6
 
   classDef securite fill:#fee2e2,stroke:#dc2626,color:#111827
@@ -1843,7 +1851,7 @@ flowchart TB
   class adr2,adr6 archi
   class adr3 asynchrone
   class adr4 api
-  class adr5,adr7 qualite
+  class adr5,adr7,adr8 qualite
 </pre>
 <!-- fin : vues/adr.mmd -->
         </div>
@@ -1978,6 +1986,24 @@ flowchart TB
           <h4>Reste à faire</h4>
           <ul>
             <li>Propagation d'une trace à travers l'outbox.</li>
+          </ul>
+        </article>
+
+        <article class="card adr violet" id="adr-008">
+          <header><span class="num">ADR-008</span><span class="tag tag-ok">Acceptée</span></header>
+          <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-008-mesure-usage-umami.md">Mesure d'usage du produit : Umami</a></h3>
+          <p class="meta">Stanislas Beguin (WS5, qualité) · acceptée le 28/10/2026 par le PO</p>
+          <h4>Décide</h4>
+          <ul>
+            <li>Quatre questions, chacune liée à une décision : suggestion OCR gardée ou corrigée, notes commencées sans envoi, entreprises qui vont jusqu'à inviter un salarié, dépôt des reçus depuis un téléphone.</li>
+            <li>Umami auto-hébergé, chargé seulement si <code>UMAMI_SCRIPT_URL</code> et <code>UMAMI_WEBSITE_ID</code> sont définis, relues à chaque requête : rien ne change par défaut, en CI ni dans les E2E (USAGE-01).</li>
+            <li>Tout envoi passe par <code>beforeSend</code> : sans cookie ni identification, URL sans chaîne de requête ni fragment (jetons d'invitation), seuls les événements et valeurs de <code>ANALYTICS_EVENTS</code>.</li>
+          </ul>
+          <h4>Livré</h4>
+          <ul class="pills"><li>T1 à T5 avec l'ADR : pile locale (make analytics), script, trois événements, docs/analytics.md</li></ul>
+          <h4>Reste à faire</h4>
+          <ul>
+            <li>Avant la production : hébergement, durée de conservation, information des utilisateurs.</li>
           </ul>
         </article>
 

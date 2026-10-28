@@ -3,7 +3,7 @@ SHELL := /bin/bash
 
 COMPOSE := docker compose
 
-.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-e2e verify api-breaking frozen reconcile observability observability-down
+.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-e2e verify api-breaking frozen reconcile observability observability-down analytics analytics-down
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -98,3 +98,10 @@ observability: ## Démarre Grafana et la collecte des traces, métriques et jour
 
 observability-down: ## Arrête Grafana et la collecte (conserve leurs données)
 	$(COMPOSE) -f docker-compose.observability.yml down
+
+analytics: ## Démarre Umami, la mesure d'usage du produit, et y crée le site (docs/analytics.md)
+	$(COMPOSE) -f docker-compose.analytics.yml up -d --wait
+	npm run analytics:setup
+
+analytics-down: ## Arrête Umami (conserve ses données)
+	$(COMPOSE) -f docker-compose.analytics.yml down

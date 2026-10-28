@@ -14,6 +14,7 @@
     "migrate:down": "node-pg-migrate down --envPath .env -d MIGRATION_DATABASE_URL --ignore-pattern \"[^0-9].*\"",
     "ensure-bucket": "node scripts/ensure-bucket.mjs",
     "seed": "node scripts/seed.mjs",
+    "analytics:setup": "node scripts/analytics-setup.mjs",
     "reconcile:orphan-receipts": "node scripts/reconcile-orphan-receipts.mjs",
     "clean:notes-without-receipt": "node scripts/clean-notes-without-receipt.mjs",
     "worker": "tsx src/worker/main.ts",
