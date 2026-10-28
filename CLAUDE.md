@@ -52,7 +52,7 @@ Décidé par l'ADR-005. Ce qui vérifie le code, et quand :
 | `git commit` | hook pre-commit : ESLint avec cache | ≈ 3 s, 5 s à froid |
 | `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 35 s |
 | À la demande | E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` | ≈ 3 min pour la suite, Docker requis |
-| PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner | ≈ 1 min et 3 min 30 |
+| PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte | ≈ 1 min et 3 min 30 |
 | Claude Code : avant une commande shell | hook `PreToolUse` (`.claude/hooks/guard-git.mjs`) : refuse `--no-verify`, `git commit -n`, `HUSKY=0`, la modification de `core.hooksPath`, le push sur `main`, le force-push, `gh pr create` sans `--repo` explicite ou vers le dépôt du cours, et `eslint --suppress-all` ou `--suppress-rule` | instantané |
 | Claude Code : fin de tour | hook `Stop` (`.claude/hooks/check-on-stop.mjs`) : `npm run check` si le code a changé depuis le dernier check vert ; rouge, le tour continue une fois avec l'erreur, puis l'utilisateur est averti | ≈ 35 s |
 
@@ -131,13 +131,13 @@ Les consignes se mettent à jour avec le code, dans la même PR. `npm run check`
 | Si le changement… | Mettre à jour |
 |---|---|
 | change un import entre couches, une couche, une route ou sa garde | `npm run generate:architecture`, relire le diff ; le texte de la section si le sens change |
-| ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement | `vues/systeme.mmd`, `vues/hexagone.mmd` ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs » |
+| ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement | `vues/systeme.mmd`, `vues/hexagone.mmd` ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs », « Déploiement et exploitation » |
 | modifie un parcours : soumission, décision, outbox, OCR, inscription, invitation, session | la vue de séquence correspondante et le texte de « Parcours clés » |
 | ajoute une migration : table, colonne, policy, rôle, fonction `SECURITY DEFINER` | `vues/schema.mmd` et « Données et isolation » |
 | ajoute un type d'événement de l'outbox | le tableau des événements et `vues/outbox.mmd` |
 | change une opération HTTP ou un code d'erreur | « API et contrat », après `openapi.yaml` |
 | ajoute une ADR ou change son statut | sa fiche (`id="adr-NNN"`) dans « Les ADR », `vues/adr.mmd`, et « Choix d'architecture » si un choix change |
-| change une commande, un script npm, un hook ou la CI | « Démarrer », « Harnais de validation », `vues/harnais.mmd` |
+| change une commande, un script npm, un hook, la CI ou une tâche planifiée | « Démarrer », « Harnais de validation », « Déploiement et exploitation », `vues/harnais.mmd` |
 | change une règle de placement, une convention ou un fichier modèle d'un dossier ; ajoute un dossier de code | l'`AGENTS.md` du dossier ; un dossier nouveau s'ajoute à `AGENT_DIRS` (`scripts/architecture/agents.ts`) avec ses deux fichiers |
 | solde ou crée une dette | « Dette connue » et la fiche de l'ADR concernée |
 

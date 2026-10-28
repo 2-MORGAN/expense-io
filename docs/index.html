@@ -299,6 +299,7 @@ footer.page-end { margin-top: 72px; padding-top: 20px; border-top: 1px solid var
         <li><a href="#choix">Choix d'architecture</a></li>
         <li><a href="#adr">Les ADR</a></li>
         <li><a href="#qualite">Harnais de validation</a></li>
+        <li><a href="#deploiement">Déploiement et exploitation</a></li>
         <li><a href="#dette">Dette connue</a></li>
         <li><a href="#contribuer">Contribuer</a></li>
         <li><a href="#maintenir">Maintenir cette page</a></li>
@@ -1946,9 +1947,9 @@ flowchart TB
         </article>
 
         <article class="card adr blue" id="adr-006">
-          <header><span class="num">ADR-006</span><span class="tag tag-todo">Proposée</span></header>
+          <header><span class="num">ADR-006</span><span class="tag tag-ok">Acceptée</span></header>
           <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-006-strategie-de-migration.md">Stratégie de migration du code legacy</a></h3>
-          <p class="meta">Amalraj Soupramanien (WS1) · proposée le 27/10/2026, à faire accepter par le PO</p>
+          <p class="meta">Amalraj Soupramanien (WS1) · acceptée le 28/10/2026</p>
           <h4>Décide</h4>
           <ul>
             <li>Code des routes : esprit Strangler Fig, une famille de routes par étape, derrière un contrat HTTP inchangé (chemins et <code>openapi.yaml</code>).</li>
@@ -1959,7 +1960,7 @@ flowchart TB
           <ul class="pills"><li>2-536 · URL de reçu et listes par cas d'usage, exceptions legacy vidées (PR #40)</li></ul>
           <h4>Reste à faire</h4>
           <ul>
-            <li>Acceptation par le PO.</li>
+            <li>Rien pour les routes : la migration est terminée. L'interrupteur viendra avec le second adaptateur d'une dépendance externe.</li>
           </ul>
         </article>
 
@@ -2082,7 +2083,7 @@ flowchart TB
             <tr><td><code>git push</code></td><td>hook pre-push : <code>npm run check</code></td><td>≈ 35 s</td></tr>
             <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI)</td><td>≈ 3 min pour la suite</td></tr>
             <tr><td>Couverture, à la demande</td><td><code>npm run test:coverage</code> (unitaires, Vitest v8) ; <code>npm run test:e2e:coverage</code> (E2E : serveur Next.js, worker et scripts, c8). Aucun seuil bloquant (<a href="#adr-005">ADR-005</a>) ; citer les branches, les lignes E2E sont gonflées</td><td>≈ 20 s ; suite E2E + rapport</td></tr>
-            <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, oasdiff sur les PR, build) et <code>e2e</code> (2 shards), obligatoires</td><td>≈ 1 min et 3 min 30</td></tr>
+            <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, oasdiff sur les PR, build) et <code>e2e</code> (2 shards), obligatoires, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte</td><td>≈ 1 min et 3 min 30</td></tr>
             <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
           </tbody>
         </table>
@@ -2119,6 +2120,68 @@ flowchart TB
       </div>
     </section>
 
+    <!-- ===================================================== Déploiement -->
+    <section id="deploiement" aria-labelledby="deploiement-titre">
+      <span class="kicker">En production</span>
+      <h2 id="deploiement-titre">Déploiement et exploitation<a class="anchor" href="#deploiement" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Ce que la production exige, l'ordre d'une mise en production et ce qu'on surveille ensuite. Les processus sont décrits dans la <a href="#vue-ensemble">vue d'ensemble</a>, les variables dans <a href="#demarrer">Démarrer</a> : cette section n'y revient pas.</p>
+
+      <div class="callout warn">
+        <span class="callout-title">Aucun hébergement n'est choisi</span>
+        Le dépôt ne contient pas d'image de conteneur de l'application et ne vise aucune plateforme. Le tableau ci-dessous décrit des exigences, pas une infrastructure existante.
+      </div>
+
+      <h3 id="deployer">Ce qui se déploie<a class="anchor" href="#deployer" aria-label="Lien vers cette section">#</a></h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Brique</th><th>En local</th><th>En production</th></tr></thead>
+          <tbody>
+            <tr><td>Base</td><td>conteneur PostgreSQL 16 (port 5433)</td><td>PostgreSQL 16, managé ou non ; le propriétaire sert aux migrations, l'application et le worker se connectent sous <code>expense_app</code> et <code>expense_worker</code>, soumis à la RLS (<a href="#adr-001">ADR-001</a>)</td></tr>
+            <tr><td>Reçus</td><td>LocalStack (port 4567)</td><td>un bucket S3 privé : aucun accès public, lecture par URL pré-signée de courte durée seulement</td></tr>
+            <tr><td>Emails</td><td>Mailpit : rien ne sort</td><td>un serveur SMTP réel (<code>SMTP_SECURE</code>, <code>SMTP_USER</code>, <code>SMTP_PASSWORD</code>)</td></tr>
+            <tr><td>Web</td><td><code>npm run dev</code></td><td><code>npm run build</code>, puis <code>npm run start</code>, supervisé et redémarré en cas d'arrêt</td></tr>
+            <tr><td>Worker</td><td>lancé par <code>npm run dev</code></td><td><code>npm run worker</code>, second processus supervisé ; sans lui, les emails et les analyses OCR restent <code>pending</code></td></tr>
+            <tr><td>Moteur OCR</td><td>processus enfant</td><td>idem : exige <code>tessdata/</code> et le droit de lancer des processus enfants</td></tr>
+            <tr><td>Tâche planifiée</td><td>à la main : <code>npm run reconcile:orphan-receipts</code></td><td><code>ops/cron/expense-io.crontab</code>, ou le planificateur de l'hébergeur, avec le même <code>.env</code> que le worker</td></tr>
+            <tr><td>Observabilité (optionnelle)</td><td><code>make observability</code> (<code>grafana/otel-lgtm</code>, http://localhost:3001), puis <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> dans <code>.env</code> ; sans cette variable, rien ne démarre</td><td>un collecteur OpenTelemetry ou un service managé, désigné par <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> et <code>OTEL_EXPORTER_OTLP_HEADERS</code>, sans changement de code ; <code>otel-lgtm</code> ne sert qu'au développement, postgres-exporter s'y connecte sous un rôle <code>pg_monitor</code> (<a href="#adr-007">ADR-007</a>, <a href="observability.md">observability.md</a>, « En production »)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="mise-en-production">Mettre une version en production<a class="anchor" href="#mise-en-production" aria-label="Lien vers cette section">#</a></h3>
+      <ol>
+        <li>Le commit est sur <code>main</code>, donc sa CI est verte : <code>check</code> et <code>e2e</code> sont requis pour fusionner (<a href="#qualite">harnais</a>).</li>
+        <li><code>npm run migrate:up</code> sous le propriétaire (<code>MIGRATION_DATABASE_URL</code>) : applique les migrations, puis pose les mots de passe des rôles restreints (<code>scripts/provision-db-roles.mjs</code>).</li>
+        <li><code>npm run ensure-bucket</code> si le bucket est nouveau.</li>
+        <li>Démarrer le web, puis le worker. En production, chacun <strong>refuse de démarrer</strong> sous un rôle superuser ou <code>BYPASSRLS</code> ; le web refuse aussi un <code>AUTH_SECRET</code> absent, court ou d'exemple, et le worker une configuration sans <code>SMTP_HOST</code> ni <code>APP_URL</code> (<a href="#demarrer">variables</a>).</li>
+        <li>Une seule fois : installer la tâche de <code>ops/cron/</code>, après un premier passage à blanc dont le rapport a été relu.</li>
+      </ol>
+      <p><strong>Retour arrière</strong> : revert du commit et redéploiement (<a href="#adr-006">ADR-006</a>). Une migration ne s'annule que par son <code>down</code> (<code>npm run migrate:down</code>) ; une migration déjà appliquée ne s'édite jamais.</p>
+
+      <h3 id="exploiter">Exploiter<a class="anchor" href="#exploiter" aria-label="Lien vers cette section">#</a></h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Sujet</th><th>Ce qu'on fait</th></tr></thead>
+          <tbody>
+            <tr><td>Journal</td><td>une ligne JSON par événement sur la sortie standard, du web comme du worker, à collecter par l'hébergeur (<a href="#journal">journal et métriques</a>) ; quand l'export OpenTelemetry est activé, le journal part aussi au collecteur, avec les traces et les métriques</td></tr>
+            <tr><td>À surveiller</td><td>dans <code>outbox.stats</code> : le nombre d'événements <code>pending</code> et l'âge du plus ancien (un âge qui grandit signale un worker arrêté), le nombre de <code>dead</code> ; dans <code>ocr.request</code> : la part de <code>failed</code>, <code>timeout</code> et <code>overloaded</code>. Avec la pile d'observabilité, six alertes les suivent : erreurs 5xx, latence p95 des routes, OCR lent, nouveaux <code>dead</code>, outbox en retard, worker muet (<a href="observability.md">observability.md</a>, « Alertes »)</td></tr>
+            <tr><td>Événement <code>dead</code> (DLQ)</td><td>gardé en base avec sa dernière erreur, jamais retraité automatiquement ; aucun outil de relance : le diagnostic et la relance se font à la main en base, sous le propriétaire</td></tr>
+            <tr><td>Réconciliation des reçus</td><td>chaque jour (<code>ops/cron/</code>) : supprime les objets de <code>receipts/</code> sans note ni analyse et vieux de plus de 24 h ; un échec se lit dans le journal, la passe suivante rattrape</td></tr>
+            <tr><td>Rotation d'<code>AUTH_SECRET</code></td><td>remplacer la valeur et redémarrer le web : toutes les sessions sont invalidées (<a href="#demarrer">variables</a>)</td></tr>
+            <tr><td>Notes sans reçu</td><td>nettoyage unique : <code>npm run clean:notes-without-receipt</code> à blanc, puis <code>-- --execute --out &lt;dossier&gt;</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="regions">Plusieurs régions<a class="anchor" href="#regions" aria-label="Lien vers cette section">#</a></h3>
+      <p>Une instance complète par région (web, worker, base, bucket), une entreprise rattachée à une seule région, sans réplication entre régions (<a href="#adr-001">ADR-001</a>, <a href="#adr-002">ADR-002</a>). Le sujet se rouvre si un manager doit valider des notes stockées dans plusieurs régions : c'est le cas où le théorème CAP impose de choisir entre cohérence et disponibilité.</p>
+
+      <div class="callout">
+        <span class="callout-title">Non décidé</span>
+        L'hébergeur, l'image de conteneur, la sauvegarde et la restauration de la base, un outil de relance de la DLQ, où envoyer les alertes en production (Mailpit en local), la propagation d'une trace à travers l'outbox et l'échantillonnage des traces. Repris dans la <a href="#dette">dette connue</a>.
+      </div>
+    </section>
+
     <!-- ===================================================== Dette -->
     <section id="dette" aria-labelledby="dette-titre">
       <span class="kicker">Lucidité</span>
@@ -2131,7 +2194,7 @@ flowchart TB
         </div>
         <div class="card yellow">
           <h4><span class="tag tag-todo">exploitation</span> Tâches et observabilité</h4>
-          <p>Nettoyage unique des notes sans reçu à exécuter puis valider (<code>npm run clean:notes-without-receipt</code>) ; tâche quotidienne de <code>ops/cron/</code> à installer une fois un environnement déployé. Les métriques sont des lignes de journal (<code>ocr.request</code>, <code>outbox.stats</code>) : sans collecteur de logs, ni tableau de bord ni alerte ; pas de traces distribuées (<a href="#adr-005">ADR-005 §5</a>).</p>
+          <p>Nettoyage unique des notes sans reçu à exécuter puis valider (<code>npm run clean:notes-without-receipt</code>) ; tâche quotidienne de <code>ops/cron/</code> à installer une fois un environnement déployé. L'observabilité est optionnelle (<a href="#adr-007">ADR-007</a>) : tableau de bord et alertes en local, destinataires de production à définir ; une requête et l'événement de l'outbox qu'elle crée donnent encore deux traces distinctes. Hébergeur, image de conteneur, sauvegardes de la base et relance de la DLQ ne sont pas décidés (<a href="#deploiement">déploiement</a>).</p>
         </div>
         <div class="card">
           <h4><span class="tag tag-todo">qualité</span> Constats figés</h4>
@@ -2180,6 +2243,20 @@ flowchart TB
       <h2 id="maintenir-titre">Maintenir cette page<a class="anchor" href="#maintenir" aria-label="Lien vers cette section">#</a></h2>
       <p class="section-lead">La doc fait partie du changement : elle se met à jour dans la même PR que le code, sans attendre qu'on le demande. Les règles sont dans CLAUDE.md, « Documentation développeur ».</p>
 
+      <h3 id="livrables">Cette page tient lieu de DAT<a class="anchor" href="#livrables" aria-label="Lien vers cette section">#</a></h3>
+      <p>Les livrables d'architecture du cours ne sont pas des documents séparés : leur contenu vit ici et dans les fichiers qu'elle cite, tenus à jour avec le code plutôt que rédigés à part.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Livrable</th><th>Question</th><th>Où il se trouve</th></tr></thead>
+          <tbody>
+            <tr><td>ADR</td><td>Pourquoi ce choix ?</td><td><a href="#adr">Les ADR</a>, <code>docs/adr/</code></td></tr>
+            <tr><td>HLD</td><td>Quelle architecture ?</td><td><a href="#vue-ensemble">Vue d'ensemble</a>, <a href="#code">Architecture du code</a>, <a href="#adr-002">ADR-002</a> ; l'existant dans les audits de <code>docs/audit/</code></td></tr>
+            <tr><td>LLD</td><td>Comment la construire ?</td><td><a href="#parcours">Parcours clés</a>, <a href="#donnees">Données et isolation</a>, <a href="#ou-placer">Où placer le code</a>, <code>openapi.yaml</code></td></tr>
+            <tr><td>DAT</td><td>Quelle architecture technique globale ?</td><td>cette page, avec <a href="#deploiement">Déploiement et exploitation</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+
       <div class="grid">
         <div class="card green">
           <h4><span class="tag tag-gen">généré</span> Deux graphes</h4>
@@ -2202,13 +2279,13 @@ flowchart TB
           <thead><tr><th>Si le changement…</th><th>Mettre à jour</th></tr></thead>
           <tbody>
             <tr><td>change un import entre couches, une couche, une route ou sa garde</td><td><code>npm run generate:architecture</code>, relire le diff ; la section concernée si le sens change</td></tr>
-            <tr><td>ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement</td><td><code>vues/systeme.mmd</code>, <code>vues/hexagone.mmd</code> ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs »</td></tr>
+            <tr><td>ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement</td><td><code>vues/systeme.mmd</code>, <code>vues/hexagone.mmd</code> ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs », « Déploiement et exploitation »</td></tr>
             <tr><td>modifie un parcours : soumission, décision, outbox, OCR, inscription, invitation, session</td><td>la vue de séquence correspondante et le texte de « Parcours clés »</td></tr>
             <tr><td>ajoute une migration : table, colonne, policy, rôle, fonction <code>SECURITY DEFINER</code></td><td><code>vues/schema.mmd</code> et « Données et isolation »</td></tr>
             <tr><td>ajoute un type d'événement de l'outbox</td><td>le tableau des événements et <code>vues/outbox.mmd</code></td></tr>
             <tr><td>change une opération HTTP, un code d'erreur</td><td>« API et contrat », après <code>openapi.yaml</code></td></tr>
             <tr><td>ajoute une ADR ou change son statut</td><td>sa fiche dans « Les ADR », <code>vues/adr.mmd</code>, et « Choix d'architecture » si un choix change</td></tr>
-            <tr><td>change une commande, un script npm, un hook, la CI</td><td>« Démarrer », « Harnais de validation », <code>vues/harnais.mmd</code></td></tr>
+            <tr><td>change une commande, un script npm, un hook, la CI, une tâche planifiée</td><td>« Démarrer », « Harnais de validation », « Déploiement et exploitation », <code>vues/harnais.mmd</code></td></tr>
             <tr><td>solde ou crée une dette</td><td>« Dette connue » et la fiche de l'ADR concernée</td></tr>
           </tbody>
         </table>
