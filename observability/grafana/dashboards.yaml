@@ -1,0 +1,15 @@
+# Tableaux de bord d'Expense.io chargés au démarrage de Grafana (ADR-007).
+# Les modifier dans Grafana, puis exporter le JSON dans dashboards/ pour les
+# versionner : une modification faite seulement dans l'interface est perdue
+# au prochain démarrage.
+apiVersion: 1
+
+providers:
+  - name: Expense.io
+    folder: Expense.io
+    type: file
+    disableDeletion: true
+    allowUiUpdates: true
+    options:
+      path: /otel-lgtm/expense-io/dashboards
+      foldersFromFilesStructure: false

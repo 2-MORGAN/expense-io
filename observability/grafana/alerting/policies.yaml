@@ -1,0 +1,11 @@
+# Routage des alertes : toutes vers Mailpit, groupées par règle ; une alerte
+# qui dure est renvoyée toutes les 4 heures.
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: Mailpit (dev)
+    group_by: ['grafana_folder', 'alertname']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h

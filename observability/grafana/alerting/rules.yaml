@@ -1,0 +1,214 @@
+# Règles d'alerte d'Expense.io (ADR-007), évaluées par Grafana chaque minute
+# sur les métriques de Prometheus. Noms des métriques et étiquettes :
+# docs/observability.md. Sans trafic ni worker, une règle n'a pas de donnée
+# et reste au repos (noDataState: OK). Le worker publie lui-même l'état de
+# l'outbox : arrêté, il ne publie plus rien, et seule « Worker muet » le voit.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Expense.io
+    folder: Expense.io
+    interval: 1m
+    rules:
+      - uid: expense-io-http-5xx
+        title: Erreurs serveur (5xx) au-dessus de 5 %
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                sum(rate(http_server_request_duration_seconds_count{service_name="expense-io-web", http_response_status_code=~"5.."}[5m]))
+                / sum(rate(http_server_request_duration_seconds_count{service_name="expense-io-web"}[5m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: Plus de 5 % des requêtes finissent en erreur serveur depuis 5 minutes.
+          description: >-
+            Le détail de chaque 500 est dans le journal (`http.error`, `request.error`) :
+            tableau de bord Expense.io, panneau « Avertissements et erreurs », ou les
+            traces en erreur dans Tempo.
+          __dashboardUid__: expense-io
+          __panelId__: '3'
+
+      - uid: expense-io-http-latency
+        title: Latence p95 des routes API au-dessus de 1 s
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              # Hors suggestion OCR, synchrone et lente par nature (règle suivante).
+              expr: >-
+                histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="expense-io-web",
+                http_route=~"/api/.*", http_route!="/api/expense-notes/receipt-suggestion"}[10m])))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [1] }
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: Les routes API répondent en plus d'une seconde (p95, 10 minutes).
+          description: >-
+            Ouvrir les traces lentes dans Tempo pour voir la part de PostgreSQL (spans `pg`) ;
+            le panneau « Base de données » montre les connexions et la durée des requêtes SQL.
+          __dashboardUid__: expense-io
+          __panelId__: '4'
+
+      - uid: expense-io-ocr-latency
+        title: OCR synchrone au-dessus de 3 s (déclencheur de l'ADR-003 §2)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="expense-io-web",
+                http_route="/api/expense-notes/receipt-suggestion"}[1h])))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [3] }
+        for: 15m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: info
+        annotations:
+          summary: Le p95 de la suggestion OCR dépasse 3 s sur une heure.
+          description: >-
+            C'est un déclencheur du passage à l'OCR asynchrone (ADR-003 §2), mesuré ici sur
+            une heure au lieu d'une semaine. Voir la rangée OCR du tableau de bord.
+
+      - uid: expense-io-outbox-dead
+        title: Nouveaux événements de l'outbox en échec définitif
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              # Hausse du nombre d'événements dead en 15 minutes : les anciens,
+              # déjà examinés, ne gardent pas l'alerte allumée.
+              expr: max(delta(outbox_events_dead{service_name="expense-io-worker"}[15m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: De nouveaux événements de l'outbox sont `dead` après tous leurs essais (email, analyse de reçu).
+          description: >-
+            Ils ne seront plus retentés. La cause est dans `outbox_events.last_error` et dans le
+            journal du worker (`outbox.dead`). L'alerte retombe 15 minutes après le dernier.
+          __dashboardUid__: expense-io
+          __panelId__: '6'
+
+      - uid: expense-io-outbox-lag
+        title: Outbox en retard de plus de 5 minutes
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: max(outbox_lag_seconds{service_name="expense-io-worker"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [300] }
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: Un événement dû attend depuis plus de 5 minutes, le worker est bloqué ou débordé.
+          description: >-
+            Emails et analyses de reçus ne partent plus à temps. Vérifier le journal du worker
+            (`worker.error`) et la durée des handlers sur le tableau de bord.
+          __dashboardUid__: expense-io
+          __panelId__: '7'
+
+      - uid: expense-io-worker-silent
+        title: Worker muet alors que le serveur tourne
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              # Le worker publie l'état de l'outbox à chaque envoi ; le serveur,
+              # ses mesures HTTP dès sa première requête.
+              expr: >-
+                absent_over_time(outbox_events_pending{service_name="expense-io-worker"}[5m])
+                and on() count(http_server_request_duration_seconds_count{service_name="expense-io-web"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: Le serveur répond mais le worker n'envoie plus rien depuis 5 minutes.
+          description: >-
+            Le worker est arrêté, ou lancé sans OTEL_EXPORTER_OTLP_ENDPOINT. Sans lui, emails
+            et analyses de reçus restent en attente (`npm run worker`, ou `make dev` qui le lance).

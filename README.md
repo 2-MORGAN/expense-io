@@ -24,7 +24,8 @@ ouvrir dans un navigateur.
 | `make` et `bash` | | fournis sous macOS et Linux. Sous Windows : WSL, ou les commandes sans `make` ci-dessous |
 
 Ports utilisés : 3000 (application), 5433 (PostgreSQL), 4567 (S3), 1025 et 8025
-(Mailpit). Si l'un est déjà pris, voir [Dépannage](#dépannage).
+(Mailpit) ; en option, 3001 (Grafana) et 4318 (OpenTelemetry) avec
+[l'observabilité](#observabilité--grafana). Si l'un est déjà pris, voir [Dépannage](#dépannage).
 
 ### Lancer
 
@@ -145,6 +146,23 @@ Métriques, dérivées de ces lignes par le collecteur de logs (ADR-003 §6) :
 Une réponse d'erreur porte son `requestId` (corps et en-tête `X-Request-Id`),
 repris dans la ligne `http.error` du journal.
 
+### Observabilité : Grafana
+
+En option, le serveur et le worker envoient leurs traces, métriques et journaux
+(OpenTelemetry) à Grafana, avec un tableau de bord et des alertes prêts
+([ADR-007](docs/adr/ADR-007-observabilite.md), proposée) :
+
+```bash
+make observability   # sans make : docker compose -f docker-compose.observability.yml up -d --wait
+```
+
+Puis, dans `.env`, décommenter `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`
+et relancer `make dev`. Grafana : http://localhost:3001. Loki y sert de
+collecteur pour les lignes ci-dessus (`ocr.request`, `outbox.stats`), et les
+alertes arrivent dans Mailpit. Sans cette variable, rien n'est envoyé : c'est le
+cas par défaut, en CI et pendant les E2E. Mesures, alertes et ajout d'une
+métrique : [`docs/observability.md`](docs/observability.md).
+
 ### Tâches planifiées
 
 La réconciliation quotidienne des reçus orphelins sur S3 est décrite dans
@@ -184,6 +202,7 @@ Validation des entrées, outils, compatibilité et transition des erreurs :
 | [`docs/tests/E2E.md`](docs/tests/E2E.md) | scénarios E2E avec leurs IDs, résultats des exécutions |
 | [`openapi.yaml`](openapi.yaml), [`docs/api/`](docs/api/README.md) | contrat de l'API (16 opérations) et ses règles d'évolution |
 | [`docs/ocr.md`](docs/ocr.md) | OCR : protections et file asynchrone |
+| [`docs/observability.md`](docs/observability.md), [`observability/`](observability/) | observabilité optionnelle : guide, puis tableau de bord, alertes et configuration de la pile Grafana (`docker-compose.observability.yml`) |
 | [`docs/architecture/`](docs/architecture/README.md) | graphes Mermaid des couches et des routes, générés depuis le code (`npm run generate:architecture`) et vérifiés par `npm run check` ; vues écrites à la main (`vues/`) de la doc des développeurs |
 | `src/` | le code ; où placer quoi : « Où placer le code » dans `CLAUDE.md` |
 | `migrations/` | schéma SQL versionné, seule source de vérité |
@@ -204,6 +223,8 @@ make reconcile # reçus orphelins sur S3, rapport seul (dry-run)
 make logs      # journaux des conteneurs
 make down      # arrête les conteneurs, garde les données
 make clean     # arrête les conteneurs et supprime les données locales
+make observability       # Grafana : traces, métriques et journaux (http://localhost:3001)
+make observability-down  # arrête Grafana, garde ses données
 ```
 
 ## Dépannage
