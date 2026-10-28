@@ -107,7 +107,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Manager direct : notes pending, liste complète triée par created_at ASC.
+         * Manager direct : notes pending, liste complète triée par created_at ASC, id ASC.
          * @description Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.
          */
         get: operations["listManagerExpenseNotes"];
@@ -187,7 +187,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * RH : managers racines de son entreprise : notes pending, liste complète triée par created_at ASC.
+         * RH : managers racines de son entreprise : notes pending, liste complète triée par created_at ASC, id ASC.
          * @description Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.
          */
         get: operations["listHrExpenseNotes"];
@@ -267,7 +267,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * RH : employés et managers de son entreprise, triés par nom, sans pagination.
+         * RH : employés et managers de son entreprise, triés par nom puis id, sans pagination.
          * @description Session required. Session and role are checked before structural validation; malformed input is rejected before writes/uploads.
          */
         get: operations["listCompanyUsers"];
@@ -704,7 +704,7 @@ export interface operations {
     listExpenseNotes: {
         parameters: {
             query?: {
-                /** @description Tri historique. Tris légitimes : created_at, amount, expense_date, description, status, avec ASC/DESC. Défaut created_at DESC. La sécurisation par liste blanche est portée par 2-471 ; aucune expression SQL arbitraire ne constitue un usage garanti. */
+                /** @description Tri historique. Tris légitimes : created_at, amount, expense_date, description, status, avec ASC/DESC, puis id dans le même sens pour un ordre stable. Défaut created_at DESC, id DESC. La sécurisation par liste blanche est portée par 2-471 ; aucune expression SQL arbitraire ne constitue un usage garanti. */
                 sort?: string;
             };
             header?: never;

@@ -366,6 +366,15 @@ La suite reste verte avec ou sans `make worker` en cours d'exécution (ADR-003 �
 | NOTIF-10 | Deux décisions simultanées du manager (approve et reject) : une seule réussit (200 et 409), un seul événement `expense_note.decided` | API |
 | NOTIF-11 | Une adresse RH en échec : l'autre RH ne reçoit pas l'email une seconde fois (un seul email pour elle, événement « sent »), l'événement de l'adresse en échec repasse « pending » avec 1 essai | Intégration |
 
+### Ordre stable des listes — `e2e/list-order.spec.ts`
+
+Les lignes à égalité sont insérées dans un ordre ni croissant ni décroissant par id : sans départage, PostgreSQL les rendrait dans l'ordre de lecture (ADR-004 §7.2).
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| TRI-01 | Notes identiques sur toutes les colonnes triables : `GET /api/expense-notes` (défaut et les 10 tris `?sort=`) départage par id dans le sens du tri ; listes manager et RH par id croissant | API |
+| TRI-02 | `GET /api/hr/users` : homonymes départagés par id croissant | API |
+
 ## Résultat de la dernière exécution
 
 **89 / 89 tests verts (100 %)** sur un poste Windows de l'équipe, 0 échec, 0 flaky, sans nouvel essai.
