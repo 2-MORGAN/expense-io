@@ -50,9 +50,10 @@ Décidé par l'ADR-005. Ce qui vérifie le code, et quand :
 |---|---|---|
 | `git commit` | hook pre-commit : ESLint avec cache | ≈ 3 s, 5 s à froid |
 | `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 35 s |
-| À la demande | E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` | ≈ 3 min pour la suite, Docker requis |
-| PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner | ≈ 1 min et 3 min 30 |
+| À la demande | E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` · migrations et tests E2E existants inchangés : `make frozen` | ≈ 3 min pour la suite, Docker requis |
+| PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build ; sur les PR, contrat sans rupture et migrations et tests E2E existants inchangés) et `e2e` (`make test-e2e`), obligatoires pour fusionner | ≈ 1 min et 3 min 30 |
 | Claude Code : avant une commande shell | hook `PreToolUse` (`.claude/hooks/guard-git.mjs`) : refuse `--no-verify`, `git commit -n`, `HUSKY=0`, la modification de `core.hooksPath`, le push sur `main`, le force-push, `gh pr create` sans `--repo` explicite ou vers le dépôt du cours, et `eslint --suppress-all` ou `--suppress-rule` | instantané |
+| Claude Code : avant une écriture de fichier | hook `PreToolUse` (`.claude/hooks/guard-frozen.mjs`) : refuse d'écrire dans une migration déjà dans `main`, ou de modifier, désactiver ou retirer un test E2E qui y est déjà ; ajouter une migration ou un test reste libre | ≈ 2 s sur un `.spec.ts`, instantané ailleurs |
 | Claude Code : fin de tour | hook `Stop` (`.claude/hooks/check-on-stop.mjs`) : `npm run check` si le code a changé depuis le dernier check vert ; rouge, le tour continue une fois avec l'erreur, puis l'utilisateur est averti | ≈ 35 s |
 
 Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils donnent un retour rapide ; la garantie, c'est la CI. Les hooks Claude Code sont déclarés dans `.claude/settings.json`, versionné : ne pas les désactiver pour avancer, un refus signale un contournement du harnais.
@@ -61,7 +62,7 @@ Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils do
 
 1. **Avant de déclarer une tâche terminée**, `npm run check` doit passer. Si le changement touche `src/app`, `src/lib`, `migrations/` ou `scripts/`, lancer aussi les E2E concernés (IDs dans `docs/tests/E2E.md`) ou toute la suite. Dire explicitement ce qui n'a pas été lancé.
 2. **Un bug corrigé = un test** vu en échec avant la correction, en succès après : test Vitest à côté du code pour une règle métier, scénario Playwright avec un ID dans `e2e/` pour un comportement HTTP, UI ou en base.
-3. **Un test E2E rouge est une régression** : corriger le code, pas le test. Ne jamais modifier, désactiver ni supprimer un test existant pour faire passer la CI. Si un test doit changer, s'arrêter et demander : il faut une ADR acceptée (ADR-005 §2).
+3. **Un test E2E rouge est une régression** : corriger le code, pas le test. Ne jamais modifier, désactiver ni supprimer un test existant pour faire passer la CI. Si un test doit changer, s'arrêter et demander : il faut une ADR acceptée (ADR-005 §2), puis le label `changement-e2e` sur la PR. Le hook `guard-frozen.mjs` et la CI le font respecter, comme pour les migrations déjà dans `main`.
 4. **Ne rien contourner** : jamais de `--no-verify`, jamais de push sur `main`, jamais de `eslint-disable` sans commentaire qui le justifie, jamais de `eslint --suppress-all` ni `--suppress-rule` pour faire taire un nouveau constat.
 5. **PR** : `gh pr create --repo 2-MORGAN/expense-io --base main`, en remplissant le modèle (`.github/pull_request_template.md`). Sans `--repo`, `gh` peut viser le dépôt parent du fork.
 

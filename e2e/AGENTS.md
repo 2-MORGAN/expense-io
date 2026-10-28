@@ -6,7 +6,9 @@ La suite fige le comportement observable : parcours UI, codes HTTP, JSON, droits
 
 ## Règle d'or
 
-Un test existant ne se modifie pas, ne se désactive pas, ne se supprime pas pour faire passer la CI (ADR-005 §2). Rouge = régression : corriger le code. Si le comportement doit vraiment changer, s'arrêter et demander : il faut une ADR acceptée.
+Un test existant ne se modifie pas, ne se désactive pas, ne se supprime pas pour faire passer la CI (ADR-005 §2). Rouge = régression : corriger le code. Si le comportement doit vraiment changer, s'arrêter et demander : il faut une ADR acceptée, puis le label `changement-e2e` sur la PR.
+
+Chaque `test(…)` déjà dans `main` est comparé à sa version de `main`, commentaires et mise en forme ignorés : le hook `.claude/hooks/guard-frozen.mjs` refuse l'écriture, et la CI la PR (`make frozen` en local). Ajouter un test, même dans un fichier existant, reste libre. Les helpers de `e2e/support` ne sont pas figés, mais en changer un change les tests qui s'en servent : relancer ces tests.
 
 ## Ajouter un scénario
 
@@ -35,3 +37,4 @@ Un test existant ne se modifie pas, ne se désactive pas, ne se supprime pas pou
 ## Vérifié par
 
 - ESLint (`expense-io/tests`) ; la CI lance toute la suite sur chaque PR (`e2e`, 2 shards).
+- `scripts/check-frozen.mjs` (job `check` de la CI) et `.claude/hooks/guard-frozen.mjs` : tests de `main` inchangés.

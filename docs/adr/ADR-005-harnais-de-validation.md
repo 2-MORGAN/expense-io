@@ -111,6 +111,7 @@ Un changement incompatible exige :
 
 - Les fichiers du harnais (`e2e/`, `playwright.config.ts`, `eslint.config.mjs`, `.github/`, `.claude/`, `CLAUDE.md`, `docs/adr/`) exigent la revue d'un responsable. Une PR ne peut donc pas affaiblir un test ou une règle en silence.
 - Une règle de lint interdit `test.skip`, `test.fixme` et `test.only`.
+- (Ajout du 28/10.) Une migration ou un test E2E déjà dans `main` ne change plus (`scripts/frozen.mjs`). Le hook `PreToolUse` `.claude/hooks/guard-frozen.mjs` refuse l'écriture à Claude Code, et le job `check` de la CI (`scripts/check-frozen.mjs`, en local `make frozen`) refuse la PR. Ajouter une migration ou un test reste libre. Le label `changement-e2e`, posé après l'ADR acceptée, lève la règle pour les tests ; rien ne la lève pour une migration.
 - Un test instable, vert seulement au second essai en CI, donne lieu à un ticket au lieu d'être ignoré.
 
 ## 3. Quand et où
