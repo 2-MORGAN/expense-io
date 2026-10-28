@@ -3,7 +3,7 @@ SHELL := /bin/bash
 
 COMPOSE := docker compose
 
-.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-e2e verify api-breaking reconcile observability observability-down analytics analytics-down
+.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-e2e verify api-breaking frozen reconcile observability observability-down analytics analytics-down
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -76,6 +76,10 @@ test-e2e: up migrate ensure-bucket ## Tests E2E Playwright (démarre Docker, mig
 api-breaking: ## Contrat d'API sans rupture par rapport à origin/main (oasdiff, comme la CI)
 	git fetch --no-tags --depth=1 origin main
 	bash scripts/check-api-breaking.sh origin/main
+
+frozen: ## Migrations et tests E2E déjà dans main inchangés depuis le départ de la branche (comme la CI)
+	git fetch --no-tags origin main
+	node scripts/check-frozen.mjs "$$(git merge-base HEAD origin/main)"
 
 reconcile: ## Reçus orphelins sur S3 : rapport (dry-run) ; tâche quotidienne dans ops/cron/
 	npm run reconcile:orphan-receipts

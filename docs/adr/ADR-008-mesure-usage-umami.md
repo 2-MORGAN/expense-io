@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Proposée** le 28 octobre 2026 |
+| Statut | **Acceptée** le 28 octobre 2026 par le PO (Florent), fusion avant le gel. Proposée le 28 octobre |
 | Date | 28 octobre 2026 |
 | Auteur | Stanislas Beguin (WS5) |
 | Validateur | Florent (PO) |
@@ -115,8 +115,8 @@ Chaque tâche est une petite PR qui ne change rien par défaut.
 | T4 | Les événements : page `/expenses`, `InviteEmployeeForm` |
 | T5 | `docs/analytics.md` (démarrer, ce qui est mesuré et ce qui ne l'est pas, lire les rapports, ajouter une mesure) ; vue système et section « Démarrer » de `docs/index.html`, CLAUDE.md |
 
-La PR de cette ADR livre T1 à T5. À trancher par le PO : fusion avant ou après
-le gel du 28 octobre. Après, l'ADR sert de référence pour la soutenance, comme
+La PR de cette ADR livre T1 à T5. Décision du PO (28/10) : fusion avant le
+gel du 28 octobre, Umami restant désactivé par défaut. Après, l'ADR sert de référence pour la soutenance, comme
 l'ADR-003 pour les notifications.
 
 ## Conséquences
