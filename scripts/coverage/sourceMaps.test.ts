@@ -1,10 +1,16 @@
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { decodeMappings, encodeMappings, flattenIndexedMap, isIndexedMap, toCoverageMap, type IndexedSourceMap } from './sourceMaps'
 
+// URL file:// d'un chemin absolu de la plateforme : sous Windows, elle porte
+// une lettre de lecteur (`file:///C:/…`), sans quoi fileURLToPath la refuse.
+const fileUrl = (path: string): string => pathToFileURL(resolve(path)).href
+
 describe('toCoverageMap', () => {
   it('remplace les URL file:// d’une map classique par des chemins', () => {
-    const map = toCoverageMap({ version: 3, sources: ['file:///repo/src/a.ts', 'b.ts'], mappings: 'AAAA' })
-    expect(map.sources).toEqual(['/repo/src/a.ts', 'b.ts'])
+    const map = toCoverageMap({ version: 3, sources: [fileUrl('/repo/src/a.ts'), 'b.ts'], mappings: 'AAAA' })
+    expect(map.sources).toEqual([resolve('/repo/src/a.ts'), 'b.ts'])
     expect(map.mappings).toBe('AAAA')
   })
 })
@@ -27,8 +33,8 @@ describe('flattenIndexedMap', () => {
   const indexed: IndexedSourceMap = {
     version: 3,
     sections: [
-      { offset: { line: 0, column: 0 }, map: { version: 3, sources: ['file:///a.ts'], sourcesContent: ['a'], names: ['x'], mappings: 'AAAAA' } },
-      { offset: { line: 3, column: 0 }, map: { version: 3, sources: ['file:///b.ts', 'file:///a.ts'], names: [], mappings: 'AAAA;ACCA' } },
+      { offset: { line: 0, column: 0 }, map: { version: 3, sources: [fileUrl('/a.ts')], sourcesContent: ['a'], names: ['x'], mappings: 'AAAAA' } },
+      { offset: { line: 3, column: 0 }, map: { version: 3, sources: [fileUrl('/b.ts'), fileUrl('/a.ts')], names: [], mappings: 'AAAA;ACCA' } },
     ],
   }
 
@@ -39,7 +45,7 @@ describe('flattenIndexedMap', () => {
 
   it('décale les lignes de chaque section et fusionne les sources', () => {
     const flat = flattenIndexedMap(indexed)
-    expect(flat.sources).toEqual(['/a.ts', '/b.ts'])
+    expect(flat.sources).toEqual([resolve('/a.ts'), resolve('/b.ts')])
     // Contenu incomplet : omis, pour que les sources soient relues sur disque.
     expect(flat.sourcesContent).toBeUndefined()
     expect(flat.names).toEqual(['x'])
