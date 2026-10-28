@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { expectApiError, expectUserShape, UNKNOWN_ID } from './support/api'
-import type { TestUser } from './support/db'
+import { db, type TestUser } from './support/db'
 import { addUser, createOrg, expect, test } from './support/fixtures'
 
 const NO_MANAGER = '— aucun (racine) —'
@@ -237,6 +237,39 @@ test.describe('Rattachement d’un manager — API', () => {
       'Invalid manager'
     )
     const users = await hrApi.hrUsers()
+    expect(users.find((user) => user.id === org.employee.id)?.managerId).toBe(org.manager.id)
+  })
+
+  test('[ORG-10] manager rétrogradé pendant le rattachement → 409 « Invalid manager », rien ne change', async ({
+    org,
+    apiAs,
+  }) => {
+    // Point 4 de la revue de l'API (27/10) : la vérification du rôle et
+    // l'écriture ne doivent pas pouvoir être séparées par une rétrogradation.
+    const other = await addUser(org, { name: 'Nadia Manager', role: 'manager' })
+    const hr = await apiAs(org.hr)
+
+    // Rétrogradation en cours (opération « base uniquement »), non validée.
+    const demotion = await db().connect()
+    try {
+      await demotion.query('BEGIN')
+      await demotion.query(`UPDATE users SET role = 'employee' WHERE id = $1`, [other.id])
+
+      let settled = false
+      const pending = hr.request
+        .put(`/api/hr/users/${org.employee.id}/manager`, { data: { managerId: other.id } })
+        .finally(() => { settled = true })
+      // Le rattachement attend la fin de la rétrogradation au lieu de lire l'ancien rôle.
+      await new Promise((resolve) => setTimeout(resolve, 1_000))
+      expect(settled, 'le rattachement doit attendre la rétrogradation en cours').toBe(false)
+
+      await demotion.query('COMMIT')
+      await expectApiError(await pending, 409, 'Invalid manager')
+    } finally {
+      await demotion.query('ROLLBACK').catch(() => undefined)
+      demotion.release()
+    }
+    const users = await hr.hrUsers()
     expect(users.find((user) => user.id === org.employee.id)?.managerId).toBe(org.manager.id)
   })
 })
