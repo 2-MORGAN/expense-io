@@ -1,3 +1,5 @@
+import { logs, SeverityNumber, type LogAttributes } from '@opentelemetry/api-logs'
+
 /**
  * Journal du serveur et du worker (ADR-005 §5) : une ligne JSON par
  * événement, horodatée en UTC, sur la sortie standard (`info`) ou d'erreur
@@ -43,9 +45,40 @@ export function describeError(error: unknown): string {
   return redact(message, MAX_ERROR_LENGTH)
 }
 
-/** Une ligne JSON par message, lisible par un collecteur de logs. */
+/** Pile d'appels sûre à écrire dans un log ou un span, nettoyée comme le message et bornée. */
+export function describeStack(stack: string): string {
+  return redact(stack, MAX_STACK_LENGTH)
+}
+
+const SEVERITY = { info: SeverityNumber.INFO, warn: SeverityNumber.WARN, error: SeverityNumber.ERROR } as const
+
+/** Valeurs d'un champ pour OpenTelemetry : texte, nombre et booléen tels quels, le reste en JSON. */
+function logAttributes(fields: Record<string, unknown>): LogAttributes {
+  const attributes: LogAttributes = {}
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined) continue
+    attributes[key] = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+      ? value
+      : JSON.stringify(value)
+  }
+  return attributes
+}
+
+/**
+ * Une ligne JSON par message, lisible par un collecteur de logs. Avec
+ * l'observabilité activée (ADR-007), la même entrée part aussi au collecteur
+ * OpenTelemetry, reliée à la trace en cours ; sinon cet envoi ne fait rien.
+ */
 export function log(level: 'info' | 'warn' | 'error', msg: string, fields: Record<string, unknown> = {}): void {
-  console[level](JSON.stringify({ time: new Date().toISOString(), level, msg, ...fields }))
+  const time = new Date()
+  console[level](JSON.stringify({ time: time.toISOString(), level, msg, ...fields }))
+  logs.getLogger('expense-io').emit({
+    timestamp: time,
+    severityNumber: SEVERITY[level],
+    severityText: level.toUpperCase(),
+    body: msg,
+    attributes: logAttributes(fields),
+  })
 }
 
 /**
@@ -59,6 +92,6 @@ export function logError(msg: string, error: unknown, fields: Record<string, unk
   log('error', msg, {
     ...fields,
     error: describeError(error),
-    ...(stack ? { stack: redact(stack, MAX_STACK_LENGTH) } : {}),
+    ...(stack ? { stack: describeStack(stack) } : {}),
   })
 }

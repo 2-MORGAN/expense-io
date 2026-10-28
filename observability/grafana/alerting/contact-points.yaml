@@ -1,0 +1,14 @@
+# Destinataire des alertes de Grafana (ADR-007) : en local, Mailpit capte
+# l'email (http://localhost:8025), rien ne sort. En production, un vrai
+# destinataire (email d'astreinte, Slack…) remplace ce point de contact.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: Mailpit (dev)
+    receivers:
+      - uid: expense-io-mailpit
+        type: email
+        settings:
+          addresses: alertes@expense.io
+          singleEmail: true

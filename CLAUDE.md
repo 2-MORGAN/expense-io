@@ -39,6 +39,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 | Graphes d'architecture, et leur recopie avec les vues dans la doc des développeurs (`docs/index.html`) | `npm run generate:architecture` |
 | Build prod | `npm run build` |
 | Reset des données locales | `make clean` |
+| Observabilité, optionnelle (Grafana : traces, métriques, journaux) | `make observability` → http://localhost:3001, puis `OTEL_EXPORTER_OTLP_ENDPOINT` dans `.env` ; voir `docs/observability.md` |
 
 Postgres : port **5433**. LocalStack : port **4567**. Mailpit : SMTP **1025**, interface **http://localhost:8025** (tous les emails de dev y arrivent, aucun ne sort). Comptes de démo (seed) : `hr@expense.io` / `hr1234`, `manager@expense.io` / `manager1234`, `demo@expense.io` / `demo1234`.
 
@@ -80,15 +81,16 @@ src/
 ├── application/             # cas d'usage : soumission, décision, listes, URL de reçu, identité, OCR
 ├── composition/             # branchement des cas d'usage sur leurs adaptateurs
 ├── http/                    # transport et problèmes HTTP du module OCR
-├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts, log.ts (journal JSON)
+├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts, log.ts (journal JSON), telemetry/ (OpenTelemetry, ADR-007)
 ├── domain/                  # règles pures : expense/ (tri, accès au reçu), validation/ (décision), identity/, receipt/ (OCR), ExpenseNote.ts, User.ts
 ├── ports/                   # stockage, OCR, analyses, exécution et outbox
 ├── adapters/                # S3, Tesseract isolé, SMTP, notifications et persistance PostgreSQL
 ├── utils/                   # validators.ts, format.ts
 ├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), processNextEvent.ts, outboxStats.ts (métriques)
-├── instrumentation.ts       # journalise les erreurs captées par Next.js (onRequestError)
+├── instrumentation.ts       # au démarrage : observabilité si activée, contrôles du secret et du rôle de base ; erreurs captées par Next.js (onRequestError)
 └── proxy.ts                 # garde de navigation (ne couvre PAS /api)
 migrations/                  # SQL versionné — seule source de vérité du schéma
+observability/               # pile Grafana optionnelle (docker-compose.observability.yml) : tableau de bord, alertes
 scripts/                     # seed.mjs, ensure-bucket.mjs, architecture/ (graphes de docs/architecture, page docs/index.html), check-api-breaking.sh (oasdiff)
 ops/cron/                    # tâches planifiées à installer sur l'hôte (réconciliation des reçus)
 ```
@@ -102,6 +104,7 @@ Règles de placement pour tout **nouveau** code :
 - **Accès base** → via `withUserScope()` de `src/lib/db.ts`, jamais `getPool().query` direct pour des données tenant.
 - **Schéma** → nouvelle migration dans `migrations/` (horodatée, jamais d'édition d'une migration existante), avec `down`.
 - **UI** → `src/components/` ; les pages restent minces.
+- **Métrique, trace** → `src/lib/telemetry/`, avec l'API `@opentelemetry/api` seule (sans effet tant que la télémétrie est désactivée). Étiquettes à peu de valeurs, jamais d'identifiant d'entreprise ou d'utilisateur, ni d'URL réelle (`docs/observability.md`).
 - Réutiliser avant de créer : chaque route passe déjà par un cas d'usage de `src/application/`, branché dans `src/composition/` (ADR-006). Les utilitaires de `src/utils/` restent inutilisés (voir dette).
 
 `npm run lint` fait respecter une partie de ces règles (`eslint.config.mjs`, ADR-005 T6) : domaine sans infrastructure ; ni SQL ni accès base dans `src/app/` et `src/components/` ; `getPool()` réservé à `src/lib/db.ts` ; pas de SQL interpolé ; pas de test `.only`, `.skip`, `.fixme` ou `.fail`. Le code existant qui enfreint une règle est listé en exception (listes `LEGACY_*`). Ces listes ne font que raccourcir : retirer un fichier dès qu'il est conforme, **ne jamais en ajouter un** pour faire passer le lint.
