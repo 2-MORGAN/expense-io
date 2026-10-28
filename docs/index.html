@@ -1939,7 +1939,7 @@ flowchart TB
             <li>Journal JSON des erreurs serveur, sans donnée sensible ; métriques dérivées des logs (amendement du 27/10), sans traces distribuées.</li>
           </ul>
           <h4>Livré</h4>
-          <ul class="pills"><li>E2E (PR #4)</li><li>CI (PR #5)</li><li>Vitest et lint d'architecture (PR #10)</li><li>garde-fous (PR #11)</li><li>journal et hooks Claude (PR #23)</li><li>graphes (PR #31)</li><li>SonarJS (PR #32)</li><li>oasdiff, métriques (PR #39)</li><li>cette page (PR #38)</li></ul>
+          <ul class="pills"><li>E2E (PR #4)</li><li>CI (PR #5)</li><li>Vitest et lint d'architecture (PR #10)</li><li>garde-fous (PR #11)</li><li>journal et hooks Claude (PR #23)</li><li>graphes (PR #31)</li><li>SonarJS (PR #32)</li><li>oasdiff, métriques (PR #39)</li><li>cette page (PR #38)</li><li>migrations et E2E figés (28/10)</li></ul>
           <h4>Reste à faire</h4>
           <ul>
             <li><code>CODEOWNERS</code> pour les fichiers du harnais ; points ouverts de l'ADR.</li>
@@ -2030,7 +2030,7 @@ flowchart TB
   push["git push&lt;br/&gt;pre-push : npm run check"]
   pr["Pull request vers main&lt;br/&gt;modèle rempli, relue par un pair"]
   ci{"CI GitHub Actions"}
-  checkJob["check&lt;br/&gt;lint, SonarJS, types, Vitest,&lt;br/&gt;contrat, graphes, doc, consignes,&lt;br/&gt;oasdiff (sans rupture), build"]
+  checkJob["check&lt;br/&gt;lint, SonarJS, types, Vitest,&lt;br/&gt;contrat, graphes, doc, consignes,&lt;br/&gt;oasdiff (sans rupture),&lt;br/&gt;migrations et E2E de main inchangés, build"]
   e2eJob["e2e&lt;br/&gt;Playwright en 2 shards&lt;br/&gt;Postgres, LocalStack, Mailpit"]
   mainBranch[("main&lt;br/&gt;squash, historique linéaire")]
   coverage["Couverture à la demande&lt;br/&gt;test:coverage (Vitest v8)&lt;br/&gt;test:e2e:coverage (c8)"]
@@ -2038,6 +2038,7 @@ flowchart TB
   subgraph claude["Claude Code : .claude/settings.json"]
     direction TB
     guardHook["PreToolUse : guard-git.mjs&lt;br/&gt;refuse les contournements"]
+    frozenHook["PreToolUse : guard-frozen.mjs&lt;br/&gt;migrations et tests E2E de main figés"]
     stopHook["Stop : check-on-stop.mjs&lt;br/&gt;npm run check si le code a changé"]
   end
 
@@ -2047,6 +2048,7 @@ flowchart TB
   ci --&gt; checkJob &amp; e2eJob
   checkJob &amp; e2eJob --&gt;|"obligatoires"| mainBranch
   guardHook -.-&gt; commit
+  frozenHook -.-&gt; change
   stopHook -.-&gt; push
 
   classDef local fill:#dbeafe,stroke:#2563eb,color:#111827
@@ -2054,7 +2056,7 @@ flowchart TB
   classDef hook fill:#ede9fe,stroke:#7c3aed,color:#111827
   class guide,commit,push,pr,coverage local
   class checkJob,e2eJob ciJob
-  class guardHook,stopHook hook
+  class guardHook,frozenHook,stopHook hook
 </pre>
 <!-- fin : vues/harnais.mmd -->
         </div>
@@ -2081,10 +2083,10 @@ flowchart TB
           <tbody>
             <tr><td><code>git commit</code></td><td>hook pre-commit : ESLint avec cache</td><td>≈ 3 s</td></tr>
             <tr><td><code>git push</code></td><td>hook pre-push : <code>npm run check</code></td><td>≈ 35 s</td></tr>
-            <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI)</td><td>≈ 3 min pour la suite</td></tr>
+            <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI), <code>make frozen</code> (migrations et tests E2E de <code>main</code> inchangés)</td><td>≈ 3 min pour la suite</td></tr>
             <tr><td>Couverture, à la demande</td><td><code>npm run test:coverage</code> (unitaires, Vitest v8) ; <code>npm run test:e2e:coverage</code> (E2E : serveur Next.js, worker et scripts, c8). Aucun seuil bloquant (<a href="#adr-005">ADR-005</a>) ; citer les branches, les lignes E2E sont gonflées</td><td>≈ 20 s ; suite E2E + rapport</td></tr>
-            <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, oasdiff sur les PR, build) et <code>e2e</code> (2 shards), obligatoires, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte</td><td>≈ 1 min et 3 min 30</td></tr>
-            <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
+            <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, build ; sur les PR : oasdiff, migrations et tests E2E existants inchangés) et <code>e2e</code> (2 shards), obligatoires, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte</td><td>≈ 1 min et 3 min 30</td></tr>
+            <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements (<code>guard-git.mjs</code>) et l’écriture d’une migration ou d’un test E2E déjà dans <code>main</code> (<code>guard-frozen.mjs</code>) ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
           </tbody>
         </table>
       </div>
@@ -2226,10 +2228,10 @@ flowchart TB
           <h4>Jamais</h4>
           <ul>
             <li><code>--no-verify</code>, un push sur <code>main</code>, un force-push.</li>
-            <li>Modifier, désactiver ou supprimer un test E2E pour faire passer la CI.</li>
+            <li>Modifier, désactiver ou supprimer un test E2E pour faire passer la CI : refusé par le hook <code>guard-frozen.mjs</code> et par la CI, sauf label <code>changement-e2e</code> posé après une ADR acceptée.</li>
             <li>Ajouter une entrée aux listes <code>LEGACY_*</code>, à <code>LEGACY_EDGES</code>, à <code>PUBLIC_ROUTES</code> ; <code>eslint --suppress-all</code>.</li>
             <li>Un <code>eslint-disable</code> sans commentaire qui le justifie.</li>
-            <li>Éditer une migration existante, concaténer du SQL, faire confiance à un id venu du client.</li>
+            <li>Éditer une migration déjà dans <code>main</code> (refusé par le hook et la CI), concaténer du SQL, faire confiance à un id venu du client.</li>
             <li>Un secret dans le code, un message interne ou une pile dans une réponse.</li>
             <li>Une dépendance npm sans justification dans la PR.</li>
           </ul>

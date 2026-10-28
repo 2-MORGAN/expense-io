@@ -6,7 +6,7 @@ SQL versionné, seule source de vérité du schéma, appliqué par `node-pg-migr
 
 ## Ajouter une migration
 
-1. **Ne jamais modifier une migration déjà fusionnée dans `main`** : elle a tourné sur d'autres bases. Une correction est une migration nouvelle.
+1. **Ne jamais modifier une migration déjà fusionnée dans `main`** : elle a tourné sur d'autres bases. Une correction est une migration nouvelle. Le hook `.claude/hooks/guard-frozen.mjs` refuse l'écriture, et la CI la PR (`make frozen` en local).
 2. Un fichier `<horodatage>_<nom-court>.sql` dans ce dossier, horodatage en millisecondes **plus grand que le dernier** (lister le dossier), nom en minuscules avec des tirets. Seul un fichier qui commence par un chiffre est une migration : `migrate:up` et `migrate:down` ignorent les autres (`--ignore-pattern` dans `package.json`, vérifié par `scripts/migrations.test.ts`), dont ces consignes.
 3. Deux sections dans cet ordre : `-- Up Migration`, puis `-- Down Migration`, qui défait le up dans l'ordre inverse.
 4. En tête, un commentaire : ce que fait la migration et pourquoi (ticket, ADR).

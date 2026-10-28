@@ -38,7 +38,8 @@ pourquoi (correctif local, test, refacto sans effet visible).
 <!--
 « Aucun » si les tests E2E existants passent sans modification.
 Sinon (ADR-005 §2) : ADR acceptée qui le décide, tests modifiés dans un commit séparé,
-approbation d'un responsable des tests. Une ligne par test E2E touché :
+approbation d'un responsable des tests, label `changement-e2e` sur la PR (sans lui, la CI
+refuse tout test E2E existant modifié, désactivé ou retiré). Une ligne par test E2E touché :
 
 | Test E2E | Avant | Après | ADR |
 |---|---|---|---|

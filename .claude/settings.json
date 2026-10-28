@@ -12,6 +12,17 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-frozen.mjs"],
+            "timeout": 15
+          }
+        ]
       }
     ],
     "Stop": [

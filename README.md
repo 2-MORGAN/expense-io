@@ -219,6 +219,7 @@ make build     # build de production
 make start     # build puis démarre en production
 make worker    # le worker seul (make dev le lance déjà)
 make api-breaking  # contrat d'API sans rupture par rapport à main (oasdiff)
+make frozen    # migrations et tests E2E déjà dans main inchangés (comme la CI)
 make reconcile # reçus orphelins sur S3, rapport seul (dry-run)
 make logs      # journaux des conteneurs
 make down      # arrête les conteneurs, garde les données
