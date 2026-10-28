@@ -1821,6 +1821,7 @@ flowchart TB
   adr3["ADR-003 · OCR, soumission, notifications&lt;br/&gt;upload d'abord, outbox, worker"]
   adr4["ADR-004 · Contrat d'API&lt;br/&gt;OpenAPI, RFC 9457, codes stables"]
   adr6["ADR-006 · Stratégie de migration&lt;br/&gt;Strangler Fig, Branch by Abstraction"]
+  adr7["ADR-007 · Observabilité&lt;br/&gt;OpenTelemetry, Grafana, optionnelle"]
 
   adr2 --&gt;|"module de permissions"| adr1
   adr2 --&gt;|"ports, worker = adaptateur entrant"| adr3
@@ -1828,6 +1829,8 @@ flowchart TB
   adr4 &lt;--&gt;|"202 + polling, 503, Idempotency-Key"| adr3
   adr6 --&gt;|"comment atteindre la cible"| adr2
   adr6 --&gt;|"façade : contrat inchangé"| adr4
+  adr7 --&gt;|"amende §5 : traces et métriques en option"| adr5
+  adr7 --&gt;|"mesure l'outbox et l'OCR"| adr3
   adr5 -.-&gt;|"vérifie : E2E, lint, contrat"| adr1 &amp; adr2 &amp; adr3 &amp; adr4 &amp; adr6
 
   classDef securite fill:#fee2e2,stroke:#dc2626,color:#111827
@@ -1839,7 +1842,7 @@ flowchart TB
   class adr2,adr6 archi
   class adr3 asynchrone
   class adr4 api
-  class adr5 qualite
+  class adr5,adr7 qualite
 </pre>
 <!-- fin : vues/adr.mmd -->
         </div>
@@ -1961,10 +1964,10 @@ flowchart TB
         </article>
 
         <article class="card adr violet" id="adr-007">
-          <header><span class="num">ADR-007</span><span class="tag tag-todo">Proposée</span></header>
+          <header><span class="num">ADR-007</span><span class="tag tag-ok">Acceptée</span></header>
           <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-007-observabilite.md">Observabilité : OpenTelemetry et Grafana</a></h3>
-          <p class="meta">Stanislas Beguin (WS5, qualité) · proposée le 27/10/2026, à faire accepter par le PO</p>
-          <h4>Propose</h4>
+          <p class="meta">Stanislas Beguin (WS5, qualité) · acceptée le 28/10/2026 par le PO</p>
+          <h4>Décide</h4>
           <ul>
             <li>Traces, métriques et journaux OpenTelemetry du serveur et du worker, seulement si <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> est défini : rien ne démarre par défaut, en CI ni dans les E2E.</li>
             <li>Mesure HTTP par route tirée des spans de Next.js ; état de l'outbox en jauges, lu par la même requête que la ligne <code>outbox.stats</code> (PR #39).</li>
@@ -1973,7 +1976,7 @@ flowchart TB
           </ul>
           <h4>Reste à faire</h4>
           <ul>
-            <li>Décision du PO ; propagation d'une trace à travers l'outbox.</li>
+            <li>Propagation d'une trace à travers l'outbox.</li>
           </ul>
         </article>
 

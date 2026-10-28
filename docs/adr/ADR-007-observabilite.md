@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Proposée** |
+| Statut | **Acceptée** le 28 octobre 2026 par le PO (Florent). Proposée le 27 octobre. Amende l'ADR-005 §5 |
 | Date | 27 octobre 2026 |
 | Auteur | Stanislas Beguin (WS5) |
 | Validateur | Florent (PO) |

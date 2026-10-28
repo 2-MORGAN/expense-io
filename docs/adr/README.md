@@ -12,7 +12,7 @@ Nouvelle décision : copier le [modèle](ADR-000-modele.md) en `ADR-NNN-titre-co
 | [ADR-004](ADR-004-contrat-api.md) | Contrat d'API, format d'erreur et versioning | Acceptée (pas de pagination, API en anglais, types générés) | Amiel Fabreguettes | 20/10/2026 |
 | [ADR-005](ADR-005-harnais-de-validation.md) | Harnais de validation : tests, CI et garde-fous | Acceptée (points ouverts listés) | Stanislas Beguin | 20/10/2026 |
 | [ADR-006](ADR-006-strategie-de-migration.md) | Stratégie de migration du code legacy (Strangler Fig, Branch by Abstraction) | Proposée | Amalraj Soupramanien | 27/10/2026 |
-| [ADR-007](ADR-007-observabilite.md) | Observabilité : OpenTelemetry et Grafana | Proposée | Stanislas Beguin | 27/10/2026 |
+| [ADR-007](ADR-007-observabilite.md) | Observabilité : OpenTelemetry et Grafana | Acceptée le 28/10 (optionnelle, désactivée par défaut ; amende l'ADR-005 §5) | Stanislas Beguin | 27/10/2026 |
 
 Décisions transverses du PO (20/10/2026) :
 
