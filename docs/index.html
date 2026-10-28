@@ -2127,6 +2127,7 @@ flowchart TB
             <tr><td>Worker</td><td>lancé par <code>npm run dev</code></td><td><code>npm run worker</code>, second processus supervisé ; sans lui, les emails et les analyses OCR restent <code>pending</code></td></tr>
             <tr><td>Moteur OCR</td><td>processus enfant</td><td>idem : exige <code>tessdata/</code> et le droit de lancer des processus enfants</td></tr>
             <tr><td>Tâche planifiée</td><td>à la main : <code>npm run reconcile:orphan-receipts</code></td><td><code>ops/cron/expense-io.crontab</code>, ou le planificateur de l'hébergeur, avec le même <code>.env</code> que le worker</td></tr>
+            <tr><td>Observabilité (optionnelle)</td><td><code>make observability</code> (<code>grafana/otel-lgtm</code>, http://localhost:3001), puis <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> dans <code>.env</code> ; sans cette variable, rien ne démarre</td><td>un collecteur OpenTelemetry ou un service managé, désigné par <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> et <code>OTEL_EXPORTER_OTLP_HEADERS</code>, sans changement de code ; <code>otel-lgtm</code> ne sert qu'au développement, postgres-exporter s'y connecte sous un rôle <code>pg_monitor</code> (<a href="#adr-007">ADR-007</a>, <a href="observability.md">observability.md</a>, « En production »)</td></tr>
           </tbody>
         </table>
       </div>
@@ -2146,8 +2147,8 @@ flowchart TB
         <table>
           <thead><tr><th>Sujet</th><th>Ce qu'on fait</th></tr></thead>
           <tbody>
-            <tr><td>Journal</td><td>une ligne JSON par événement sur la sortie standard, du web comme du worker, à collecter par l'hébergeur (<a href="#journal">journal et métriques</a>)</td></tr>
-            <tr><td>À surveiller</td><td>dans <code>outbox.stats</code> : le nombre d'événements <code>pending</code> et l'âge du plus ancien (un âge qui grandit signale un worker arrêté), le nombre de <code>dead</code> ; dans <code>ocr.request</code> : la part de <code>failed</code>, <code>timeout</code> et <code>overloaded</code></td></tr>
+            <tr><td>Journal</td><td>une ligne JSON par événement sur la sortie standard, du web comme du worker, à collecter par l'hébergeur (<a href="#journal">journal et métriques</a>) ; quand l'export OpenTelemetry est activé, le journal part aussi au collecteur, avec les traces et les métriques</td></tr>
+            <tr><td>À surveiller</td><td>dans <code>outbox.stats</code> : le nombre d'événements <code>pending</code> et l'âge du plus ancien (un âge qui grandit signale un worker arrêté), le nombre de <code>dead</code> ; dans <code>ocr.request</code> : la part de <code>failed</code>, <code>timeout</code> et <code>overloaded</code>. Avec la pile d'observabilité, six alertes les suivent : erreurs 5xx, latence p95 des routes, OCR lent, nouveaux <code>dead</code>, outbox en retard, worker muet (<a href="observability.md">observability.md</a>, « Alertes »)</td></tr>
             <tr><td>Événement <code>dead</code> (DLQ)</td><td>gardé en base avec sa dernière erreur, jamais retraité automatiquement ; aucun outil de relance : le diagnostic et la relance se font à la main en base, sous le propriétaire</td></tr>
             <tr><td>Réconciliation des reçus</td><td>chaque jour (<code>ops/cron/</code>) : supprime les objets de <code>receipts/</code> sans note ni analyse et vieux de plus de 24 h ; un échec se lit dans le journal, la passe suivante rattrape</td></tr>
             <tr><td>Rotation d'<code>AUTH_SECRET</code></td><td>remplacer la valeur et redémarrer le web : toutes les sessions sont invalidées (<a href="#demarrer">variables</a>)</td></tr>
@@ -2161,7 +2162,7 @@ flowchart TB
 
       <div class="callout">
         <span class="callout-title">Non décidé</span>
-        L'hébergeur, l'image de conteneur, la sauvegarde et la restauration de la base, les alertes (les métriques existent, pas les seuils ni les destinataires), un outil de relance de la DLQ et les traces distribuées. Repris dans la <a href="#dette">dette connue</a>.
+        L'hébergeur, l'image de conteneur, la sauvegarde et la restauration de la base, un outil de relance de la DLQ, où envoyer les alertes en production (Mailpit en local), la propagation d'une trace à travers l'outbox et l'échantillonnage des traces. Repris dans la <a href="#dette">dette connue</a>.
       </div>
     </section>
 
@@ -2177,7 +2178,7 @@ flowchart TB
         </div>
         <div class="card yellow">
           <h4><span class="tag tag-todo">exploitation</span> Tâches et observabilité</h4>
-          <p>Nettoyage unique des notes sans reçu à exécuter puis valider (<code>npm run clean:notes-without-receipt</code>) ; tâche quotidienne de <code>ops/cron/</code> à installer une fois un environnement déployé. Les métriques sont des lignes de journal (<code>ocr.request</code>, <code>outbox.stats</code>) : sans collecteur de logs, ni tableau de bord ni alerte ; pas de traces distribuées (<a href="#adr-005">ADR-005 §5</a>). Hébergeur, image de conteneur, sauvegardes de la base et relance de la DLQ ne sont pas décidés (<a href="#deploiement">déploiement</a>).</p>
+          <p>Nettoyage unique des notes sans reçu à exécuter puis valider (<code>npm run clean:notes-without-receipt</code>) ; tâche quotidienne de <code>ops/cron/</code> à installer une fois un environnement déployé. L'observabilité est optionnelle (<a href="#adr-007">ADR-007</a>) : tableau de bord et alertes en local, destinataires de production à définir ; une requête et l'événement de l'outbox qu'elle crée donnent encore deux traces distinctes. Hébergeur, image de conteneur, sauvegardes de la base et relance de la DLQ ne sont pas décidés (<a href="#deploiement">déploiement</a>).</p>
         </div>
         <div class="card">
           <h4><span class="tag tag-todo">qualité</span> Constats figés</h4>
