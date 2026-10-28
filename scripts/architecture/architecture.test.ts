@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { analyze, readSources, README } from './architecture'
+import { analyze, codemapFor, readSources, README } from './architecture'
+import { CODEMAP } from './codemap'
 import { DATA_VIEW, DIAGRAMS, DOC_PAGE, docGaps, pageDiagrams, pageWith, readDocInputs, readViews } from './docs'
 import { edgeName } from './graph'
 import { fileImports } from './imports'
@@ -38,6 +39,10 @@ const REGENERATE = 'régénérer avec npm run generate:architecture, relire le d
 describe('architecture du dépôt (docs/architecture)', () => {
   it.each(Object.entries(analysis.graphs))('%s est à jour avec le code', (file, text) => {
     expect(read(file), `${file} a dérivé du code : ${REGENERATE}`).toBe(text)
+  })
+
+  it(`${CODEMAP} est à jour avec le code`, () => {
+    expect(read(CODEMAP), `${CODEMAP} a dérivé du code : ${REGENERATE}`).toBe(codemapFor(root, sources, analysis))
   })
 
   it('le README recopie les graphes à jour', () => {

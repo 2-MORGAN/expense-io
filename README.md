@@ -177,7 +177,9 @@ Validation des entrées, outils, compatibilité et transition des erreurs :
 
 | Chemin | Contenu |
 |---|---|
-| [`CLAUDE.md`](CLAUDE.md) | règles d'architecture, de sécurité et de vérification ; [`AGENTS.md`](AGENTS.md) y renvoie les autres assistants IA |
+| [`CLAUDE.md`](CLAUDE.md) | règles d'architecture, de sécurité et de vérification, courtes car chargées à chaque tâche d'un agent IA ; le détail est dans [`docs/agents/`](docs/agents/) ; [`AGENTS.md`](AGENTS.md) y renvoie les autres assistants IA |
+| [`CODEMAP.md`](CODEMAP.md) | carte du code, générée et vérifiée par `npm run check` : pour chaque route, page et worker, les fichiers atteints par couche, les tables SQL et les specs E2E. Point de départ pour ajouter une fonctionnalité |
+| [`.claude/skills/nouvelle-fonctionnalite/`](.claude/skills/nouvelle-fonctionnalite/SKILL.md) | recette d'ajout d'une fonctionnalité pour Claude Code (`/nouvelle-fonctionnalite`) : cadrage, plan, couches dans l'ordre, tests, doc, validation |
 | [`docs/index.html`](docs/index.html) | doc des développeurs : services, architecture du code, parcours, données, API, choix d'architecture et ADR, en schémas ; à ouvrir dans un navigateur |
 | [`docs/adr/`](docs/adr/README.md) | décisions d'architecture, leur statut et le modèle |
 | [`docs/audit/`](docs/audit/) | constats d'audit : sécurité (S), architecture (A), API (Q, B) |
@@ -185,7 +187,7 @@ Validation des entrées, outils, compatibilité et transition des erreurs :
 | [`openapi.yaml`](openapi.yaml), [`docs/api/`](docs/api/README.md) | contrat de l'API (16 opérations) et ses règles d'évolution |
 | [`docs/ocr.md`](docs/ocr.md) | OCR : protections et file asynchrone |
 | [`docs/architecture/`](docs/architecture/README.md) | graphes Mermaid des couches et des routes, générés depuis le code (`npm run generate:architecture`) et vérifiés par `npm run check` ; vues écrites à la main (`vues/`) de la doc des développeurs |
-| `src/` | le code ; où placer quoi : « Où placer le code » dans `CLAUDE.md` |
+| `src/` | le code ; où placer quoi : « Où placer le code » dans `CLAUDE.md`, et quels fichiers pour quelle route : [`CODEMAP.md`](CODEMAP.md) |
 | `migrations/` | schéma SQL versionné, seule source de vérité |
 | `e2e/` | tests Playwright |
 | `scripts/` | seed, bucket, lancement du serveur et du worker, moteur OCR, générateur des graphes d'architecture |
@@ -213,10 +215,10 @@ make clean     # arrête les conteneurs et supprime les données locales
 | `npm run migrate:up` : erreur d'authentification de l'utilisateur `expense` (code `28P01`) | Un autre PostgreSQL occupe le port 5433 (`netstat -ano \| findstr :5433` sous Windows). L'arrêter, ou exposer le conteneur sur un autre port et y faire pointer les variables `*DATABASE_URL` |
 | Avertissement `db.role.bypasses_rls` au démarrage, ou `MIGRATION_DATABASE_URL absent` | `.env` antérieur à 2-481 : reprendre les quatre variables `*DATABASE_URL` de `.env.example`, puis `npm run migrate:up` |
 | `npm run check` échoue juste après un pull | Une dépendance a changé : `npm install` |
-| Lint : erreur `sonarjs/…` | Règle de SonarQube : corriger le code. Les constats du code existant sont figés dans `eslint-suppressions.json`, qui ne fait que raccourcir ([`CLAUDE.md`](CLAUDE.md), « Où placer le code ») |
+| Lint : erreur `sonarjs/…` | Règle de SonarQube : corriger le code. Les constats du code existant sont figés dans `eslint-suppressions.json`, qui ne fait que raccourcir ([`docs/agents/harnais.md`](docs/agents/harnais.md), « Lint ») |
 | Lint : « There are suppressions left that do not occur anymore » | Un constat figé a été corrigé : `npx eslint --prune-suppressions`, puis commiter `eslint-suppressions.json` avec la correction |
-| `npm run check` : « docs/architecture/… a dérivé du code » | Un import entre couches ou une route a changé : `npm run generate:architecture`, relire le diff, le commiter avec le code. Une flèche interdite ou une route sans garde se corrigent dans le code ([`docs/architecture/`](docs/architecture/README.md)) |
-| `npm run check` : « docs/index.html … », « ADR sans fiche », « table absente », « type d'événement » | La doc des développeurs n'a pas suivi le code : `npm run generate:architecture` recopie les schémas ; une ADR, une table ou un événement se décrivent à la main (`CLAUDE.md`, « Documentation développeur ») |
+| `npm run check` : « docs/architecture/… a dérivé du code » ou « CODEMAP.md a dérivé du code » | Un import entre couches ou une route a changé : `npm run generate:architecture`, relire le diff, le commiter avec le code. Une flèche interdite ou une route sans garde se corrigent dans le code ([`docs/architecture/`](docs/architecture/README.md)) |
+| `npm run check` : « docs/index.html … », « ADR sans fiche », « table absente », « type d'événement » | La doc des développeurs n'a pas suivi le code : `npm run generate:architecture` recopie les schémas ; une ADR, une table ou un événement se décrivent à la main ([`docs/agents/documentation.md`](docs/agents/documentation.md)) |
 | Sous Windows, `npm run check` signale des types générés « not up-to-date » sans modification | Fichier extrait en fins de ligne CRLF avant l'ajout de `.gitattributes` : le supprimer, puis `git checkout -- <fichier>` |
 | Test E2E : « Executable doesn't exist » | Navigateur absent : `npx playwright install chromium` |
 | Réponse 500 | Lire la ligne `"level":"error"` du journal du serveur ([Journaux](#journaux)) |

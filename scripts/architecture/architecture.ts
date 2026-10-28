@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { byText, CODE, edgeName, layerGraph, type Architecture, type LayerGraph, type SourceFile } from './graph'
 import { LAYERS, LEGACY_EDGES, PACKAGES, PUBLIC_ROUTES } from './layers'
+import { codemap, migrationFunctions } from './codemap'
+import { migrationTables } from './docs'
 import { layersMermaid, routesMermaid } from './mermaid'
 import { routeGuards, routeName, type RouteGuards } from './routes'
 
@@ -48,6 +50,32 @@ export function analyze(
       'docs/architecture/routes.mmd': routesMermaid(routes),
     },
   }
+}
+
+/** Les fichiers d'un dossier du dépôt dont le nom correspond, triés ; vide si le dossier manque. */
+function readFlat(root: string, dir: string, name: RegExp): SourceFile[] {
+  let entries: string[]
+  try {
+    entries = readdirSync(join(root, dir))
+  } catch {
+    return []
+  }
+  return entries
+    .filter((entry) => name.test(entry))
+    .sort(byText)
+    .map((entry) => ({ path: `${dir}/${entry}`, text: readFileSync(join(root, dir, entry), 'utf8').replace(/\r\n/g, '\n') }))
+}
+
+/** La carte du code (CODEMAP.md), depuis src/, les migrations et les specs E2E. */
+export function codemapFor(root: string, sources: readonly SourceFile[], analysis: Analysis): string {
+  const migrations = readFlat(root, 'migrations', /\.sql$/)
+  return codemap({
+    sources,
+    methods: analysis.routes.methods,
+    tables: migrationTables(migrations),
+    sqlFunctions: migrationFunctions(migrations),
+    specs: readFlat(root, 'e2e', /\.spec\.ts$/),
+  })
 }
 
 /** Ce qui fait échouer la vérification, en plus d'un graphe qui a dérivé du code. */

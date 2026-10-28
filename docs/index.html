@@ -349,7 +349,7 @@ footer.page-end { margin-top: 72px; padding-top: 20px; border-top: 1px solid var
 
     <div class="callout">
       <span class="callout-title">Cette page résume, elle ne remplace pas les sources de vérité</span>
-      <a href="https://github.com/2-MORGAN/expense-io/blob/main/CLAUDE.md">CLAUDE.md</a> (règles, communes aux humains et aux IA), <a href="https://github.com/2-MORGAN/expense-io/tree/main/docs/adr">docs/adr/</a> (décisions), <a href="https://github.com/2-MORGAN/expense-io/blob/main/openapi.yaml">openapi.yaml</a> (contrat HTTP), <a href="https://github.com/2-MORGAN/expense-io/tree/main/migrations">migrations/</a> (schéma), <a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/tests/E2E.md">docs/tests/E2E.md</a> (scénarios E2E). Ses schémas sont des fichiers Mermaid versionnés : deux sont générés depuis le code, les autres sont vérifiés par <code>npm run check</code> (voir <a href="#maintenir">Maintenir cette page</a>).
+      <a href="https://github.com/2-MORGAN/expense-io/blob/main/CLAUDE.md">CLAUDE.md</a> (règles, communes aux humains et aux IA), <a href="https://github.com/2-MORGAN/expense-io/blob/main/CODEMAP.md">CODEMAP.md</a> (fichiers, tables et specs E2E de chaque route, générés depuis le code), <a href="https://github.com/2-MORGAN/expense-io/tree/main/docs/adr">docs/adr/</a> (décisions), <a href="https://github.com/2-MORGAN/expense-io/blob/main/openapi.yaml">openapi.yaml</a> (contrat HTTP), <a href="https://github.com/2-MORGAN/expense-io/tree/main/migrations">migrations/</a> (schéma), <a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/tests/E2E.md">docs/tests/E2E.md</a> (scénarios E2E). Ses schémas sont des fichiers Mermaid versionnés : deux sont générés depuis le code, les autres sont vérifiés par <code>npm run check</code> (voir <a href="#maintenir">Maintenir cette page</a>).
     </div>
 
     <p id="mermaid-offline" class="callout warn">Les schémas sont dessinés par Mermaid, chargé depuis jsDelivr : sans connexion, leur source reste lisible ci-dessous, et chaque fichier <code>.mmd</code> s'ouvre dans un éditeur ou sur <a href="https://mermaid.live">mermaid.live</a>.</p>
@@ -1923,7 +1923,7 @@ flowchart TB
           <ul>
             <li>Cinq niveaux de vérification : statique, unitaire, contrat, intégration base, E2E.</li>
             <li>Un E2E rouge est une régression, sauf changement décidé par une ADR acceptée.</li>
-            <li>CI <code>check</code> et <code>e2e</code> obligatoires, <code>main</code> protégée ; hooks git ; CLAUDE.md, README, modèle d'ADR et hooks Claude Code.</li>
+            <li>CI <code>check</code> et <code>e2e</code> obligatoires, <code>main</code> protégée ; hooks git ; CLAUDE.md, carte du code (CODEMAP.md), skill <code>/nouvelle-fonctionnalite</code>, README, modèle d'ADR et hooks Claude Code.</li>
             <li>Journal JSON des erreurs serveur, sans donnée sensible ; métriques dérivées des logs (amendement du 27/10), sans traces distribuées.</li>
           </ul>
           <h4>Livré</h4>
@@ -2134,7 +2134,7 @@ flowchart TB
     <section id="maintenir" aria-labelledby="maintenir-titre">
       <span class="kicker">Cette page</span>
       <h2 id="maintenir-titre">Maintenir cette page<a class="anchor" href="#maintenir" aria-label="Lien vers cette section">#</a></h2>
-      <p class="section-lead">La doc fait partie du changement : elle se met à jour dans la même PR que le code, sans attendre qu'on le demande. Les règles sont dans CLAUDE.md, « Documentation développeur ».</p>
+      <p class="section-lead">La doc fait partie du changement : elle se met à jour dans la même PR que le code, sans attendre qu'on le demande. Les règles sont dans CLAUDE.md, « Documentation développeur », détaillées dans <code>docs/agents/documentation.md</code>.</p>
 
       <div class="grid">
         <div class="card green">
@@ -2147,17 +2147,17 @@ flowchart TB
         </div>
         <div class="card violet">
           <h4>La recopie</h4>
-          <p><code>npm run generate:architecture</code> régénère les graphes et recopie graphes et vues dans cette page, entre leurs marqueurs. Mêmes sources, même page, octet pour octet.</p>
+          <p><code>npm run generate:architecture</code> régénère les graphes et la carte du code (<code>CODEMAP.md</code>), et recopie graphes et vues dans cette page, entre leurs marqueurs. Mêmes sources, même page, octet pour octet.</p>
         </div>
       </div>
 
-      <p><code>npm run check</code> (<code>scripts/architecture/architecture.test.ts</code>) échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou si un marqueur n'a plus de schéma, si une ADR de <code>docs/adr</code> n'a pas sa fiche, si une table des migrations manque au schéma des données (ou s'il y en a une de trop), si un type d'événement de l'outbox n'est pas cité, ou si un script externe est chargé sans empreinte SRI. Le texte, lui, ne se vérifie pas : d'où la règle suivante.</p>
+      <p><code>npm run check</code> (<code>scripts/architecture/architecture.test.ts</code>) échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou si un marqueur n'a plus de schéma, si une ADR de <code>docs/adr</code> n'a pas sa fiche, si une table des migrations manque au schéma des données (ou s'il y en a une de trop), si un type d'événement de l'outbox n'est pas cité, si un script externe est chargé sans empreinte SRI, ou si <code>CODEMAP.md</code> a dérivé du code. Le texte, lui, ne se vérifie pas : d'où la règle suivante.</p>
 
       <div class="table-wrap">
         <table>
           <thead><tr><th>Si le changement…</th><th>Mettre à jour</th></tr></thead>
           <tbody>
-            <tr><td>change un import entre couches, une couche, une route ou sa garde</td><td><code>npm run generate:architecture</code>, relire le diff ; la section concernée si le sens change</td></tr>
+            <tr><td>change un import entre couches, une couche, une route ou sa garde</td><td><code>npm run generate:architecture</code> (graphes et <code>CODEMAP.md</code>), relire le diff ; la section concernée si le sens change</td></tr>
             <tr><td>ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement</td><td><code>vues/systeme.mmd</code>, <code>vues/hexagone.mmd</code> ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs »</td></tr>
             <tr><td>modifie un parcours : soumission, décision, outbox, OCR, inscription, invitation, session</td><td>la vue de séquence correspondante et le texte de « Parcours clés »</td></tr>
             <tr><td>ajoute une migration : table, colonne, policy, rôle, fonction <code>SECURITY DEFINER</code></td><td><code>vues/schema.mmd</code> et « Données et isolation »</td></tr>
