@@ -1,0 +1,49 @@
+# Mesure d'usage d'Expense.io (ADR-008, docs/analytics.md) : Umami et sa base.
+# Pile optionnelle, séparée de docker-compose.yml : `make dev`, `make test-e2e`
+# et la CI ne la lancent pas.
+#
+#   make analytics        (docker compose -f docker-compose.analytics.yml up -d --wait, puis npm run analytics:setup)
+#   Umami : http://localhost:3002, compte admin / umami créé par Umami à son premier démarrage
+#   puis, dans .env : UMAMI_SCRIPT_URL et UMAMI_WEBSITE_ID, affichés par
+#   npm run analytics:setup, et relancer `make dev`
+name: expense-io-analytics
+
+services:
+  umami:
+    image: ghcr.io/umami-software/umami:3.4.0
+    ports:
+      # Sur localhost seulement : le compte administrateur par défaut y reste.
+      - '127.0.0.1:${UMAMI_PORT:-3002}:3000'
+    environment:
+      DATABASE_URL: postgresql://umami:umami@umami-db:5432/umami
+      # Signe les sessions de l'interface d'Umami. Valeur de développement local.
+      APP_SECRET: ${UMAMI_APP_SECRET:-expense-io-umami-local}
+    depends_on:
+      umami-db:
+        condition: service_healthy
+    init: true
+    healthcheck:
+      # Umami applique ses migrations au premier démarrage : jusqu'à une minute.
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3000/api/heartbeat']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # Base d'Umami, distincte de celle de l'application (ADR-008 §5) : ni ses
+  # rôles ni sa RLS (ADR-001) ne la concernent.
+  umami-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: umami
+      POSTGRES_DB: umami
+    volumes:
+      - umami-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U umami -d umami']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  umami-db-data:

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
+import { trackEvent } from '@/components/analytics'
 
 const inputClass =
   'w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-brand-900'
@@ -24,6 +25,7 @@ export function InviteEmployeeForm() {
     })
     setSending(false)
     if (response.ok) {
+      trackEvent({ name: 'invitation-sent' })
       const invitation = (await response.json()) as { email: string }
       setSentTo(invitation.email)
       setEmail('')
