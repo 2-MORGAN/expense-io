@@ -112,6 +112,16 @@ Le lint applique aussi les règles de SonarQube (`eslint-plugin-sonarjs`) : bugs
 
 Les graphes de [`docs/architecture/`](docs/architecture/README.md) complètent le lint. Le test `scripts/architecture/architecture.test.ts` (dans `npm run check`) vérifie la matrice entière des couches (`scripts/architecture/layers.ts`, ADR-002 §3.3) et la garde de chaque méthode de route, puis compare les graphes Mermaid versionnés au code. Un graphe qui a dérivé se régénère avec `npm run generate:architecture` et se commite avec le code. Une flèche interdite ou une route sans garde se corrigent dans le code, jamais en régénérant ni en ajoutant une exception (`LEGACY_EDGES` et `PUBLIC_ROUTES` ne font que raccourcir). Une nouvelle couche ou un nouveau droit se justifient dans la PR.
 
+## Consignes par dossier et recette d'une fonctionnalité
+
+Chaque dossier où l'on écrit du code a son `AGENTS.md` : ce que le dossier contient, ce qu'il peut importer, la recette pas à pas, les fichiers modèles, les tests attendus, les pièges et ce qui le vérifie. Codex, Cursor et Copilot le lisent ; le `CLAUDE.md` voisin l'importe (`@AGENTS.md`), et Claude Code le charge dès qu'il travaille dans le dossier. Ces consignes complètent ce fichier sans le remplacer ; on les modifie dans l'`AGENTS.md`, jamais dans le `CLAUDE.md` voisin.
+
+Dossiers : [`src/domain`](src/domain/AGENTS.md), [`src/application`](src/application/AGENTS.md), [`src/ports`](src/ports/AGENTS.md), [`src/adapters`](src/adapters/AGENTS.md), [`src/composition`](src/composition/AGENTS.md), [`src/http`](src/http/AGENTS.md), [`src/app/api`](src/app/api/AGENTS.md), [`src/app`](src/app/AGENTS.md), [`src/components`](src/components/AGENTS.md), [`src/lib`](src/lib/AGENTS.md), [`src/worker`](src/worker/AGENTS.md), [`migrations`](migrations/AGENTS.md), [`e2e`](e2e/AGENTS.md), [`scripts`](scripts/AGENTS.md), [`docs`](docs/AGENTS.md).
+
+**Pour une fonctionnalité nouvelle ou qui évolue, suivre la recette** [`.claude/skills/nouvelle-fonctionnalite/SKILL.md`](.claude/skills/nouvelle-fonctionnalite/SKILL.md) (skill `/nouvelle-fonctionnalite` de Claude Code) : cadrer et faire valider un plan, puis contrat, domaine, migration, port et adaptateur, cas d'usage, entrée, E2E, doc, vérifications et PR, jusqu'à sa « Définition de terminé ».
+
+Les consignes se mettent à jour avec le code, dans la même PR. `npm run check` (`scripts/architecture/architecture.test.ts`) échoue si un dossier listé dans `scripts/architecture/agents.ts` perd son `AGENTS.md` ou son `CLAUDE.md`, si un `CLAUDE.md` de dossier fait autre chose qu'importer `AGENTS.md`, si une couche de `scripts/architecture/layers.ts` n'a ni consignes ni exclusion motivée, si le bloc « Peut importer » a dérivé de la matrice (`npm run generate:architecture` le recopie), ou si une consigne (ce fichier compris) cite un chemin, un script npm ou une cible `make` qui n'existe pas. Le reste du texte se relit.
+
 ## Documentation développeur
 
 [`docs/index.html`](docs/index.html) est la doc d'accueil des développeurs : services et processus, architecture du code, parcours clés, données, API, choix d'architecture et ADR, en schémas. Elle s'ouvre dans un navigateur. Ses schémas sont des fichiers Mermaid versionnés dans `docs/architecture/` : `layers.mmd` et `routes.mmd`, générés depuis le code, et les vues écrites à la main de `docs/architecture/vues/`. `npm run generate:architecture` les recopie dans la page, entre leurs marqueurs `<!-- début : … -->` et `<!-- fin : … -->`.
@@ -128,9 +138,10 @@ Les graphes de [`docs/architecture/`](docs/architecture/README.md) complètent l
 | change une opération HTTP ou un code d'erreur | « API et contrat », après `openapi.yaml` |
 | ajoute une ADR ou change son statut | sa fiche (`id="adr-NNN"`) dans « Les ADR », `vues/adr.mmd`, et « Choix d'architecture » si un choix change |
 | change une commande, un script npm, un hook, la CI ou une tâche planifiée | « Démarrer », « Harnais de validation », « Déploiement et exploitation », `vues/harnais.mmd` |
+| change une règle de placement, une convention ou un fichier modèle d'un dossier ; ajoute un dossier de code | l'`AGENTS.md` du dossier ; un dossier nouveau s'ajoute à `AGENT_DIRS` (`scripts/architecture/agents.ts`) avec ses deux fichiers |
 | solde ou crée une dette | « Dette connue » et la fiche de l'ADR concernée |
 
-- Une vue se modifie dans son `.mmd`, jamais entre ses marqueurs dans la page : la recopie l'écraserait. Le texte de la page se modifie directement. Nouvelle vue : créer `docs/architecture/vues/nom.mmd`, placer ses marqueurs dans une figure de la page, puis `npm run generate:architecture`.
+- Une vue se modifie dans son `.mmd`, jamais entre ses marqueurs dans la page : la recopie l'écraserait. Le texte de la page se modifie directement. Nouvelle vue : créer `docs/architecture/vues/<nom>.mmd`, placer ses marqueurs dans une figure de la page, puis `npm run generate:architecture`.
 - `npm run check` échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou un marqueur plus de schéma, si une ADR de `docs/adr/` n'a pas sa fiche, si `vues/schema.mmd` n'a pas exactement les tables des migrations, si un type d'événement de l'outbox n'est pas cité, ou si un script externe est chargé sans empreinte SRI (`integrity`, `crossorigin`). Le reste du texte ne se vérifie pas : le tableau ci-dessus fait foi.
 - Rien dans le tableau ne change (correctif local, test, refacto sans effet visible) : le dire dans la rubrique « Documentation » de la PR. Ce qui n'est plus vrai se corrige ou se retire : une doc fausse est pire qu'une doc absente.
 
@@ -175,8 +186,8 @@ Ne pas « corriger au passage » un de ces points dans une PR sans rapport : ouv
 
 ## Façon de travailler (pour l'IA)
 
-1. Lire les fichiers concernés **et leurs voisins** avant de modifier ; imiter les conventions locales.
-2. Pour une nouvelle fonctionnalité : domaine d'abord (règle + test), puis port/adapter si dépendance externe, puis route fine, puis UI.
+1. Lire les fichiers concernés **et leurs voisins** avant de modifier, ainsi que l'`AGENTS.md` du dossier ; imiter les conventions locales.
+2. Pour une nouvelle fonctionnalité : suivre la recette `.claude/skills/nouvelle-fonctionnalite/SKILL.md` ; domaine d'abord (règle + test), puis port/adapter si dépendance externe, puis route fine, puis UI.
 3. Préserver le comportement observable existant (codes de réponse, formats JSON, parcours UI) sauf demande explicite ; sinon l'écrire dans la PR.
 4. Écrire ou mettre à jour les tests avec le code. Un bug corrigé = un test qui échoue avant, passe après.
 5. Rester dans le périmètre demandé : pas de refacto opportuniste, pas de fichiers superflus.

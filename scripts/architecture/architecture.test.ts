@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { agentGaps, readAgentInputs } from './agents'
 import { analyze, readSources, README } from './architecture'
 import { DATA_VIEW, DIAGRAMS, DOC_PAGE, docGaps, pageDiagrams, pageWith, readDocInputs, readViews } from './docs'
 import { edgeName } from './graph'
@@ -15,7 +16,8 @@ import { routeName } from './routes'
 // autres vérifications ne se règlent pas en régénérant : une flèche interdite
 // ou une route sans garde restent rouges (docs/architecture/README.md). La
 // page des développeurs (docs/index.html) recopie ces graphes et les vues
-// écrites à la main, et présente chaque ADR, table et type d'événement.
+// écrites à la main, et présente chaque ADR, table et type d'événement. Les
+// consignes par dossier (AGENTS.md, agents.ts) ne citent que ce qui existe.
 
 const root = process.cwd()
 const sources = readSources(root)
@@ -117,6 +119,33 @@ describe(`page des développeurs (${DOC_PAGE})`, () => {
 
   it('cite chaque type d’événement de l’outbox', () => {
     expect(gaps.events, 'le décrire dans la section « L’outbox et le worker » de la page').toEqual([])
+  })
+})
+
+describe('consignes par dossier (AGENTS.md et CLAUDE.md)', () => {
+  const gaps = agentGaps(readAgentInputs(root))
+
+  it('chaque dossier de AGENT_DIRS a son AGENTS.md, et un CLAUDE.md qui ne fait que l’importer', () => {
+    expect(gaps.missing, 'créer le fichier (modèle : src/domain/AGENTS.md et src/domain/CLAUDE.md)').toEqual([])
+    expect(gaps.notImporting, 'un CLAUDE.md de dossier ne contient que « @AGENTS.md » : écrire dans AGENTS.md').toEqual([])
+  })
+
+  it('aucun AGENTS.md ni CLAUDE.md hors de la liste', () => {
+    expect(gaps.undeclared, 'déclarer le dossier dans AGENT_DIRS (scripts/architecture/agents.ts)').toEqual([])
+  })
+
+  it('chaque couche de layers.ts a ses consignes, ou une exclusion motivée', () => {
+    expect(gaps.layers, 'AGENT_DIRS ou LAYERS_WITHOUT_AGENTS (scripts/architecture/agents.ts)').toEqual([])
+  })
+
+  it('le bloc « Peut importer » recopie layers.ts', () => {
+    expect(gaps.staleImports, REGENERATE).toEqual([])
+  })
+
+  it('chaque chemin, script npm et cible make cités existent', () => {
+    expect(gaps.deadPaths, 'corriger ou retirer la consigne : une consigne fausse est pire qu’une consigne absente').toEqual([])
+    expect(gaps.unknownScripts, 'citer un script de package.json').toEqual([])
+    expect(gaps.unknownTargets, 'citer une cible du Makefile').toEqual([])
   })
 })
 
