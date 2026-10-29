@@ -1,3 +1,4 @@
+// @ts-check
 // Mots de passe des rôles de connexion (ADR-001, annexe B, 2-481), lancé par
 // `npm run migrate:up` après les migrations. Ils viennent de l'environnement
 // (`DATABASE_URL`, `WORKER_DATABASE_URL`), jamais du dépôt : chaque machine

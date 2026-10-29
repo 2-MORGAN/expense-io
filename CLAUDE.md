@@ -26,7 +26,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 | But | Commande |
 |---|---|
 | Tout lancer (install, docker, migrations, bucket, seed, dev) | `make dev` → http://localhost:3000 |
-| Lint / types | `npm run lint` · `npm run typecheck` |
+| Lint / types | `npm run lint` · `npm run lint:promises` (promesses oubliées, règles typées, hors pre-commit) · `npm run typecheck` (TypeScript, et les scripts `.mjs` marqués `// @ts-check`) |
 | Tests unitaires (Vitest) | `npm run test:unit` · `npx vitest` (relance à chaque modification) — fichier `*.test.ts` à côté du code testé, exemple : `src/utils/validators.test.ts` |
 | Lint, types et tests unitaires d'un coup (ce que lance la CI avant le build) | `npm run check` |
 | Tests E2E de non-régression (Playwright) | `make test-e2e` · `npm run test:e2e` — voir `docs/tests/E2E.md` |
@@ -51,7 +51,7 @@ Décidé par l'ADR-005. Ce qui vérifie le code, et quand :
 | Moment | Ce qui tourne | Durée |
 |---|---|---|
 | `git commit` | hook pre-commit : ESLint avec cache | ≈ 3 s, 5 s à froid |
-| `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 35 s |
+| `git push` | hook pre-push : `npm run check` (lint, promesses, types, tests unitaires) | ≈ 50 s |
 | À la demande | E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` · migrations et tests E2E existants inchangés : `make frozen` | ≈ 3 min pour la suite, Docker requis |
 | PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build ; sur les PR, contrat sans rupture et migrations et tests E2E existants inchangés) et `e2e` (`make test-e2e`), obligatoires pour fusionner, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte | ≈ 1 min et 3 min 30 |
 | Claude Code : avant une commande shell | hook `PreToolUse` (`.claude/hooks/guard-git.mjs`) : refuse `--no-verify`, `git commit -n`, `HUSKY=0`, la modification de `core.hooksPath`, le push sur `main`, le force-push, `gh pr create` sans `--repo` explicite ou vers le dépôt du cours, et `eslint --suppress-all` ou `--suppress-rule` | instantané |

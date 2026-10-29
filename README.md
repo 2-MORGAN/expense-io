@@ -105,7 +105,7 @@ les mots de passe lus dans `.env` : rien à échanger entre postes.
 
 | Commande | Ce qu'elle vérifie | Docker |
 |---|---|---|
-| `npm run check` | lint (règles d'architecture et de SonarQube comprises), types, tests unitaires, contrat API valide et types générés à jour, graphes des couches et des routes à jour ([`docs/architecture/`](docs/architecture/README.md)), doc des développeurs à jour de ses schémas ([`docs/index.html`](docs/index.html)) | non |
+| `npm run check` | lint (règles d'architecture et de SonarQube comprises, promesses oubliées par `npm run lint:promises`), types (scripts `.mjs` en `// @ts-check` compris), tests unitaires, contrat API valide et types générés à jour, graphes des couches et des routes à jour ([`docs/architecture/`](docs/architecture/README.md)), doc des développeurs à jour de ses schémas ([`docs/index.html`](docs/index.html)) | non |
 | `npx playwright test -g "<ID>"` | un scénario E2E désigné par son ID ([`docs/tests/E2E.md`](docs/tests/E2E.md)), sur le serveur de `make dev` s'il tourne | oui |
 | `make test-e2e` | toute la suite E2E de non-régression, environ 3 min | oui |
 | `make verify` | tout ce que vérifie la CI : `npm run check`, build de production, puis la suite E2E | oui |
