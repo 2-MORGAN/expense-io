@@ -67,7 +67,7 @@ Le tableau « Documentation développeur » de l'AGENTS.md de la racine dit quoi
 
 ## 11. PR
 
-Pas de commit, de push ni de PR sans l'accord explicite de l'humain. Puis `gh pr create --repo 2-MORGAN/expense-io --base main`, avec le modèle `.github/pull_request_template.md` rempli : vérifications lancées et non lancées (avec la raison), doc, changement de comportement, dépendance.
+Pas de commit, de push ni de PR sans l'accord explicite de l'humain. Récupérer `main` d'abord : `git fetch`, et si `origin/main` a avancé, `git merge origin/main` (jamais de rebase d'une branche poussée), résoudre les conflits, relancer l'étape 10, pousser. Puis `gh pr create --repo 2-MORGAN/expense-io --base main`, avec le modèle `.github/pull_request_template.md` rempli : vérifications lancées et non lancées (avec la raison), doc, changement de comportement, dépendance.
 
 ## Définition de terminé
 

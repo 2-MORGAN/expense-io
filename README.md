@@ -210,7 +210,7 @@ Validation des entrées, outils, compatibilité et transition des erreurs :
 4. Un bug corrigé = un test vu en échec avant la correction, en succès après.
    La doc des développeurs ([`docs/index.html`](docs/index.html)) se met à jour
    dans la même PR que le code (`AGENTS.md`, « Documentation développeur »).
-5. Ouvrir la PR avec `gh pr create --repo 2-MORGAN/expense-io --base main` (sans `--repo`, `gh` peut viser le dépôt du cours) et remplir le modèle.
+5. Récupérer `main` d'abord : `git fetch`, et si elle a avancé, `git merge origin/main` dans la branche (pas de rebase d'une branche poussée), puis `npm run check`. Ouvrir ensuite la PR avec `gh pr create --repo 2-MORGAN/expense-io --base main` (sans `--repo`, `gh` peut viser le dépôt du cours) et remplir le modèle.
 6. Fusion par squash, une fois `check` et `e2e` verts et la PR relue par un pair. `main` refuse le push direct et le force-push.
 7. Un test E2E ne change que si une ADR acceptée décide le changement de comportement, et dans un commit séparé ([ADR-005 §2](docs/adr/ADR-005-harnais-de-validation.md#2-régression-ou-changement-voulu)).
 8. Une décision d'architecture s'écrit dans une ADR, à partir du [modèle](docs/adr/ADR-000-modele.md).

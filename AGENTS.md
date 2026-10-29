@@ -77,7 +77,7 @@ Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils do
 2. **Un bug corrigé = un test** vu en échec avant la correction, en succès après : test Vitest à côté du code pour une règle métier, scénario Playwright avec un ID dans `e2e/` pour un comportement HTTP, UI ou en base.
 3. **Un test E2E rouge est une régression** : corriger le code, pas le test. Ne jamais modifier, désactiver ni supprimer un test existant pour faire passer la CI. Si un test doit changer, s'arrêter et demander : il faut une ADR acceptée (ADR-005 §2), puis le label `changement-e2e` sur la PR. Le hook `guard-frozen.mjs` et la CI le font respecter, comme pour les migrations déjà dans `main`.
 4. **Ne rien contourner** : jamais de `--no-verify`, jamais de push sur `main`, jamais de `eslint-disable` sans commentaire qui le justifie, jamais de `eslint --suppress-all` ni `--suppress-rule` pour faire taire un nouveau constat.
-5. **PR** : `gh pr create --repo 2-MORGAN/expense-io --base main`, en remplissant le modèle (`.github/pull_request_template.md`). Sans `--repo`, `gh` peut viser le dépôt parent du fork.
+5. **PR** : d'abord récupérer `main` : `git fetch`, et si `origin/main` a avancé, `git merge origin/main` dans la branche, résoudre les conflits, relancer `npm run check` (et les E2E concernés), puis pousser. Pas de rebase d'une branche déjà poussée : le force-push est refusé. La branche n'a pas à rester à jour jusqu'à la fusion (ADR-005 §3). Puis `gh pr create --repo 2-MORGAN/expense-io --base main`, en remplissant le modèle (`.github/pull_request_template.md`). Sans `--repo`, `gh` peut viser le dépôt parent du fork.
 
 ## Où placer le code
 
