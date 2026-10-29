@@ -16,6 +16,7 @@
     "ensure-bucket": "node scripts/ensure-bucket.mjs",
     "seed": "node scripts/seed.mjs",
     "analytics:setup": "node scripts/analytics-setup.mjs",
+    "analytics:demo": "node scripts/analytics-demo.mjs",
     "reconcile:orphan-receipts": "node scripts/reconcile-orphan-receipts.mjs",
     "clean:notes-without-receipt": "node scripts/clean-notes-without-receipt.mjs",
     "worker": "tsx src/worker/main.ts",

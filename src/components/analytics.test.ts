@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   beforeSend,
+  HEATMAP_PATHS,
   ocrSuggestionOutcome,
+  recordsHeatmap,
   trackEvent,
   umamiScriptConfig,
   withoutQueryAndHash,
@@ -36,6 +38,34 @@ describe('umamiScriptConfig', () => {
       domains: 'app.expense.io',
     })
     expect(umamiScriptConfig(configured)?.domains).toBeUndefined()
+  })
+
+  it('heatmap seulement avec UMAMI_HEATMAP=true : recorder.js, servi par Umami à côté du script', () => {
+    expect(umamiScriptConfig(configured)?.recorderSrc).toBeUndefined()
+    expect(umamiScriptConfig({ ...configured, UMAMI_HEATMAP: 'false' })?.recorderSrc).toBeUndefined()
+    expect(umamiScriptConfig({ ...configured, UMAMI_HEATMAP: 'true' })?.recorderSrc).toBe(
+      'http://localhost:3002/recorder.js'
+    )
+    expect(
+      umamiScriptConfig({
+        ...configured,
+        UMAMI_SCRIPT_URL: 'https://cloud.umami.is/script.js',
+        UMAMI_HEATMAP: 'true',
+      })?.recorderSrc
+    ).toBe('https://cloud.umami.is/recorder.js')
+    expect(umamiScriptConfig({ UMAMI_WEBSITE_ID: configured.UMAMI_WEBSITE_ID, UMAMI_HEATMAP: 'true' })).toBeNull()
+  })
+})
+
+describe('recordsHeatmap', () => {
+  it('mesure les pages de travail, qui ne portent aucun jeton dans leur adresse', () => {
+    for (const path of HEATMAP_PATHS) expect(recordsHeatmap(path)).toBe(true)
+  })
+
+  it('jamais les pages dont l’adresse peut porter un jeton, ni les autres', () => {
+    for (const path of ['/signup', '/verify-email', '/login', '/signup/verify', '/', '/expenses/autre']) {
+      expect(recordsHeatmap(path)).toBe(false)
+    }
   })
 })
 
