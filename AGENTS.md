@@ -50,7 +50,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 | Graphes d'architecture, et leur recopie avec les vues dans la doc des développeurs (`docs/index.html`) | `npm run generate:architecture` |
 | Build prod | `npm run build` |
 | Reset des données locales | `make clean` |
-| Observabilité, optionnelle (Grafana : traces, métriques, journaux) | `make observability` → http://localhost:3001, puis `OTEL_EXPORTER_OTLP_ENDPOINT` dans `.env` ; voir `docs/observability.md` |
+| Observabilité, optionnelle (Grafana : traces, métriques, journaux) | `make observability` → http://localhost:3001, puis `OTEL_EXPORTER_OTLP_ENDPOINT` dans `.env` ; pics de charge simulés, à suivre dans Grafana : `npm run load:peaks -- --execute` ; voir `docs/observability.md` |
 | Mesure d'usage, optionnelle (Umami : pages vues, événements, heatmap, replays) | `make analytics` → http://localhost:3002, puis `UMAMI_SCRIPT_URL` et `UMAMI_WEBSITE_ID` dans `.env`, et `UMAMI_HEATMAP=true` pour la heatmap et les replays ; données de démonstration : `npm run analytics:demo -- --execute` ; voir `docs/analytics.md` |
 
 Postgres : port **5433**. LocalStack : port **4567**. Mailpit : SMTP **1025**, interface **http://localhost:8025** (tous les emails de dev y arrivent, aucun ne sort). Comptes de démo (seed) : `hr@expense.io` / `hr1234`, `manager@expense.io` / `manager1234`, `demo@expense.io` / `demo1234`.

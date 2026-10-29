@@ -133,6 +133,70 @@ seule « Worker muet » le signale. Une suite E2E lancée contre la même base
 crée volontairement des événements `dead` (OUTBOX-05, OUTBOX-09…) : l'alerte
 correspondante se déclenche alors, puis retombe au bout de 15 minutes.
 
+## Simuler des pics de charge
+
+[`scripts/load-peaks.mjs`](../scripts/load-peaks.mjs) fait arriver des
+utilisateurs en nombre, puis repartir, pour voir le tableau de bord réagir :
+
+```bash
+npm run load:peaks                 # vérifie les prérequis, décrit le profil
+npm run load:peaks -- --execute    # le joue, environ 5 min 30
+npm run load:peaks -- --execute --users=40 --peaks=1 --peak-seconds=120
+```
+
+Sans option, il vérifie que l'application et la base sont locales et
+joignables, et que Grafana reçoit bien les métriques du serveur et du worker.
+Avec `--execute`, il crée une entreprise jetable `charge-<id>.load.test` : un
+RH, un manager pour huit utilisateurs, des salariés répartis entre eux. Il la
+crée sous le rôle propriétaire, comme le seed, car le rôle manager ne
+s'attribue qu'en base. Les mots de passe sont tirés au hasard et jamais
+affichés.
+
+Chaque utilisateur virtuel a son compte, se connecte par Auth.js et joue les
+parcours de l'interface, avec les mêmes appels HTTP que le navigateur et 0,5 à
+2,5 s de réflexion entre deux gestes :
+
+- **salarié** : consulte ses notes et un reçu, ou saisit une note. Le reçu
+  passe par l'analyse OCR (`POST /api/receipt-analyses`, puis un suivi toutes
+  les 300 ms), et la note part avec la suggestion. Si l'analyse est refusée
+  (503 quand dix analyses attendent déjà), la note part sans suggestion ;
+- **manager** : ouvre `/manager`, consulte puis valide ou refuse jusqu'à trois
+  notes de son équipe (une sur cinq refusée), ou saisit sa propre note ;
+- **RH** : ouvre `/hr`, lit les salariés et tranche les notes des managers.
+
+| Option | Défaut | Effet |
+|---|---|---|
+| `--users` | 20 | utilisateurs actifs au pic, et comptes créés |
+| `--base` | 2 | utilisateurs actifs au calme |
+| `--peaks` | 2 | nombre de pics |
+| `--peak-seconds` | 60 | durée de chaque pic |
+
+Profil : 30 s d'échauffement, puis pour chaque pic 20 s de montée, le pic,
+10 s de descente et 60 s de calme. Le calme laisse voir le worker vider la file.
+Toutes les 5 s, la console affiche le débit, la latence p50 et p95, les
+statuts, et l'attente de la suggestion OCR telle que la vit l'utilisateur. Ce
+dernier chiffre n'existe dans aucune métrique. À la fin viennent un bilan par
+phase, les routes les plus lentes et le lien Grafana sur la période. Ctrl+C
+arrête proprement et affiche le bilan.
+
+Ce qu'on voit dans le tableau de bord :
+
+| Pendant le pic | Panneaux |
+|---|---|
+| le débit monte puis plafonne, et la latence grimpe | Vue d'ensemble, HTTP (p50, p95, p99, routes les plus lentes) |
+| la boucle d'événements du serveur approche 100 % : le processus est saturé | Runtime Node.js |
+| les analyses s'empilent : file et retard de l'outbox montent, puis redescendent au calme | Worker et outbox, Retard du worker |
+| refus 503 de l'OCR quand la file d'analyses est pleine, comptés dans la part des 5xx | Vue d'ensemble, OCR |
+| pool de connexions de l'application, durée des requêtes SQL | Base de données |
+| mémoire du serveur et du worker | Runtime Node.js |
+
+Les chiffres mesurés ne valent que pour le poste qui les produit, et `next dev`
+compile et sert moins vite qu'un `npm run build` suivi de `npm run start`. Le
+script sert à voir les mécanismes réagir, pas à mesurer une capacité. Il refuse
+une `APP_URL` ou une `MIGRATION_DATABASE_URL` qui n'est pas locale. Les comptes,
+les notes et les emails de notification (dans Mailpit) restent :
+`make clean` les efface avec le reste des données locales.
+
 ## Ce qui ne part pas
 
 Les règles du journal ([ADR-005 §5](adr/ADR-005-harnais-de-validation.md))
