@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test'
 import { UMAMI_BEFORE_SEND, umamiScriptConfig } from '@/components/analytics'
 import { expect, test } from './support/fixtures'
 
@@ -28,4 +29,33 @@ test('[USAGE-01] Umami : aucun script sans configuration ; configuré, URL envoy
     UMAMI_BEFORE_SEND
   )
   expect(beforeSendType).toBe('function')
+})
+
+test('[USAGE-02] Heatmap d’Umami : recorder.js seulement sur les pages de travail avec UMAMI_HEATMAP=true, jamais sur une page à jeton', async ({
+  org,
+  openPage,
+  pageAs,
+}) => {
+  const config = umamiScriptConfig(process.env)
+  const recorder = (page: Page) => page.locator('script[src$="/recorder.js"]')
+
+  const visitor = await openPage()
+  await visitor.goto('/signup?invitation=jeton-e2e')
+  await visitor.waitForLoadState('networkidle')
+  await expect(recorder(visitor)).toHaveCount(0)
+
+  const employee = await pageAs(org.employee)
+  await employee.goto('/expenses')
+  await employee.waitForLoadState('networkidle')
+  if (!config?.recorderSrc) {
+    await expect(recorder(employee)).toHaveCount(0)
+    return
+  }
+  await expect(recorder(employee)).toHaveAttribute('src', config.recorderSrc)
+  await expect(recorder(employee)).toHaveAttribute('data-website-id', config.websiteId)
+
+  // Quitter les pages mesurées par une navigation côté client recharge la page : le script s'arrête.
+  await employee.getByRole('banner').getByRole('button', { name: 'Se déconnecter' }).click()
+  await expect(employee).toHaveURL(/\/login$/)
+  await expect(recorder(employee)).toHaveCount(0)
 })

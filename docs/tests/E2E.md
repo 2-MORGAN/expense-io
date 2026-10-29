@@ -77,7 +77,7 @@ e2e/
 
 ## Scénarios couverts
 
-**111 tests** (99 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 13 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
+**195 tests** (154 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 30 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
 
 ### Inscription — `e2e/signup.spec.ts`
 
@@ -349,11 +349,12 @@ ADR-003 §6 : état de l'outbox que le worker journalise chaque minute (`outbox.
 
 ### Mesure d'usage — `e2e/analytics.spec.ts`
 
-ADR-008 : le script d'Umami n'est chargé que si `UMAMI_SCRIPT_URL` et `UMAMI_WEBSITE_ID` sont définis, lus dans `.env` comme par l'application. Le contrôle de chaque envoi (`beforeSend` : chaîne de requête, identification, événements hors liste) est couvert par `src/components/analytics.test.ts`.
+ADR-008 : le script d'Umami n'est chargé que si `UMAMI_SCRIPT_URL` et `UMAMI_WEBSITE_ID` sont définis, et celui de la heatmap (`recorder.js`) qu'avec `UMAMI_HEATMAP=true` en plus, lus dans `.env` comme par l'application. Le contrôle de chaque envoi (`beforeSend` : chaîne de requête, identification, événements hors liste) et la liste des pages de la heatmap (`recordsHeatmap`) sont couverts par `src/components/analytics.test.ts`.
 
 | ID | Scénario | Niveau |
 |---|---|---|
 | USAGE-01 | Sans configuration (CI), `/login` ne charge aucun script d'Umami ; configuré, la balise porte le site, `data-exclude-search`, `data-exclude-hash` et sa fonction `data-before-send` | UI |
+| USAGE-02 | `/signup?invitation=…` ne charge jamais `recorder.js` ; sans heatmap (CI), `/expenses` non plus ; avec, `/expenses` le charge pour le site, et la déconnexion (navigation côté client vers `/login`) recharge la page sans lui | UI |
 
 ### Notifications — `e2e/notifications.spec.ts`
 

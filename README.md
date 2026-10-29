@@ -179,8 +179,10 @@ Puis copier dans `.env` les deux lignes affichées (`UMAMI_SCRIPT_URL`,
 `UMAMI_WEBSITE_ID`) et relancer `make dev`. Umami : http://localhost:3002,
 compte `admin` / `umami`. Sans ces variables, aucune page ne charge le script :
 c'est le cas par défaut, en CI et pendant les E2E. Sans cookie ni identifiant,
-et sans chaîne de requête dans les URL envoyées. Questions, rapports et ajout
-d'un événement : [`docs/analytics.md`](docs/analytics.md).
+et sans chaîne de requête dans les URL envoyées. En option, `UMAMI_HEATMAP=true`
+ajoute la heatmap (clics et défilement) de `/expenses`, `/manager` et `/hr`.
+L'entonnoir d'inscription est créé par `npm run analytics:setup`. Questions,
+rapports et ajout d'un événement : [`docs/analytics.md`](docs/analytics.md).
 
 ### Tâches planifiées
 
