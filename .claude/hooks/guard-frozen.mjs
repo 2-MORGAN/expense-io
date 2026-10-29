@@ -3,7 +3,8 @@
 // E2E qui y est déjà (règle commune : scripts/frozen.mjs). Ajouter une
 // migration ou un test reste libre. Garde-fou contre l'erreur : la CI
 // (scripts/check-frozen.mjs) reste la garantie, et dans le doute (pas de git,
-// pas d'origin/main) le hook laisse passer.
+// pas d'origin/main) le hook laisse passer. OpenCode et Codex appliquent la
+// même règle par agent-adapter.mjs.
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -59,32 +60,40 @@ function repositoryRoot(file) {
   }
 }
 
+/**
+ * Raison du refus d'écrire `file` (chemin absolu ou relatif à `cwd`) avec
+ * l'outil `toolName` de Claude Code, ou null. Dans le doute (autre dépôt, pas
+ * d'origin/main, fichier illisible), laisse passer : la CI tranche.
+ */
+export function frozenRefusal({ file, toolName, toolInput, cwd = '.' }) {
+  if (typeof file !== 'string') return null
+  const root = repositoryRoot(resolve(cwd, file))
+  const path = root ? relative(root, resolve(cwd, file)).replaceAll('\\', '/') : ''
+  if (!root || (!isMigration(path) && !isSpec(path))) return null
+  try {
+    const base = git(['merge-base', 'HEAD', 'origin/main'], root).trim()
+    return refusal({
+      path,
+      toolName,
+      input: toolInput,
+      current: existsSync(resolve(root, path)) ? readFileSync(resolve(root, path), 'utf8') : undefined,
+      atBase: (p) => fileAt(base, p, root),
+    })
+  } catch {
+    return null
+  }
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const input = JSON.parse(readFileSync(0, 'utf8'))
-  const file = input.tool_input?.file_path
-  const root = typeof file === 'string' ? repositoryRoot(resolve(input.cwd ?? '.', file)) : undefined
-  const path = root ? relative(root, resolve(input.cwd ?? '.', file)).replaceAll('\\', '/') : ''
-  if (root && (isMigration(path) || isSpec(path))) {
-    try {
-      const base = git(['merge-base', 'HEAD', 'origin/main'], root).trim()
-      const reason = refusal({
-        path,
-        toolName: input.tool_name,
-        input: input.tool_input,
-        current: existsSync(resolve(root, path)) ? readFileSync(resolve(root, path), 'utf8') : undefined,
-        atBase: (p) => fileAt(base, p, root),
-      })
-      if (reason) {
-        console.log(JSON.stringify({
-          hookSpecificOutput: {
-            hookEventName: 'PreToolUse',
-            permissionDecision: 'deny',
-            permissionDecisionReason: `${reason} (.claude/hooks/guard-frozen.mjs)`,
-          },
-        }))
-      }
-    } catch {
-      // Pas d'origin/main ou fichier illisible : laisser passer, la CI tranche.
-    }
+  const reason = frozenRefusal({ file: input.tool_input?.file_path, toolName: input.tool_name, toolInput: input.tool_input, cwd: input.cwd })
+  if (reason) {
+    console.log(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason: `${reason} (.claude/hooks/guard-frozen.mjs)`,
+      },
+    }))
   }
 }

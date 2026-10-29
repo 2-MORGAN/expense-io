@@ -2247,12 +2247,12 @@ flowchart TB
   mainBranch[("main&lt;br/&gt;squash, historique linéaire")]
   coverage["Couverture à la demande&lt;br/&gt;test:coverage (Vitest v8)&lt;br/&gt;test:e2e:coverage (c8)"]
 
-  subgraph claude["Claude Code : .claude/settings.json"]
+  subgraph claude["Agents IA : mêmes scripts .claude/hooks/*.mjs&lt;br/&gt;Claude Code (.claude/settings.json), Codex (.codex/hooks.json),&lt;br/&gt;OpenCode (.opencode/plugins/garde-fous.ts, via agent-adapter.mjs)"]
     direction TB
-    guardHook["PreToolUse : guard-git.mjs&lt;br/&gt;refuse les contournements"]
-    frozenHook["PreToolUse : guard-frozen.mjs&lt;br/&gt;migrations et tests E2E de main figés"]
-    recipeHook["PreToolUse : guard-recipe.mjs&lt;br/&gt;sans recette, demande à l'humain&lt;br/&gt;avant d'écrire du code"]
-    stopHook["Stop : check-on-stop.mjs&lt;br/&gt;npm run check si le code a changé"]
+    guardHook["avant le shell : guard-git.mjs&lt;br/&gt;refuse les contournements"]
+    frozenHook["avant l'écriture : guard-frozen.mjs&lt;br/&gt;migrations et tests E2E de main figés"]
+    recipeHook["avant l'écriture : guard-recipe.mjs&lt;br/&gt;sans recette, demande à l'humain&lt;br/&gt;(OpenCode, Codex : refus unique)"]
+    stopHook["fin de tour : check-on-stop.mjs&lt;br/&gt;npm run check si le code a changé&lt;br/&gt;(Claude Code, Codex)"]
   end
 
   guide -.-&gt;|"guide"| change
@@ -2300,13 +2300,13 @@ flowchart TB
             <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI), <code>make frozen</code> (migrations et tests E2E de <code>main</code> inchangés)</td><td>≈ 3 min pour la suite</td></tr>
             <tr><td>Couverture, à la demande</td><td><code>npm run test:coverage</code> (unitaires, Vitest v8) ; <code>npm run test:e2e:coverage</code> (E2E : serveur Next.js, worker et scripts, c8). Aucun seuil bloquant (<a href="#adr-005">ADR-005</a>) ; citer les branches, les lignes E2E sont gonflées</td><td>≈ 20 s ; suite E2E + rapport</td></tr>
             <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, build ; sur les PR : oasdiff, migrations et tests E2E existants inchangés) et <code>e2e</code> (2 shards), obligatoires, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte</td><td>≈ 1 min et 3 min 30</td></tr>
-            <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements (<code>guard-git.mjs</code>) et l’écriture d’une migration ou d’un test E2E déjà dans <code>main</code> (<code>guard-frozen.mjs</code>) ; avant la première écriture de code d’une session sans la recette <code>/nouvelle-fonctionnalite</code>, demande à l’humain s’il faut la suivre (<code>guard-recipe.mjs</code>) ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
+            <tr><td>Agents IA</td><td>Mêmes scripts pour Claude Code (hooks de <code>.claude/settings.json</code>), OpenCode (plugin <code>.opencode/plugins/garde-fous.ts</code>) et Codex (<code>.codex/hooks.json</code>, à approuver avec <code>/hooks</code>) : refus des contournements (<code>guard-git.mjs</code>) et de l’écriture d’une migration ou d’un test E2E déjà dans <code>main</code> (<code>guard-frozen.mjs</code>) ; avant la première écriture de code d’une session sans la recette <code>/nouvelle-fonctionnalite</code>, l’humain décide s’il faut la suivre (<code>guard-recipe.mjs</code> ; OpenCode et Codex, qui ne savent pas demander, refusent cette écriture une fois) ; en fin de tour, <code>npm run check</code> si le code a changé (Claude Code et Codex). OpenCode et Codex passent par <code>.claude/hooks/agent-adapter.mjs</code>. Cursor, Copilot : husky et CI seuls</td><td>≈ 35 s</td></tr>
           </tbody>
         </table>
       </div>
 
       <h3 id="consignes">Consignes par dossier et recette d'une fonctionnalité<a class="anchor" href="#consignes" aria-label="Lien vers cette section">#</a></h3>
-      <p>Le harnais vérifie ; les consignes guident avant d'écrire, pour un développeur comme pour un agent IA. Chaque dossier de code a son <code>AGENTS.md</code> : ce qu'il contient, ce qu'il peut importer, la recette pas à pas, les fichiers modèles, les tests attendus, les pièges, ce qui le vérifie. Codex, Cursor et Copilot le lisent ; le <code>CLAUDE.md</code> voisin l'importe (<code>@AGENTS.md</code>) et Claude Code le charge dès qu'il travaille dans le dossier.</p>
+      <p>Le harnais vérifie ; les consignes guident avant d'écrire, pour un développeur comme pour un agent IA. Chaque dossier de code a son <code>AGENTS.md</code> : ce qu'il contient, ce qu'il peut importer, la recette pas à pas, les fichiers modèles, les tests attendus, les pièges, ce qui le vérifie. Claude Code (par le <code>CLAUDE.md</code> voisin, qui l'importe : <code>@AGENTS.md</code>) et OpenCode le chargent dès qu'ils lisent un fichier du dossier ; Codex ne charge que ceux des dossiers entre la racine et son dossier de lancement, les autres agents celui de la racine.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Quoi</th><th>Où</th><th>Tenu à jour par</th></tr></thead>
