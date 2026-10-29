@@ -35,7 +35,11 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 - Avant de modifier un texte affiché, chercher les E2E qui le lisent dans `e2e/`.
 - Un nouveau code d'erreur de l'API sans traduction ici ne compile pas : c'est voulu.
 
+## Tests
+
+Un composant se teste à côté de lui, en `*.test.tsx` (projet `components` de `vitest.config.mts`, jsdom et Testing Library, lancé par `npm run check`) : le rendre, agir comme l'utilisateur (`userEvent`, rôles et libellés comme les E2E), simuler le réseau route par route (`stubFetch` de `integration/support/fetch.ts`, réponses au format du contrat). Les états d'erreur, une panne serveur comprise, s'y vérifient ; les parcours restent en E2E. Modèle : `src/components/PendingApprovalsPanel.test.tsx`.
+
 ## Vérifié par
 
 - ESLint (`expense-io/routes-and-ui`) et `scripts/architecture/architecture.test.ts`.
-- E2E des parcours (`e2e/`).
+- Tests de composants (`npm run check`) et E2E des parcours (`e2e/`).

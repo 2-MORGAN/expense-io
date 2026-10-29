@@ -20,6 +20,8 @@ Chaque `test(…)` déjà dans `main` est comparé à sa version de `main`, comm
 6. La ligne dans le tableau de `docs/tests/E2E.md` (ID, scénario, niveau), et le total mis à jour.
 7. Lancer : `npx playwright test -g "MGR-11"` (réutilise le serveur de `make dev`), puis tout le fichier.
 
+Ce que le HTTP ne voit pas (policy RLS, requête SQL, handler du worker, compensation) se teste désormais en intégration, avec Vitest et sans serveur (`integration/AGENTS.md`, ADR-009) ; les scénarios Playwright sans navigateur existants restent.
+
 ## Exemples à copier
 
 - `e2e/manager-approval.spec.ts` : API et interface.

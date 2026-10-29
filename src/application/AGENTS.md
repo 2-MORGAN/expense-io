@@ -22,7 +22,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 2. Le port dont il a besoin, dans `src/ports`, nommé par l'intention (`findReceipt`, `listPendingForManager`).
 3. Une classe : dépendances en `private readonly` dans le constructeur, une méthode `execute(...)`, ou une méthode par intention proche (`src/application/ListExpenseNotes.ts`).
 4. Les identifiants d'utilisateur reçus sont ceux de la session (`actor.id` passé par la route), jamais un id pris du corps de la requête.
-5. Le test à côté, avec de faux ports typés par l'interface (`vi.fn`) : ni base ni serveur.
+5. Le test à côté, avec de faux ports typés par l'interface (`vi.fn`) : ni base ni serveur. Ce qui dépend des vrais adaptateurs (transaction, compensation S3, concurrence) : un `*.integration.test.ts` à côté, avec eux (`src/application/SubmitExpenseNote.integration.test.ts`, `integration/AGENTS.md`).
 6. Le brancher dans `src/composition`, puis l'appeler depuis la route, la page serveur ou le worker.
 
 ## Exemples à copier

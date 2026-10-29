@@ -45,7 +45,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 ## Tests
 
-`*.test.ts` à côté, couverture mesurée : `src/http/requireRole.test.ts`, `src/http/withApiErrors.test.ts`.
+`*.test.ts` à côté, couverture mesurée : `src/http/requireRole.test.ts`, `src/http/withApiErrors.test.ts`. Une route entière (garde, validation, cas d'usage, base) s'appelle dans le processus dans un test d'intégration : `integration/api-access.integration.test.ts` (la garde de chaque opération), `integration/api-expense-notes.integration.test.ts`.
 
 ## Vérifié par
 

@@ -1,0 +1,49 @@
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% Le trophée des tests (ADR-009) : chaque couche dit ce qu'elle exerce, où
+  %% vivent ses tests et ce qui les lance. L'intégration, la plus large, donne
+  %% le plus de confiance pour son coût.
+
+  subgraph systeme["Système : l'application lancée, vue de l'extérieur · Playwright, e2e/ · make test-e2e, job e2e"]
+    direction LR
+    ui["Parcours UI<br/>Chromium, textes et rôles"]
+    api["API HTTP<br/>codes, JSON, contrat"]
+  end
+
+  subgraph integration["Intégration : plusieurs unités réelles ensemble · make test-integration, job integration"]
+    direction LR
+    adapters["Adaptateurs<br/>PostgreSQL sous la RLS,<br/>S3, SMTP"]
+    usecases["Cas d'usage<br/>avec leurs vrais adaptateurs"]
+    routes["Routes appelées<br/>dans le processus<br/>garde, validation, contrat"]
+    matrix["Qui voit quoi<br/>domaine ⟺ requêtes,<br/>sous la RLS et sans"]
+    worker["Handlers du worker<br/>sous expense_worker"]
+    components["Composants React<br/>jsdom, réseau simulé<br/>(npm run check)"]
+    playwrightDb["Playwright sans navigateur<br/>RLS, outbox, scripts<br/>(job e2e)"]
+  end
+
+  subgraph unitaire["Unitaire : une règle pure, sans entrée-sortie · Vitest, à côté du code · npm run check"]
+    direction LR
+    domain["Domaine<br/>règles métier"]
+    application["Cas d'usage<br/>ports doublés"]
+    http["Frontière HTTP<br/>validation, erreurs"]
+  end
+
+  subgraph statique["Statique : rien n'est exécuté · pre-commit, npm run check, job check"]
+    direction LR
+    types["TypeScript strict"]
+    lint["ESLint, SonarJS,<br/>règles d'architecture"]
+    contract["Contrat OpenAPI<br/>valide, sans rupture"]
+    drift["Graphes, doc et<br/>consignes à jour"]
+  end
+
+  systeme ~~~ integration ~~~ unitaire ~~~ statique
+
+  classDef sys fill:#fef9c3,stroke:#a16207,color:#111827
+  classDef int fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef unit fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef stat fill:#f3f4f6,stroke:#6b7280,color:#111827
+  class ui,api sys
+  class adapters,usecases,routes,matrix,worker,components,playwrightDb int
+  class domain,application,http unit
+  class types,lint,contract,drift stat

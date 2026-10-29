@@ -3,7 +3,7 @@ SHELL := /bin/bash
 
 COMPOSE := docker compose
 
-.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-e2e verify api-breaking frozen reconcile observability observability-down analytics analytics-down
+.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-integration test-e2e verify api-breaking frozen reconcile observability observability-down analytics analytics-down
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -67,8 +67,11 @@ lint: ## Lint du code
 typecheck: ## Vérifie les types
 	npm run typecheck
 
-test-unit: ## Tests unitaires Vitest (sans Docker)
+test-unit: ## Tests unitaires et de composants Vitest (sans Docker)
 	npm run test:unit
+
+test-integration: up migrate ensure-bucket ## Tests d'intégration Vitest contre PostgreSQL, S3 et SMTP réels (ADR-009, Docker)
+	npm run test:integration
 
 test-e2e: up migrate ensure-bucket ## Tests E2E Playwright (démarre Docker, migre ; lance ou réutilise le serveur de dev)
 	npm run test:e2e
@@ -84,9 +87,10 @@ frozen: ## Migrations et tests E2E déjà dans main inchangés depuis le départ
 reconcile: ## Reçus orphelins sur S3 : rapport (dry-run) ; tâche quotidienne dans ops/cron/
 	npm run reconcile:orphan-receipts
 
-verify: env ## Ce que vérifie la CI : lint, types, tests unitaires, build de production, puis E2E (Docker requis)
+verify: env ## Ce que vérifie la CI : lint, types, tests unitaires et de composants, build de production, puis intégration et E2E (Docker requis)
 	npm run check
 	npm run build
+	$(MAKE) test-integration
 	$(MAKE) test-e2e
 
 clean: ## Arrête Docker et supprime les volumes — efface les données locales (Postgres/LocalStack/Mailpit)
