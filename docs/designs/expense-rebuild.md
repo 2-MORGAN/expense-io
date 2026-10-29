@@ -1,147 +1,140 @@
-# Expense.io Consolidation Without Breaking Changes
+# Expense.io : consolider sans rupture
 
-*   **Author:** expense-io team
-*   **Status:** Draft
-*   **Date:** 2026-10-28
+- **Auteur :** équipe 2Morgan (Antoine Blumenroeder, relu par le PO)
+- **Statut :** document de conception, sans valeur de décision (seules les ADR acceptées font foi, `docs/adr/README.md`)
+- **Date :** 28/10/2026, mis à jour le 29/10/2026 sur `main` au commit `875d7d8`
 
---------------------------------------------------------------------------------
+---
 
-## Overview
+## Vue d'ensemble
 
-Expense.io is a B2B SaaS for expense notes. One tenant equals one company. Seven ADRs describe the target on `main` at `16556f5`: tenant isolation with Postgres RLS, modular hexagonal monolith, transactional outbox for async work, RFC 9457 contract-first API, CI plus E2E guards, migration strategy (ADR-006, Proposée), and OpenTelemetry observability.
+Expense.io est un SaaS B2B de notes de frais, où un tenant est une entreprise. Huit ADR, toutes acceptées, décrivent la cible atteinte sur `main` :
 
-The drift report of 2026-10-28 was computed on a stale branch and no longer applies. On current `main`, `LEGACY_DB_ACCESS`, `LEGACY_GET_POOL`, `LEGACY_SQL_INTERPOLATION`, and `LEGACY_EDGES` are empty, root `openapi.yaml` describes 17 operations, 11 migrations cover outbox, receipt analyses, decided-by/at, RLS, invitations, unverified-address resend, idempotency, receipt-key, roles, and login attempts across 7+ tables, and ADR-006 (Proposée) reports route migration done with green E2E and identical contract pending PO acceptance.
+| ADR | Décision |
+|---|---|
+| ADR-001 | Isolation par entreprise : RLS PostgreSQL, rôles restreints, inscription par invitation |
+| ADR-002 | Monolithe modulaire hexagonal |
+| ADR-003 | Outbox transactionnelle et worker pour l'asynchrone |
+| ADR-004 | Contrat d'API d'abord (OpenAPI), erreurs RFC 9457 |
+| ADR-005 | Harnais de validation : tests, CI, garde-fous |
+| ADR-006 | Migration du code legacy : Strangler Fig et Branch by Abstraction |
+| ADR-007 | Observabilité OpenTelemetry et Grafana, optionnelle |
+| ADR-008 | Mesure d'usage avec Umami, optionnelle (heatmap et replays sans texte depuis l'amendement du 29/10) |
 
-This design therefore locks the reached target and finishes consolidation in the same repo, with the E2E suite as the oracle for no regression and no breaking HTTP change.
+L'écart signalé le 28/10 avait été mesuré sur une branche en retard et ne s'applique plus. Sur `main` :
 
-## The Problem
+- `LEGACY_DB_ACCESS`, `LEGACY_GET_POOL`, `LEGACY_SQL_INTERPOLATION` (`eslint.config.mjs`) et `LEGACY_EDGES` (`scripts/architecture/layers.ts`) sont vides ;
+- `openapi.yaml` décrit 17 opérations ;
+- 11 migrations couvrent 7 tables : `companies`, `users`, `expense_notes`, `invitations`, `outbox_events`, `receipt_analyses`, `login_attempts` ;
+- toutes les routes passent par un cas d'usage (ADR-006), avec un contrat identique et les E2E verts.
 
-Direct cleanup in place kept reintroducing the same failure class: a forgotten `WHERE` leaks one tenant into another, a second connection breaks submission atomicity, and error shape changes break the frontend and the graders replaying E2E. A new empty repo would lose migration history, ADR links, CI, and the E2E IDs that encode the contract, so it stays rejected per ADR-006 (Big Bang out).
+Ce document fige donc la cible atteinte et décrit la fin de la consolidation dans le même dépôt. La suite E2E sert d'oracle : aucune régression, aucune rupture du contrat HTTP.
 
-What remains is consolidation, not a rebuild: keep HTTP behavior observed by E2E identical, keep the four `LEGACY_*` lists (`DB_ACCESS`, `GET_POOL`, `SQL_INTERPOLATION`, `EDGES`) empty, and close the last gaps (deprecated `error` removal date, `dead`-event count without index, second-adapter switch only when it ships).
+## Le problème
 
-## Goals
+Corriger directement dans le code d'origine ramenait toujours les mêmes défauts : un `WHERE` oublié laisse voir une entreprise depuis une autre, une seconde connexion casse l'atomicité de la soumission, un changement de forme d'erreur casse le front et les E2E rejoués par les correcteurs. Repartir d'un dépôt vide ferait perdre l'historique des migrations, les liens vers les ADR, la CI et les identifiants E2E qui portent le contrat. L'ADR-006 écarte donc le Big Bang.
 
-*   Goal 1: All Playwright E2E scenarios that pass today still pass without modification, with the same status codes, UI flows, and JSON fields. New response fields need their own test per ADR-005 §2, and enum additions are not auto-compatible per ADR-004 §7.1. Errors keep `application/problem+json` with stable `code` and `requestId` while keeping the deprecated `error` member with its historic text. Any E2E change needs an accepted ADR plus a separate test commit under CODEOWNERS review.
-*   Goal 2: Tenant isolation stays held: RLS under `expense_app` keeps carrying the company boundary, manual `WHERE company_id` stays as defense in depth, and ISO-04 to ISO-09 stay green with fixtures under the owner role via `E2E_DATABASE_URL`.
-*   Goal 3: Submission stays atomic and replay-safe: S3 upload first, then one SQL transaction for note plus outbox event, `Idempotency-Key` deduplication held, zero `receipt_key = ''` rows.
-*   Goal 4: Async stays on one mechanism: Postgres `outbox_events` plus worker, bounded retries, dead-letter state, one event per recipient.
-*   Goal 5: Contract stays explicit and checked: root `openapi.yaml` keeps describing 17 operations, errors keep `application/problem+json` with stable `code` and `requestId`, CI keeps failing on drift via `bash scripts/check-api-breaking.sh origin/main` and `npm run check:api`.
-*   Goal 6: Schema stays additive and reversible: initial migration untouched, each new change as timestamped migration with `down`; the restricted-role connection already landed stays verified by the suite on every PR.
+Il reste à consolider, pas à reconstruire :
 
-## Non-Goals
+- garder identique le comportement HTTP observé par les E2E ;
+- garder vides les quatre listes `LEGACY_*` ;
+- fermer les derniers écarts : date de retrait du champ `error` déprécié, comptage des événements `dead` sans index, bascule vers un second adaptateur seulement quand il existe.
 
-*   Non-Goal 1: No new product features. No billing implementation beyond a future `BillingPort` fed by `expense_note.decided` on approved only. No multi-currency, no in-app notification center.
-*   Non-Goal 2: No micro-services, no new broker, no new database. One Next.js deployment plus Postgres plus S3 plus worker stays.
-*   Non-Goal 3: No URL prefix versioning (`/v1`) and no pagination. Lists stay complete; cursor pagination reopens via new ADR only above a few hundred items per tenant or measurable list load. The deprecated `error` member stays until its announced removal.
-*   Non-Goal 4: No multi-region replication. One instance (app plus base) per region holds under the single-region-attachment hypothesis. Cross-region approval reopens the design.
+## Objectifs
 
-## Open Questions
+1. **Non-régression.** Tous les scénarios Playwright qui passent aujourd'hui passent encore sans modification : mêmes codes, mêmes parcours, mêmes champs JSON. Un champ de réponse nouveau a son propre test (ADR-005 §2) ; ajouter une valeur à une énumération n'est pas automatiquement compatible (ADR-004 §7.1). Les erreurs restent en `application/problem+json`, avec `code` et `requestId` stables, et gardent le champ `error` déprécié avec son texte historique. Modifier un test E2E existant demande une ADR acceptée et le label `changement-e2e` sur la PR ; le hook `guard-frozen.mjs` et la CI le font respecter.
+2. **Isolation.** La RLS sous `expense_app` (web) et `expense_worker` (worker) porte la frontière entre entreprises ; le `WHERE company_id` écrit dans les requêtes reste en défense en profondeur. ISO-01 à ISO-11 restent verts, fixtures créées sous le rôle propriétaire via `E2E_DATABASE_URL`.
+3. **Soumission atomique et rejouable.** Reçu stocké sur S3 d'abord, puis une seule transaction SQL pour la note et l'événement d'outbox ; dédoublonnage par `Idempotency-Key` ; aucune ligne avec `receipt_key = ''`.
+4. **Un seul mécanisme asynchrone.** Table `outbox_events` et worker, relances bornées, état `dead`, un événement par destinataire.
+5. **Contrat explicite et vérifié.** `openapi.yaml` décrit les 17 opérations ; la CI échoue sur une dérive (`npm run check:api`) ou une rupture (`make api-breaking`, oasdiff).
+6. **Schéma additif et réversible.** La migration initiale ne bouge pas ; chaque changement est une nouvelle migration horodatée avec son `down`. Les rôles restreints restent vérifiés par la suite à chaque PR (ISO-07, ISO-10, ISO-11).
 
-*   **Question 1**: When is the deprecated `error` member removed after its announced release, and which consumers still read it?
-*   **Question 2**: `dead`-event count stays without index per ADR-007 local-only debt. Sustained outbox lag over 1 min triggers broker reconsideration per ADR-003, not the index. What volume gate, if any, adds the index before that?
-*   **Question 3**: Deferred, not this delivery: no switch until a second adapter ships in the same PR (ADR-006 decision 2). First candidate still undecided: OCR to external AI or billing on `expense_note.decided` approved.
+## Hors périmètre
 
-## Technical Plan (Architecture)
+1. **Aucune fonctionnalité produit nouvelle.** Pas de facturation au-delà d'un futur `BillingPort` alimenté par `expense_note.decided` (notes approuvées seulement). Ni multi-devise, ni centre de notifications dans l'application.
+2. **Ni micro-services, ni broker, ni nouvelle base.** Un déploiement Next.js, PostgreSQL, S3 et le worker.
+3. **Ni version dans l'URL (`/v1`), ni pagination.** Les listes restent complètes ; une pagination par curseur se rouvre par ADR au-delà de quelques centaines d'éléments par entreprise ou d'une charge mesurable. Le champ `error` déprécié reste jusqu'à son retrait annoncé.
+4. **Pas de réplication multi-région.** Une instance (application et base) par région suffit, dans l'hypothèse d'une entreprise rattachée à une seule région. Une validation entre régions rouvrirait la conception.
 
-Route handlers stay thin: authenticate, validate input against the contract, call one use case, format the response. Use cases orchestrate pure domain plus ports. Adapters implement ports for Postgres, S3, SMTP, and Tesseract. `src/composition/` wires ports to adapters and gains an environment selector only with a second adapter in the same PR. The worker consumes `outbox_events` through registered handlers (`buildHandlers()`, `PgEventOutbox`); long OCR-style handlers work outside the event transaction then commit short, per ADR-003 amendment.
+## Questions ouvertes
+
+1. **Champ `error` déprécié** : quand le retirer, et quels consommateurs le lisent encore ?
+2. **Événements `dead` sans index** : la dette locale de l'ADR-007 reste. Un retard soutenu de l'outbox au-delà d'une minute fait reconsidérer un broker (ADR-003), pas l'index. Quel volume justifierait l'index avant cela ?
+3. **Premier second adaptateur** : pas de bascule tant qu'un second adaptateur n'arrive pas dans la même PR (ADR-006, décision 2). Premier candidat à trancher : OCR par une IA externe, ou facturation sur `expense_note.decided`.
+
+## Architecture technique
+
+Les route handlers restent minces : authentifier, valider l'entrée contre le contrat, appeler un cas d'usage, formater la réponse. Les cas d'usage orchestrent le domaine pur et les ports. Les adaptateurs implémentent les ports pour PostgreSQL, S3, SMTP et Tesseract. `src/composition/` branche les ports sur les adaptateurs ; il ne gagne un sélecteur par variable d'environnement qu'avec un second adaptateur, dans la même PR. Le worker consomme `outbox_events` par les handlers déclarés (`buildHandlers()`, `src/worker/handlers.ts`) ; un traitement long comme l'OCR travaille hors de la transaction de l'événement, puis valide court (amendement de l'ADR-003).
 
 ```mermaid
 flowchart LR
-  UI[pages] --> R[route.ts thin]
-  R --> U[use case]
-  W[worker outbox] --> U
-  U --> D[domain pure]
+  UI[pages] --> R[route.ts mince]
+  R --> U[cas d'usage]
+  W[worker] --> U
+  U --> D[domaine pur]
   U --> P[ports]
-  P --> A[adapters PG S3 SMTP OCR]
+  P --> A[adaptateurs PG, S3, SMTP, OCR]
   U --> O[(outbox_events)]
   O --> W
-  R -. contract .-> C[openapi.yaml]
+  R -. contrat .-> C[openapi.yaml]
 ```
 
-Hold the line: `LEGACY_DB_ACCESS`, `LEGACY_GET_POOL`, `LEGACY_SQL_INTERPOLATION`, and `LEGACY_EDGES` stay empty; `eslint.config.test.ts` and `scripts/architecture/architecture.test.ts` fail on stale or new violations. `openapi.yaml` stays the source of truth with generated `src/types/api.d.ts` and `src/generated/api-contract.json` plus oasdiff in CI. Migrations stay additive with `down`. Telemetry stays in `src/lib/telemetry/` plus `src/worker/telemetry.ts` and `src/instrumentation.ts` ordering, disabled unless OTLP endpoint is set and `OTEL_SDK_DISABLED` is not true, with no new route and no tenant id in metric labels.
+Tenir la ligne :
 
-## Alternatives Considered
+- les listes `LEGACY_*` restent vides ; `eslint.config.test.ts` et `scripts/architecture/architecture.test.ts` échouent sur une violation nouvelle ou une exception devenue inutile ;
+- `openapi.yaml` reste la source de vérité, avec `src/types/api.d.ts` et `src/generated/api-contract.json` générés, et oasdiff en CI ;
+- les migrations restent additives, avec `down` ;
+- la télémétrie reste dans `src/lib/telemetry/`, `src/worker/telemetry.ts` et `src/instrumentation.ts`, désactivée sans `OTEL_EXPORTER_OTLP_ENDPOINT` ou avec `OTEL_SDK_DISABLED=true`, sans route nouvelle ni identifiant d'entreprise dans les étiquettes ;
+- la mesure d'usage reste désactivée sans `UMAMI_SCRIPT_URL` et `UMAMI_WEBSITE_ID`, et la heatmap sans `UMAMI_HEATMAP=true`.
 
-### Alternative A: New empty repo
+## Options écartées
 
-*   **Pros**: No legacy lists to hold, free file layout.
-*   **Cons**: Loses migration history, ADR links, CI, and E2E IDs that encode the contract; graders replay E2E against behavior the new repo must relearn; backfills and edge fixes get lost.
-*   **Reason for Rejection**: ADR-006 rejects Big Bang for the same risk. Strangler in place already reached empty LEGACY lists with identical contract.
+### A. Repartir d'un dépôt vide
 
-### Alternative B: Micro-services per domain
+- **Pour :** aucune liste legacy à tenir, organisation des fichiers libre.
+- **Contre :** perd l'historique des migrations, les liens vers les ADR, la CI et les identifiants E2E qui portent le contrat ; les correcteurs rejouent les E2E contre un comportement que le nouveau dépôt devrait réapprendre ; les reprises de données et les correctifs de cas limites se perdent.
+- **Pourquoi écartée :** l'ADR-006 écarte le Big Bang pour ce risque. La migration progressive sur place a déjà vidé les listes legacy avec un contrat identique.
 
-*   **Pros**: Independent scaling and strong boundaries.
-*   **Cons**: Turns local transactions into distributed sagas for 3 tables and 17 routes, multiplies auth, tenant isolation, CI, and observability cost.
-*   **Reason for Rejection**: ADR-002 option C out. No scaling or team constraint justifies it. One deployment per region already covers international.
+### B. Un micro-service par domaine
 
-### Alternative C: Dedicated broker now
+- **Pour :** passage à l'échelle indépendant, frontières fortes.
+- **Contre :** des transactions locales deviennent des sagas distribuées pour 7 tables et 17 opérations ; l'authentification, l'isolation, la CI et l'observabilité se multiplient.
+- **Pourquoi écartée :** option C de l'ADR-002. Ni la charge ni l'équipe ne le justifient ; un déploiement par région couvre déjà l'international.
 
-*   **Pros**: Higher throughput ceiling than Postgres polling.
-*   **Cons**: New infrastructure and failure mode for a volume Postgres absorbs; outbox lag stays near zero at current load.
-*   **Reason for Rejection**: ADR-003 keeps the broker behind the same `EventOutbox` port. Switch only on sustained lag over 1 min.
+### C. Un broker dès maintenant
 
-### Alternative D: Buy identity (Keycloak, Auth0)
+- **Pour :** plafond de débit plus haut que le polling PostgreSQL.
+- **Contre :** une infrastructure et un mode de panne de plus pour un volume que PostgreSQL absorbe ; le retard de l'outbox reste proche de zéro.
+- **Pourquoi écartée :** l'ADR-003 garde le broker derrière le même port `EventOutbox` ; on bascule sur un retard soutenu de plus d'une minute.
 
-*   **Pros**: MFA, SSO, and brute-force protection included.
-*   **Cons**: Changes login and signup flows described by E2E, adds hosting or per-user cost and data placement questions, does not fix S5 or S9 by itself.
-*   **Reason for Rejection**: ADR-001 keeps Auth.js with env secret, role re-read, 8h session, and table-backed throttling. Reopen only on SSO or MFA demand.
+### D. Acheter l'identité (Keycloak, Auth0)
 
-### Alternative E: Physical isolation per tenant
+- **Pour :** MFA, SSO et protection contre la force brute inclus.
+- **Contre :** change les parcours de connexion et d'inscription décrits par les E2E, ajoute un coût d'hébergement ou par utilisateur et des questions de localisation des données ; ne corrige pas S5 ni S9 à lui seul.
+- **Pourquoi écartée :** l'ADR-001 garde Auth.js avec le secret en variable d'environnement, le rôle relu en base, une session de 8 h et une limite de tentatives en table. À rouvrir sur une demande de SSO ou de MFA.
 
-*   **Pros**: Strongest isolation, one schema or one database per company.
-*   **Cons**: Heavy rework, N schemas or databases to migrate, back up, and monitor, per-client provisioning on signup, no gain over RLS plus manual WHERE at current scale.
-*   **Reason for Rejection**: ADR-001 options C and D out. Reopen only if a contract requires physical isolation or data placement per client.
+### E. Isolation physique par entreprise
 
-## Detailed Implementation Plan
+- **Pour :** isolation la plus forte, un schéma ou une base par entreprise.
+- **Contre :** refonte lourde, N schémas ou bases à migrer, sauvegarder et surveiller, création à chaque inscription ; aucun gain sur RLS et `WHERE` à l'échelle actuelle.
+- **Pourquoi écartée :** options C et D de l'ADR-001. À rouvrir si un contrat client impose l'isolation physique ou la localisation des données.
 
-Single list. No production code below, only file scope and rationale.
+## Plan de mise en œuvre
 
-### Target Files to Create/Modify
+Une seule liste, sans code de production : le périmètre de chaque fichier et sa raison.
 
-#### 1. `openapi.yaml` (Modify)
+1. **`openapi.yaml`** (à modifier, avec le code) : garder les 17 opérations alignées sur les handlers et sur `src/types/api.d.ts` et `src/generated/api-contract.json`. Pas de date de retrait du champ `error` ici : le retrait demande d'abord sa propre ADR, la liste des consommateurs et une annotation `Sunset`.
+2. **`src/http/problem.ts` et `src/http/contractResponses.ts`** (à garder) : construire `application/problem+json` avec `type`, `title`, `status`, `detail`, `code` et `requestId`, et émettre le texte historique de `error` jusqu'à son retrait. Aucune enveloppe d'erreur propre à une route.
+3. **`src/components/apiError.ts`** (reporté à la version du retrait) : traduire `code` et les codes de champ en français, avec un texte générique par défaut. Ne cesser de lire `error` qu'à la version du retrait, avec le texte attendu de MGR-05 mis à jour à ce moment-là, par ADR.
+4. **`src/ports/OcrPort.ts` et `src/composition/ocr.ts`** (reporté au second adaptateur) : ajouter l'adaptateur d'IA externe derrière le même port, choisi par variable d'environnement dans `src/composition/ocr.ts`, Tesseract par défaut. Retirer l'ancien adaptateur seulement après la bascule, dans la même livraison.
+5. **`src/ports/BillingPort.ts`** (reporté à la facturation) : interface à concevoir (méthodes, charge utile, abonnement du handler, erreurs), alimentée par `expense_note.decided` sur les notes approuvées. Ni route ni domaine à modifier à l'arrivée du premier adaptateur.
+6. **`migrations/<horodatage>_<nom>.sql`** (à créer par changement) : changement additif avec son `down`, jamais d'édition de la migration initiale. Pas d'index sur les événements `dead` dans cette livraison.
+7. **`docs/architecture/` et `docs/index.html`** (avec le code) : `npm run generate:architecture` dans la même PR que tout changement de couche, de route ou de composition, pour que `npm run check` reste vert.
 
-*   **Type / Scope**: API contract source of truth.
-*   **Proposed Changes**: Keep all 17 operations in sync with handlers plus generated `src/types/api.d.ts` and `src/generated/api-contract.json`. No removal date for the deprecated `error` member is set here; removal needs its own ADR entry, consumer list, and Sunset annotation first.
+## Vérifications
 
-#### 2. `src/http/problem.ts` + `src/http/contractResponses.ts` (Modify)
-
-*   **Type / Scope**: Shared HTTP error construction.
-*   **Proposed Changes**: Keep building `application/problem+json` with `type`, `title`, `status`, `detail`, `code`, and `requestId`. Keep emitting the deprecated `error` text until the removal date. No route-level error envelope stays.
-
-#### 3. `src/components/apiError.ts` (Deferred to removal release, not this delivery)
-
-*   **Type / Scope**: Frontend error translation.
-*   **Proposed Changes**: Read `code` and field codes for French text with generic fallback. Drop reading of the deprecated `error` member only in the removal release, with MGR-05 expected text updated there.
-
-#### 4. `src/ports/OcrPort.ts` + `src/composition/ocr.ts` (Deferred until second adapter ships)
-
-*   **Type / Scope**: Branch by Abstraction switch point.
-*   **Proposed Changes**: Add the external AI adapter behind the same port. Read the selector from environment in `src/composition/ocr.ts` with Tesseract as default. Remove the old adapter only after the switch, in the same delivery.
-
-#### 5. `src/ports/BillingPort.ts` (Deferred until billing ships)
-
-*   **Type / Scope**: New outbound port, no direct call from decision.
-*   **Proposed Changes**: Interface still to design (methods, payload, handler subscription, errors). When defined, feed it by `expense_note.decided` on approved only. No change to routes or domain when the first adapter lands.
-
-#### 6. `migrations/XXXX_new-change.sql` (Create per change)
-
-*   **Type / Scope**: Additive schema change with `down`.
-*   **Proposed Changes**: Never edit the initial migration. Each new migration pairs `up` and `down`. No `dead`-event index in this delivery; broker reconsideration on sustained lag over 1 min stays behind the same port per ADR-003.
-
-#### 7. `docs/architecture/` + `docs/index.html` (Modify with code)
-
-*   **Type / Scope**: Developer docs and Mermaid views.
-*   **Proposed Changes**: Regenerate via `npm run generate:architecture` in the same PR as any layer, route, or composition change, so `npm run check` stays green on derived docs.
-
-### Verification Plan
-
-*   **Compilation/Build**: `npm run build`.
-*   **Unit Tests**: `npm run test:unit` with Vitest files next to changed code.
-*   **Static Analysis & Linting**: `npm run check` covering lint, typecheck, architecture layers, LEGACY emptiness including EDGES, and generated docs freshness.
-*   **Test Coverage Requirement**: No new coverage gate; ADR-005 rejects blocking thresholds.
-*   **E2E/Integration**: Targeted `npx playwright test -g "<ID>"` for touched families, then full `make test-e2e`; `make verify` for CI parity. Contract drift via `bash scripts/check-api-breaking.sh origin/main` stays blocking.
-
---------------------------------------------------------------------------------
-
-*Drafted with EGM*
+- **Build :** `npm run build`.
+- **Tests unitaires :** `npm run test:unit`, Vitest à côté du code modifié.
+- **Analyse statique :** `npm run check` (lint, types, couches, listes legacy vides, `LEGACY_EDGES` compris, doc générée à jour).
+- **Couverture :** pas de seuil bloquant (ADR-005).
+- **E2E :** `npx playwright test -g "<ID>"` pour les familles touchées, puis `make test-e2e` ; `make verify` pour refaire la CI. La rupture de contrat (`make api-breaking`) reste bloquante.
