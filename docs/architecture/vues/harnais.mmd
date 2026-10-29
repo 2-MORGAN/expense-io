@@ -14,12 +14,12 @@ flowchart TB
   mainBranch[("main<br/>squash, historique linéaire")]
   coverage["Couverture à la demande<br/>test:coverage (Vitest v8)<br/>test:integration -- --coverage<br/>test:e2e:coverage (c8)"]
 
-  subgraph claude["Claude Code : .claude/settings.json"]
+  subgraph claude["Agents IA : mêmes scripts .claude/hooks/*.mjs<br/>Claude Code (.claude/settings.json), Codex (.codex/hooks.json),<br/>OpenCode (.opencode/plugins/garde-fous.ts, via agent-adapter.mjs)"]
     direction TB
-    guardHook["PreToolUse : guard-git.mjs<br/>refuse les contournements"]
-    frozenHook["PreToolUse : guard-frozen.mjs<br/>migrations et tests E2E de main figés"]
-    recipeHook["PreToolUse : guard-recipe.mjs<br/>sans recette, demande à l'humain<br/>avant d'écrire du code"]
-    stopHook["Stop : check-on-stop.mjs<br/>npm run check si le code a changé"]
+    guardHook["avant le shell : guard-git.mjs<br/>refuse les contournements"]
+    frozenHook["avant l'écriture : guard-frozen.mjs<br/>migrations et tests E2E de main figés"]
+    recipeHook["avant l'écriture : guard-recipe.mjs<br/>sans recette, demande à l'humain<br/>(OpenCode, Codex : refus unique)"]
+    stopHook["fin de tour : check-on-stop.mjs<br/>npm run check si le code a changé<br/>(Claude Code, Codex)"]
   end
 
   guide -.->|"guide"| change

@@ -127,7 +127,7 @@ export function splitFences(text: string): { prose: string; code: string } {
 
 const INLINE_CODE = /`([^`\n]+)`/g
 const LINK_TARGET = /\]\(([^)\s]+)\)/g
-const REPO_ROOTS = ['src/', 'scripts/', 'migrations/', 'e2e/', 'docs/', 'ops/', '.claude/', '.github/', '@/']
+const REPO_ROOTS = ['src/', 'scripts/', 'migrations/', 'e2e/', 'docs/', 'ops/', '.claude/', '.github/', '.agents/', '.codex/', '.opencode/', '@/']
 // Motif, glob ou exemple à compléter (`src/app/api/**/route.ts`, `<nom>.sql`) : pas un chemin à vérifier.
 const NOT_A_PATH = /[\s*<>{}$|?…]/
 

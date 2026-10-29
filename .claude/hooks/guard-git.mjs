@@ -171,7 +171,7 @@ export function refusal(command, currentBranch, shell = 'Bash') {
 const git = (args, cwd) =>
   execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
 
-function currentBranchIn(cwd) {
+export function currentBranchIn(cwd) {
   return () => {
     try {
       return git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
