@@ -59,3 +59,16 @@ test('[USAGE-02] Heatmap d’Umami : recorder.js seulement sur les pages de trav
   await expect(employee).toHaveURL(/\/login$/)
   await expect(recorder(employee)).toHaveCount(0)
 })
+
+test('[USAGE-03] Replays d’Umami : chaque page porte rr-mask, aucun texte enregistré quel que soit le réglage d’Umami', async ({
+  org,
+  page,
+  pageAs,
+}) => {
+  await page.goto('/login')
+  await expect(page.locator('body')).toHaveClass(/(^|\s)rr-mask(\s|$)/)
+
+  const employee = await pageAs(org.employee)
+  await employee.goto('/expenses')
+  await expect(employee.locator('body')).toHaveClass(/(^|\s)rr-mask(\s|$)/)
+})

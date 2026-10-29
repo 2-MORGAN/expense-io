@@ -46,7 +46,7 @@ flowchart TB
   cleanup -->|"reçus analysés"| s3
   smtp --> mailbox
   user -.->|"reçu par URL pré-signée"| s3
-  user -.->|"pages vues, 3 événements, si UMAMI_WEBSITE_ID est défini ;<br/>heatmap de 3 pages si UMAMI_HEATMAP=true"| umami
+  user -.->|"pages vues, 3 événements, si UMAMI_WEBSITE_ID est défini ;<br/>heatmap et replays sans texte de 3 pages si UMAMI_HEATMAP=true"| umami
   user ~~~ ops
   ops --> pg
   ops --> s3

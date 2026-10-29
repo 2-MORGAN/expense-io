@@ -180,7 +180,8 @@ Puis copier dans `.env` les deux lignes affichées (`UMAMI_SCRIPT_URL`,
 compte `admin` / `umami`. Sans ces variables, aucune page ne charge le script :
 c'est le cas par défaut, en CI et pendant les E2E. Sans cookie ni identifiant,
 et sans chaîne de requête dans les URL envoyées. En option, `UMAMI_HEATMAP=true`
-ajoute la heatmap (clics et défilement) de `/expenses`, `/manager` et `/hr`.
+ajoute la heatmap (clics et défilement) et les replays, tout texte masqué, de
+`/expenses`, `/manager` et `/hr`.
 Entonnoirs et objectifs sont créés par `npm run analytics:setup`. Questions,
 rapports et ajout d'un événement : [`docs/analytics.md`](docs/analytics.md).
 

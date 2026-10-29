@@ -2,8 +2,8 @@
 
 Décision : [ADR-008](adr/ADR-008-mesure-usage-umami.md). Le navigateur envoie à
 Umami les pages vues et trois événements, **seulement si `UMAMI_SCRIPT_URL` et
-`UMAMI_WEBSITE_ID` sont définis**, et en option la heatmap de trois pages
-(`UMAMI_HEATMAP=true`). Sans ces variables, aucune page ne charge le script, et
+`UMAMI_WEBSITE_ID` sont définis**, et en option la heatmap et les replays de
+trois pages (`UMAMI_HEATMAP=true`). Sans ces variables, aucune page ne charge le script, et
 l'application se comporte exactement comme avant. C'est le cas par défaut, en CI
 et pendant les E2E.
 
@@ -24,14 +24,14 @@ répond à une question de l'ADR-008.
 
    `npm run analytics:setup` crée dans Umami le site « Expense.io », ses
    entonnoirs et ses objectifs (« Lire les réponses ») s'ils n'existent pas, donne au site
-   le domaine d'`APP_URL` (port compris), active la heatmap et coupe les
-   replays, puis affiche les lignes à mettre dans `.env`.
+   le domaine d'`APP_URL` (port compris), active la heatmap et les replays
+   (texte et saisies masqués), puis affiche les lignes à mettre dans `.env`.
 2. Les copier dans `.env` :
 
    ```dotenv
    UMAMI_SCRIPT_URL=http://localhost:3002/script.js
    UMAMI_WEBSITE_ID=<identifiant affiché>
-   # en option, heatmap de /expenses, /manager et /hr :
+   # en option, heatmap et replays de /expenses, /manager et /hr :
    UMAMI_HEATMAP=true
    ```
 
@@ -45,7 +45,7 @@ qu'il crée à son premier démarrage. Il n'écoute que sur `localhost`.
 | Arrêter Umami, en gardant ses données | `make analytics-down` |
 | Tout effacer (visites, événements, site) | `docker compose -f docker-compose.analytics.yml down -v` |
 | Couper la mesure | commenter les deux variables dans `.env`, puis relancer `make dev` |
-| Couper la heatmap seule | retirer `UMAMI_HEATMAP=true` de `.env`, puis relancer `make dev` |
+| Couper heatmap et replays seuls | retirer `UMAMI_HEATMAP=true` de `.env`, puis relancer `make dev` |
 
 Port réglable dans l'environnement ou dans `.env` : `UMAMI_PORT` (3002), puis
 `npm run analytics:setup` pour les nouvelles valeurs.
@@ -59,6 +59,7 @@ Port réglable dans l'environnement ou dans `.env` : `UMAMI_PORT` (3002), puis
 | `expense-note-submitted`, propriété `ocr` | note créée (réponse réussie) ; `ocr` vaut `kept` (suggestion gardée), `edited` (corrigée) ou `none` (pas de suggestion) | la suggestion OCR est-elle gardée ? |
 | `invitation-sent` | invitation envoyée par la RH (réponse réussie) | les entreprises inscrites invitent-elles un salarié ? |
 | Heatmap, en option | avec `UMAMI_HEATMAP=true`, sur `/expenses`, `/manager` et `/hr` seulement : position de chaque clic, tailles de la page et de la fenêtre, défilement atteint | où cliquent les utilisateurs de ces pages, et jusqu'où font-ils défiler ? |
+| Replays, en option | mêmes pages, même variable : mise en page, souris, clics, défilement, champs saisis, tout texte masqué | où les utilisateurs hésitent-ils ou se trompent-ils sur ces pages ? |
 
 Umami ajoute de lui-même le navigateur, le système, le type d'appareil, la
 langue, la taille d'écran et un pays approximatif.
@@ -78,10 +79,6 @@ Dans Umami, site « Expense.io » :
 - **En un chiffre** : « Goals », objectifs « Note envoyée » et « Invitation
   envoyée » : part des visiteurs de la période qui envoient une note, une
   invitation.
-
-Entonnoirs et objectifs sont créés par `npm run analytics:setup`, qui les
-retrouve par leur nom. Umami reconnaît un visiteur à son navigateur et à son
-adresse IP : deux comptes ouverts dans le même navigateur comptent pour un.
 - **Téléphones** : vue d'ensemble filtrée sur la page `/expenses`, tableau
   des appareils.
 - **Clics et défilement** : « Heatmaps », choisir la page, puis « Clicks » ou
@@ -91,6 +88,12 @@ adresse IP : deux comptes ouverts dans le même navigateur comptent pour un.
   page de connexion qui s'affiche. Cette iframe compte elle-même une visite ;
   `localStorage.setItem('umami.disabled', '1')`, dans la console de
   l'application, exclut ce navigateur de la mesure.
+- **Gestes d'un visiteur** : « Replays », choisir une session : mise en page,
+  clics, défilement et saisies rejoués, tout texte remplacé par des `*`.
+
+Entonnoirs et objectifs sont créés par `npm run analytics:setup`, qui les
+retrouve par leur nom. Umami reconnaît un visiteur à son navigateur et à son
+adresse IP : deux comptes ouverts dans le même navigateur comptent pour un.
 
 ## Ce qui ne part pas
 
@@ -108,21 +111,25 @@ qu'il appelle avant chaque requête :
   est retirée. Donc ni email, ni identifiant d'entreprise ou d'utilisateur, ni
   montant, ni description.
 
-La heatmap passe par un second script d'Umami, `recorder.js`, qui ne connaît pas
-`beforeSend` et envoie l'URL complète de la page. D'où ses règles (ADR-008,
-amendement du 29/10) :
+La heatmap et les replays passent par un second script d'Umami, `recorder.js`,
+qui ne connaît pas `beforeSend` et envoie l'URL complète de la page. D'où ses
+règles (ADR-008, amendement du 29/10) :
 
 - **Pages de `HEATMAP_PATHS` seulement** (`/expenses`, `/manager`, `/hr`),
   dont l'adresse ne porte aucun jeton. Une fois chargé, le script reste actif
   jusqu'au prochain chargement : quitter ces pages par une navigation côté
   client recharge donc la page, ce qui l'arrête avant `/signup?invitation=…`
   (USAGE-02).
-- **Ni texte ni élément cliqué** : position du clic, tailles de la page et de
-  la fenêtre, défilement atteint. Umami ne garde que le chemin de la page.
-- **Replays coupés** : le même script enregistre les sessions si on l'active
-  dans Umami. Cet enregistrement capterait le texte des pages, montants et
-  noms compris : il reste proscrit, et `npm run analytics:setup` le coupe à
-  chaque passage.
+- **Heatmap : ni texte ni élément cliqué** : position du clic, tailles de la
+  page et de la fenêtre, défilement atteint. Umami ne garde que le chemin de
+  la page.
+- **Replays : aucun texte** : le `<body>` porte la classe `rr-mask`, que le
+  script respecte quel que soit le réglage d'Umami, et `npm run
+  analytics:setup` règle en plus le masquage sur « strict ». Noms, emails,
+  montants et descriptions deviennent des `*` (USAGE-03). Les champs saisis
+  sont toujours masqués, et les reçus s'ouvrent dans un autre onglet : aucune
+  URL pré-signée dans la page. Seuls les textes d'exemple des champs
+  (`placeholder`) restent lisibles.
 
 ## Ajouter une mesure
 
@@ -150,10 +157,9 @@ relève de l'[observabilité](observability.md), pas d'Umami.
 - `APP_URL` borne la mesure à l'hôte de l'application (`data-domains`) ;
   la heatmap aussi, car `recorder.js` n'envoie rien tant que le script
   principal n'a pas ouvert de session.
-- Heatmap : `UMAMI_HEATMAP=true`, puis dans Umami, réglages du site,
-  « Replays & Heatmaps » : activer « Heatmaps » seulement, avec un
-  échantillon de sessions (15 % par défaut, 100 % en local) ; laisser
-  « Replays » coupé. Le domaine du site doit être l'hôte de l'application,
+- Heatmap et replays : `UMAMI_HEATMAP=true`, puis dans Umami, réglages du
+  site, « Replays & Heatmaps » : les activer avec un échantillon de sessions
+  (15 % par défaut, 100 % en local) et le masquage « strict ». Le domaine du site doit être l'hôte de l'application,
   et Umami sur le même site qu'elle : les cookies de session
   (`SameSite=Lax`) ne suivent pas une iframe d'un autre site, et le fond
   serait la page de connexion.
@@ -173,6 +179,9 @@ relève de l'[observabilité](observability.md), pas d'Umami.
 - Heatmap activée : environ 190 Ko de script en plus sur les trois pages, et
   un rechargement de la page suivante quand on les quitte par un lien ou par
   la déconnexion.
+- Un replay montre des gestes, pas un contenu : texte masqué, il dit où l'on
+  clique ou hésite, pas sur quelle note. Umami coupe chaque enregistrement à
+  5 minutes.
 
 ## Dépannage
 
@@ -185,5 +194,6 @@ relève de l'[observabilité](observability.md), pas d'Umami.
 | Heatmap sur une page grise d'erreur | domaine du site sans le port de l'application (`localhost` seul vise le port 80) : `npm run analytics:setup` lui donne l'hôte d'`APP_URL` |
 | Heatmap sur la page de connexion | pas de session sur l'application dans ce navigateur, ou Umami sur un autre site qu'elle |
 | Heatmap vide | `UMAMI_HEATMAP=true` absent de `.env` ; heatmap coupée dans les réglages du site (`npm run analytics:setup` la rallume) ; page hors de `/expenses`, `/manager` et `/hr` |
+| Aucun replay | `UMAMI_HEATMAP=true` absent de `.env` ; replays coupés dans les réglages du site (`npm run analytics:setup` les rallume) ; page hors de `/expenses`, `/manager` et `/hr` |
 | Entonnoir vide | personne n'est encore passé par sa première étape sur la période choisie (une inscription pour « Inscription → invitation ») ; il ne compte que les étapes franchies dans l'ordre, dans le délai ; `npm run analytics:setup` le recrée s'il manque |
 | Port 3002 déjà pris | `UMAMI_PORT`, puis `npm run analytics:setup` |

@@ -431,7 +431,7 @@ npm run dev                   <span class="c"># next dev et le worker, ensemble 
             <tr><td><code>WORKER_POLL_INTERVAL_MS</code></td><td>intervalle d'interrogation de l'outbox (2000 par défaut)</td></tr>
             <tr><td><code>OUTBOX_STATS_INTERVAL_MS</code></td><td>intervalle de la ligne de métriques <code>outbox.stats</code> du worker (60000 par défaut)</td></tr>
             <tr><td><code>UMAMI_SCRIPT_URL</code>, <code>UMAMI_WEBSITE_ID</code></td><td>mesure d'usage optionnelle (ADR-008, <code>docs/analytics.md</code>) : sans elles, aucune page ne charge Umami ; <code>make analytics</code> les affiche</td></tr>
-            <tr><td><code>UMAMI_HEATMAP</code></td><td><code>true</code> : heatmap (clics et défilement) de <code>/expenses</code>, <code>/manager</code> et <code>/hr</code> seulement, en plus des deux variables d'Umami (ADR-008, amendement du 29/10)</td></tr>
+            <tr><td><code>UMAMI_HEATMAP</code></td><td><code>true</code> : heatmap (clics et défilement) et replays sans texte de <code>/expenses</code>, <code>/manager</code> et <code>/hr</code> seulement, en plus des deux variables d'Umami (ADR-008, amendement du 29/10)</td></tr>
           </tbody>
         </table>
       </div>
@@ -631,7 +631,7 @@ flowchart TB
   cleanup --&gt;|"reçus analysés"| s3
   smtp --&gt; mailbox
   user -.-&gt;|"reçu par URL pré-signée"| s3
-  user -.-&gt;|"pages vues, 3 événements, si UMAMI_WEBSITE_ID est défini ;&lt;br/&gt;heatmap de 3 pages si UMAMI_HEATMAP=true"| umami
+  user -.-&gt;|"pages vues, 3 événements, si UMAMI_WEBSITE_ID est défini ;&lt;br/&gt;heatmap et replays sans texte de 3 pages si UMAMI_HEATMAP=true"| umami
   user ~~~ ops
   ops --&gt; pg
   ops --&gt; s3
@@ -669,7 +669,7 @@ flowchart TB
             <tr><td><strong>S3</strong></td><td>reçus des notes et des analyses, sous <code>receipts/{companyId}/…</code></td><td>LocalStack 3.8.1, port 4567</td><td>tout stockage compatible S3</td><td><code>src/lib/storage.ts</code>, <code>src/adapters/S3ReceiptAdapter.ts</code></td></tr>
             <tr><td><strong>SMTP</strong></td><td>invitations, vérifications d'email, notifications</td><td>Mailpit : SMTP 1025, interface 8025, aucun email ne sort</td><td>fournisseur transactionnel (port 465, <code>SMTP_SECURE</code>)</td><td><code>src/lib/email.ts</code>, <code>src/adapters/SmtpEmailAdapter.ts</code></td></tr>
             <tr><td><strong>Scripts</strong></td><td>migrations, seed, bucket, réconciliation des reçus orphelins, nettoyage des notes sans reçu</td><td><code>npm run …</code> (dry-run par défaut pour les deux derniers)</td><td>réconciliation planifiée une fois par jour</td><td><code>scripts/</code></td></tr>
-            <tr><td><strong>Umami</strong>, en option</td><td>mesure d'usage : pages vues et trois événements envoyés par le navigateur, sans cookie ni identifiant, et en option la heatmap de trois pages (ADR-008)</td><td><code>make analytics</code>, port 3002, sa propre base ; actif si <code>UMAMI_WEBSITE_ID</code> est défini</td><td>instance auto-hébergée ou Umami Cloud</td><td><code>src/components/analytics.ts</code>, <code>docker-compose.analytics.yml</code></td></tr>
+            <tr><td><strong>Umami</strong>, en option</td><td>mesure d'usage : pages vues et trois événements envoyés par le navigateur, sans cookie ni identifiant, et en option la heatmap et les replays sans texte de trois pages (ADR-008)</td><td><code>make analytics</code>, port 3002, sa propre base ; actif si <code>UMAMI_WEBSITE_ID</code> est défini</td><td>instance auto-hébergée ou Umami Cloud</td><td><code>src/components/analytics.ts</code>, <code>docker-compose.analytics.yml</code></td></tr>
           </tbody>
         </table>
       </div>
@@ -1999,14 +1999,14 @@ flowchart TB
             <li>Quatre questions, chacune liée à une décision : suggestion OCR gardée ou corrigée, notes commencées sans envoi, entreprises qui vont jusqu'à inviter un salarié, dépôt des reçus depuis un téléphone.</li>
             <li>Umami auto-hébergé, chargé seulement si <code>UMAMI_SCRIPT_URL</code> et <code>UMAMI_WEBSITE_ID</code> sont définis, relues à chaque requête : rien ne change par défaut, en CI ni dans les E2E (USAGE-01).</li>
             <li>Tout envoi passe par <code>beforeSend</code> : sans cookie ni identification, URL sans chaîne de requête ni fragment (jetons d'invitation), seuls les événements et valeurs de <code>ANALYTICS_EVENTS</code>.</li>
-            <li>Amendement du 29/10, proposé : heatmap avec <code>UMAMI_HEATMAP=true</code>. Son script, <code>recorder.js</code>, envoie l'URL complète sans <code>beforeSend</code> : il n'est chargé que sur <code>/expenses</code>, <code>/manager</code> et <code>/hr</code>, les quitter recharge la page (USAGE-02), et les replays restent coupés.</li>
+            <li>Amendement du 29/10, proposé : heatmap avec <code>UMAMI_HEATMAP=true</code>. Son script, <code>recorder.js</code>, envoie l'URL complète sans <code>beforeSend</code> : il n'est chargé que sur <code>/expenses</code>, <code>/manager</code> et <code>/hr</code>, les quitter recharge la page (USAGE-02). Replays sans aucun texte : classe <code>rr-mask</code> sur le <code>&lt;body&gt;</code> (USAGE-03) et masquage strict.</li>
           </ul>
           <h4>Livré</h4>
-          <ul class="pills"><li>T1 à T5 avec l'ADR : pile locale (make analytics), script, trois événements, docs/analytics.md</li><li>Heatmap, entonnoirs et objectifs créés par npm run analytics:setup (amendement du 29/10)</li></ul>
+          <ul class="pills"><li>T1 à T5 avec l'ADR : pile locale (make analytics), script, trois événements, docs/analytics.md</li><li>Heatmap, replays sans texte, entonnoirs et objectifs créés par npm run analytics:setup (amendement du 29/10)</li></ul>
           <h4>Reste à faire</h4>
           <ul>
             <li>Faire accepter l'amendement du 29/10 par le PO.</li>
-            <li>Avant la production : hébergement, durée de conservation, information des utilisateurs, échantillon de la heatmap.</li>
+            <li>Avant la production : hébergement, durée de conservation, information des utilisateurs (replays compris), échantillon de la heatmap et des replays.</li>
           </ul>
         </article>
 

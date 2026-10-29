@@ -48,9 +48,16 @@ const goals = [
   { name: 'Invitation envoyée', parameters: { type: 'event', value: 'invitation-sent' } },
 ]
 
-// Heatmap de toutes les sessions en local ; replays toujours coupés (ADR-008,
-// amendement du 29/10). Le navigateur ne charge recorder.js qu'avec UMAMI_HEATMAP=true.
-const replayConfig = { heatmapEnabled: true, heatmapSampleRate: 1, replayEnabled: false }
+// Heatmap et replays de toutes les sessions en local (ADR-008, amendement du
+// 29/10). Replays en masquage strict : ni texte ni saisie, comme l'impose aussi
+// la classe rr-mask du layout. Le navigateur ne charge recorder.js qu'avec UMAMI_HEATMAP=true.
+const replayConfig = {
+  heatmapEnabled: true,
+  heatmapSampleRate: 1,
+  replayEnabled: true,
+  sampleRate: 1,
+  maskLevel: 'strict',
+}
 
 async function umami(path, { token, body } = {}) {
   const response = await fetch(new URL(path, umamiUrl), {
@@ -87,12 +94,12 @@ try {
   const names = (reports) => reports.map((report) => `« ${report.name} »`).join(', ')
   console.log(`Site « ${websiteName} » dans Umami : ${new URL('/websites/' + website.id, umamiUrl)}`)
   console.log(`Entonnoirs ${names(funnels)} ; objectifs ${names(goals)}.`)
-  console.log('Heatmap activée, replays coupés.')
+  console.log('Heatmap et replays activés, texte et saisies masqués.')
   console.log('')
   console.log('À mettre dans .env, puis relancer make dev (ou npm run dev) :')
   console.log(`UMAMI_SCRIPT_URL=${new URL('/script.js', umamiUrl)}`)
   console.log(`UMAMI_WEBSITE_ID=${website.id}`)
-  console.log('# En option, heatmap des pages /expenses, /manager et /hr :')
+  console.log('# En option, heatmap et replays des pages /expenses, /manager et /hr :')
   console.log('UMAMI_HEATMAP=true')
 } catch (error) {
   console.error(`Umami injoignable ou connexion refusée (${error.message}).`)
