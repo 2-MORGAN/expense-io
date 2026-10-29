@@ -10,6 +10,7 @@ flowchart TB
   adr6["ADR-006 · Stratégie de migration<br/>Strangler Fig, Branch by Abstraction"]
   adr7["ADR-007 · Observabilité<br/>OpenTelemetry, Grafana, optionnelle"]
   adr8["ADR-008 · Mesure d'usage<br/>Umami, optionnelle"]
+  adr9["ADR-009 · Couche d'intégration<br/>Vitest sur PostgreSQL, S3, SMTP ; composants"]
 
   adr2 -->|"module de permissions"| adr1
   adr2 -->|"ports, worker = adaptateur entrant"| adr3
@@ -21,6 +22,8 @@ flowchart TB
   adr7 -->|"mesure l'outbox et l'OCR"| adr3
   adr8 -->|"complète : l'usage, côté navigateur"| adr7
   adr8 -->|"applique §5 : rien de sensible ne sort"| adr5
+  adr9 -->|"amende §1 : intégration en Vitest"| adr5
+  adr9 -.->|"confronte le WHERE des listes à la règle du domaine"| adr1
   adr5 -.->|"vérifie : E2E, lint, contrat"| adr1 & adr2 & adr3 & adr4 & adr6
 
   classDef securite fill:#fee2e2,stroke:#dc2626,color:#111827
@@ -32,4 +35,4 @@ flowchart TB
   class adr2,adr6 archi
   class adr3 asynchrone
   class adr4 api
-  class adr5,adr7,adr8 qualite
+  class adr5,adr7,adr8,adr9 qualite

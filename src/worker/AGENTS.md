@@ -26,7 +26,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
    - `maxRetries` (et `backoffSeconds`) ; un échec définitif lève `NonRetryableError` (`src/ports/EventOutbox.ts`).
 4. **Droits** : le worker n'a que ceux des migrations (`GRANT … TO expense_worker`, policies) : les ajouter par une migration nouvelle.
 5. **Doc** : le type dans le tableau des événements de `docs/index.html` (vérifié par `npm run check`) et `docs/architecture/vues/outbox.mmd`.
-6. **Tests** : la logique dans un cas d'usage, en Vitest ; le parcours en E2E avec `e2e/support/outbox.ts` (IDs `OUTBOX-*`, `NOTIF-*`).
+6. **Tests** : la logique dans un cas d'usage, en Vitest ; le handler sous `expense_worker`, branché sur un type d'événement unique, en intégration (`src/worker/identityEmails.integration.test.ts`, `integration/AGENTS.md`) ; le parcours en E2E avec `e2e/support/outbox.ts` (IDs `OUTBOX-*`, `NOTIF-*`).
 
 ## Exemples à copier
 
@@ -42,4 +42,4 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 ## Vérifié par
 
 - `scripts/architecture/architecture.test.ts` : la matrice ci-dessus, chaque type d'événement cité dans la doc.
-- `src/worker/handlers.test.ts`, et les E2E `OUTBOX-*` et `NOTIF-*`.
+- `src/worker/handlers.test.ts`, les tests d'intégration des handlers (job `integration`), et les E2E `OUTBOX-*` et `NOTIF-*`.

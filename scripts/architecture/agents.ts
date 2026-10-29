@@ -44,6 +44,7 @@ export const AGENT_DIRS: readonly AgentDir[] = [
   { dir: 'src/worker', layers: ['src/worker'] },
   { dir: 'migrations', layers: [] },
   { dir: 'e2e', layers: [] },
+  { dir: 'integration', layers: [] },
   { dir: 'scripts', layers: [] },
   { dir: 'docs', layers: [] },
 ]

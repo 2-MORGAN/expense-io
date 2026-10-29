@@ -519,10 +519,10 @@ B8 (deux décisions simultanées pouvant toutes deux réussir) n'est plus dans c
 
 ### Non testables en E2E en l'état
 
-- Atomicité de la création note + upload S3 (panne S3 ou base en cours de route), idempotence des réessais (B9) : demande une injection de pannes.
+- Atomicité de la création note + upload S3 (panne S3 ou base en cours de route), idempotence des réessais (B9) : demande une injection de pannes. **Couverte en intégration** (ADR-009) : `src/modules/expenses/application/SubmitExpenseNote.integration.test.ts` vérifie la suppression du reçu quand l'écriture échoue et celle du reçu perdant de deux envois concurrents.
 - Charge et limites de l'OCR : gros fichiers, durée, concurrence (B10). La distinction entre panne de l'OCR et « rien trouvé » n'existe pas (les deux donnent `{}`, B11) ; seul le cas « type non pris en charge → `{}` » est figé.
-- Messages d'erreur de l'UI qui n'apparaissent qu'en cas de panne serveur : « Impossible de charger les notes de frais. », « Impossible de récupérer le reçu. », « Impossible d’analyser ce reçu. », « Échec de l'assignation. ».
-- Droits des rôles restreints **pour le code du worker importé dans les specs** (`outbox-worker`, `ocr-outbox`, `notifications`) : ces specs l'exécutent sous la connexion d'administration, elles vérifient la mécanique de l'outbox. Les droits de `expense_worker` sont vérifiés par ISO-10 et par le worker lancé avec l'application (ISO-11, emails des parcours NOTIF et OCR).
+- Messages d'erreur de l'UI qui n'apparaissent qu'en cas de panne serveur : depuis 2-485, l'écran traduit le code du problème (« Une erreur est survenue. Réessaie plus tard. », « Impossible d’analyser ce reçu. »…). **Couverts par les tests de composants** (ADR-009) : `src/components/*.test.tsx` et `src/app/expenses/page.test.tsx`, réseau simulé.
+- Droits des rôles restreints **pour le code du worker importé dans les specs** (`outbox-worker`, `ocr-outbox`, `notifications`) : ces specs l'exécutent sous la connexion d'administration, elles vérifient la mécanique de l'outbox. Les droits de `expense_worker` sont vérifiés par ISO-10 et par le worker lancé avec l'application (ISO-11, emails des parcours NOTIF et OCR). **Couverts aussi en intégration** (ADR-009) : les handlers d'emails, de notification et d'analyse OCR y tournent sous `expense_worker` (`src/worker/*.integration.test.ts`, `src/modules/receipt-analysis/adapters/PostgresReceiptAnalysisWork.integration.test.ts`).
 
 ### Hors périmètre de cette suite
 

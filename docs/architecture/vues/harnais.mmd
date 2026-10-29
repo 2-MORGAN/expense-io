@@ -8,10 +8,11 @@ flowchart TB
   push["git push<br/>pre-push : npm run check"]
   pr["Pull request vers main<br/>modèle rempli, relue par un pair"]
   ci{"CI GitHub Actions"}
-  checkJob["check<br/>lint, SonarJS, types, Vitest,<br/>contrat, graphes, doc, consignes,<br/>oasdiff (sans rupture),<br/>migrations et E2E de main inchangés, build"]
+  checkJob["check<br/>lint, SonarJS, types,<br/>Vitest unitaires et composants,<br/>contrat, graphes, doc, consignes,<br/>oasdiff (sans rupture),<br/>migrations et E2E de main inchangés, build"]
+  integrationJob["integration<br/>Vitest *.integration.test.ts<br/>Postgres sous la RLS, LocalStack, Mailpit"]
   e2eJob["e2e<br/>Playwright en 2 shards<br/>Postgres, LocalStack, Mailpit"]
   mainBranch[("main<br/>squash, historique linéaire")]
-  coverage["Couverture à la demande<br/>test:coverage (Vitest v8)<br/>test:e2e:coverage (c8)"]
+  coverage["Couverture à la demande<br/>test:coverage (Vitest v8)<br/>test:integration -- --coverage<br/>test:e2e:coverage (c8)"]
 
   subgraph claude["Agents IA : mêmes scripts .claude/hooks/*.mjs<br/>Claude Code (.claude/settings.json), Codex (.codex/hooks.json),<br/>OpenCode (.opencode/plugins/garde-fous.ts, via agent-adapter.mjs)"]
     direction TB
@@ -24,7 +25,8 @@ flowchart TB
   guide -.->|"guide"| change
   change --> commit --> push --> pr --> ci
   change -.->|"où sont les trous ?"| coverage
-  ci --> checkJob & e2eJob
+  ci --> checkJob & integrationJob & e2eJob
+  integrationJob -->|"attendu par e2e"| e2eJob
   checkJob & e2eJob -->|"obligatoires"| mainBranch
   guardHook -.-> commit
   frozenHook -.-> change
@@ -35,5 +37,5 @@ flowchart TB
   classDef ciJob fill:#dcfce7,stroke:#16a34a,color:#111827
   classDef hook fill:#ede9fe,stroke:#7c3aed,color:#111827
   class guide,commit,push,pr,coverage local
-  class checkJob,e2eJob ciJob
+  class checkJob,integrationJob,e2eJob ciJob
   class guardHook,frozenHook,stopHook hook
