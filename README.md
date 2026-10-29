@@ -164,6 +164,8 @@ collecteur pour les lignes ci-dessus (`ocr.request`, `outbox.stats`), et les
 alertes arrivent dans Mailpit. Sans cette variable, rien n'est envoyé : c'est le
 cas par défaut, en CI et pendant les E2E. Mesures, alertes et ajout d'une
 métrique : [`docs/observability.md`](docs/observability.md).
+`npm run load:peaks -- --execute` y fait passer des pics d'utilisateurs
+simulés, pour voir la latence, la file de l'outbox et l'OCR réagir.
 
 ### Mesure d'usage : Umami
 
@@ -252,6 +254,7 @@ make down      # arrête les conteneurs, garde les données
 make clean     # arrête les conteneurs et supprime les données locales
 make observability       # Grafana : traces, métriques et journaux (http://localhost:3001)
 make observability-down  # arrête Grafana, garde ses données
+npm run load:peaks -- --execute  # pics de charge simulés, à suivre dans Grafana
 make analytics           # Umami : mesure d'usage (http://localhost:3002), affiche les variables de .env
 make analytics-down      # arrête Umami, garde ses données
 npm run analytics:demo -- --execute  # parcours de démonstration qui remplissent les rapports d'Umami
