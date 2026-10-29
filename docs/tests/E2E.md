@@ -77,7 +77,9 @@ e2e/
 
 ## Scénarios couverts
 
-**196 tests** (155 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 30 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`.
+**196 tests** (184 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 30 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`. `npm run check` vérifie que chaque ID a sa ligne ci-dessous, et chaque ligne son test (`scripts/architecture/e2eRegistry.ts`).
+
+La colonne « Niveau » dit ce que le test exerce : **UI** (navigateur), **API** (HTTP réel sur la pile complète), **Base** (SQL et policies sous un rôle de connexion), **Intégration** (code serveur ou script lancé par la spec, contre la vraie base, S3 ou SMTP, sans passer par le HTTP).
 
 ### Inscription — `e2e/signup.spec.ts`
 
@@ -91,7 +93,7 @@ e2e/
 | SIGNUP-06 | Mot de passe < 8 caractères : bloqué par le navigateur (`minlength`), et refusé par le serveur si on contourne | UI |
 | SIGNUP-07 | Le compte créé (email confirmé) permet de se reconnecter via `/login` | UI |
 
-### Invitations et vérification d'email — `e2e/invitations.spec.ts`
+### Invitations et vérification d'email — `e2e/invitations.spec.ts`, `e2e/unverified-accounts.spec.ts`
 
 S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les liens sont lus dans Mailpit (`e2e/support/identity.ts`) ; le worker lancé par `npm run dev` envoie les emails.
 
@@ -123,9 +125,9 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | AUTH-06 | Accueil : liens « Se connecter » / « Créer un compte » si anonyme, redirection `/expenses` si connecté | UI |
 | AUTH-07 | Navigation selon le rôle : liens « Manager » / « RH » et pages réservées (« Accès réservé aux managers / aux RH ») | UI |
 | AUTH-08 | Les liens « Manager » et « RH » mènent aux espaces correspondants (lien actif) | UI |
-| AUTH-09 | `npm run seed` est rejouable ; les trois comptes de démo se connectent avec le bon rôle et l'employé est rattaché au manager | API |
+| AUTH-09 | `npm run seed` est rejouable ; les trois comptes de démo se connectent avec le bon rôle et l'employé est rattaché au manager | Intégration (script) + API |
 
-### Soumission d'une note de frais avec reçu — `e2e/expense-notes.spec.ts`
+### Soumission d'une note de frais avec reçu — `e2e/expense-notes.spec.ts`, `e2e/submission.spec.ts`, `e2e/idempotency.spec.ts`, `e2e/receipt-cleanup.spec.ts`, `e2e/orphan-receipts.spec.ts`
 
 | ID | Scénario | Niveau |
 |---|---|---|
@@ -150,14 +152,14 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | IDEM-04 | Clé qui n'est pas un UUID : 400 `INVALID_IDEMPOTENCY_KEY` | API |
 | IDEM-05 | La clé est propre à l'utilisateur : un collègue avec la même clé crée sa propre note | API |
 | IDEM-06 | Sans en-tête : deux envois identiques créent deux notes (comportement inchangé) | API |
-| CLEAN-01 | La base refuse une note sans reçu (`receipt_key = ''`), à l'insertion comme à la mise à jour (2-476 étape 3) | API |
-| CLEAN-02 | `clean-notes-without-receipt` sans `--execute` : rapport seul, rien de modifié | API |
-| CLEAN-03 | `--execute --out` : CSV de toutes les notes sans reçu, suppression des seules notes `pending`, notes décidées conservées, autre entreprise intacte | API |
-| CLEAN-04 | `--execute` sans `--out` : refusé, rien supprimé | API |
-| REC-01 | `reconcile-orphan-receipts` sans `--execute` : liste l'orphelin, ne supprime rien (2-476 bonus) | API |
-| REC-02 | `--execute` : supprime l'orphelin, garde le reçu d'une note | API |
-| REC-03 | Délai de 24 h : un objet récent n'est jamais supprimé, même avec `--execute` | API |
-| REC-04 | Un objet sous le préfixe d'une autre entreprise n'est pas touché (`--company`) | API |
+| CLEAN-01 | La base refuse une note sans reçu (`receipt_key = ''`), à l'insertion comme à la mise à jour (2-476 étape 3) | Base |
+| CLEAN-02 | `clean-notes-without-receipt` sans `--execute` : rapport seul, rien de modifié | Intégration (script) |
+| CLEAN-03 | `--execute --out` : CSV de toutes les notes sans reçu, suppression des seules notes `pending`, notes décidées conservées, autre entreprise intacte | Intégration (script) |
+| CLEAN-04 | `--execute` sans `--out` : refusé, rien supprimé | Intégration (script) |
+| REC-01 | `reconcile-orphan-receipts` sans `--execute` : liste l'orphelin, ne supprime rien (2-476 bonus) | Intégration (script) |
+| REC-02 | `--execute` : supprime l'orphelin, garde le reçu d'une note | Intégration (script) |
+| REC-03 | Délai de 24 h : un objet récent n'est jamais supprimé, même avec `--execute` | Intégration (script) |
+| REC-04 | Un objet sous le préfixe d'une autre entreprise n'est pas touché (`--company`) | Intégration (script) |
 
 ### Pré-remplissage depuis le reçu (OCR) — `e2e/ocr-suggestion.spec.ts`
 
@@ -173,6 +175,26 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 | OCR-08 | Sans reçu sélectionné → « Sélectionne d’abord un reçu. » | UI |
 | OCR-22 | Ticket lisible → `description: "Restaurant le Test"` (nom du commerçant) | API |
 | OCR-23 | « Pré-remplir » remplit une description vide, mais ne remplace pas une description déjà saisie | UI |
+
+### Analyse asynchrone des reçus (OCR) — `e2e/ocr-analysis.spec.ts`, `e2e/ocr-outbox.spec.ts`
+
+Socle asynchrone commun de l'outbox (2-484, ADR-003 amendement du 23/10) et bornes de l'OCR (`docs/ocr.md`). Les specs d'`ocr-outbox` font tourner le code du worker dans le processus du test, avec un type d'événement unique.
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| OCR-09 | Reçu de plus de 10 Mio refusé par les deux routes OCR (suggestion et analyse asynchrone) : 400 `RECEIPT_TOO_LARGE`, « Fichier trop volumineux » | API |
+| OCR-10 | Image très compressée de plus de 40 mégapixels (8000 × 6000) : 400 `IMAGE_TOO_LARGE` | API |
+| OCR-11 | `POST /api/receipt-analyses` → 202 avec `Location` ; l'interrogation de `GET /api/receipt-analyses/:id` rend `succeeded` et le résultat (42,50 €, 11/10/2026) | API |
+| OCR-12 | Un autre utilisateur, même de la même entreprise (son manager), ou d'une autre entreprise : 404 `RESOURCE_NOT_FOUND`, comme un id inconnu | API |
+| OCR-13 | Deux envois simultanés de même `Idempotency-Key` : une seule analyse ; même clé, autre reçu : 422 | API |
+| OCR-14 | Lancement en échec (réseau coupé) : « Impossible d’analyser ce reçu. », le bouton redevient actif | UI |
+| OCR-15 | Interrogation en échec (503) : même message, le bouton redevient actif | UI |
+| OCR-16 | Les deux routes asynchrones exigent une session : 401 | API |
+| OCR-17 | Bail de l'outbox expiré : un autre consommateur reprend l'événement, l'ancien n'écrit plus rien (`PostgresReceiptAnalysisWork`) | Intégration |
+| OCR-18 | Trois échecs du moteur : analyse `failed` durable, événement `dead`, l'API rend l'erreur `OCR_UNAVAILABLE` (503) | Intégration + API |
+| OCR-19 | Les créneaux d'exécution en base n'admettent que deux consommateurs à la fois (`withOcrExecution`) | Intégration |
+| OCR-20 | Analyse terminée : le reçu temporaire est supprimé de S3, le résultat reste lisible | API + Base |
+| OCR-21 | Clé de rejeu expirée (forcée en base) : une nouvelle analyse visible peut être lancée avant la purge physique | API + Base |
 
 ### Consultation des reçus — `e2e/receipts.spec.ts`
 
@@ -198,6 +220,17 @@ S7 (ADR-001 §3, 2-496) : le domaine de l'email ne donne plus aucun droit. Les l
 ERR-01 crée temporairement un trigger limité à sa note et le supprime en `finally`. Il n’utilise ni date invalide comme déclencheur de 500, ni endpoint de test en production (ADR-001/004). La base des fixtures doit autoriser ce DDL. Les tests unitaires vérifient la même corrélation dans les logs et la capture des rejets tardifs, des erreurs synchrones et des erreurs de sérialisation.
 
 **Évolution autorisée de MGR-05** : « Already decided » → « Cette note a déjà été tranchée. » (ADR-004 §9). L’assertion et le titre de ce seul scénario existant changent dans un commit de tests séparé ; les tests API continuent à attendre `error: "Already decided"`.
+
+### Contrat et validation stricte — `e2e/api-contract.spec.ts`
+
+ADR-004 §6 et 2-486 : les rejets structurels précèdent toute écriture (section « Contrat API (2-486) » plus bas).
+
+| ID | Scénario | Niveau |
+|---|---|---|
+| API-01 | Montants et dates stricts (`12abc`, `0.001`, `1e2`, `100000000`, dates impossibles) → 400 `VALIDATION_ERROR`, aucune note créée ; 99 999 999,99 accepté | API |
+| API-02 | `PUT …/manager` : corps vide, `null`, tableau, JSON invalide ou `managerId` invalide → 400 sans détachement ; `managerId: null` explicite détache | API + Base |
+| API-03 | Neuf routes avec un id de chemin qui n'est pas un UUID → 400 `INVALID_UUID` ; sans session (401) et rôle refusé (403) restent prioritaires | API |
+| API-04 | Reçu vide, PNG renommé en JPEG, image tronquée, faux PDF → 400 sans création ; vrai PDF → suggestion OCR vide (`{}`) | API |
 
 ### Validation ou rejet par le manager — `e2e/manager-approval.spec.ts`
 
@@ -388,46 +421,57 @@ Les lignes à égalité sont insérées dans un ordre ni croissant ni décroissa
 
 ## Résultat de la dernière exécution
 
-**89 / 89 tests verts (100 %)** sur un poste Windows de l'équipe, 0 échec, 0 flaky, sans nouvel essai.
+**196 / 196 tests verts (100 %)** en CI sur `main`, 0 échec, aucun test instable (aucun vert au seul second essai).
 
 | | |
 |---|---|
-| Date | 22 octobre 2026 |
-| Code testé | `main` @ `e7239b6` |
-| Commande | équivalent de `make test-e2e` sans `make` (voir [Lancer les tests](#lancer-les-tests)) : `docker compose up -d --wait`, `npm run migrate:up`, `npm run ensure-bucket`, puis `npm run test:e2e`, qui démarre lui-même `next dev` |
-| Durée | 2,6 min avec 4 workers, démarrage à froid de `next dev` et préchauffage des routes compris |
-| Environnement | Windows 11, Node 24.16.0, Docker Desktop 29.1.2, PostgreSQL 16.15, LocalStack 3.8.1 (S3), Playwright 1.63.0, Chromium 153 (fourni par Playwright) |
+| Date | 29 octobre 2026 (run GitHub Actions 40882241361) |
+| Code testé | `main` @ `875d7d8` |
+| Commande | job `e2e` de `.github/workflows/ci.yml` : sur chaque shard, `make up migrate ensure-bucket`, puis `npm run test:e2e -- --shard=N/2`, qui démarre lui-même `next dev` |
+| Durée | 1,5 min par shard (98 tests chacun), 2 workers chacun ; environ 3 min 10 s pour toute la CI |
+| Environnement | `ubuntu-latest`, Google Chrome du runner, PostgreSQL 16, LocalStack 3.8.1, Mailpit 1.31.6 (`docker-compose.yml`) |
 
 | Fichier | Tests | Résultat |
 |---|---:|---|
 | `access-control.spec.ts` | 7 | ✅ 7/7 |
+| `analytics.spec.ts` | 3 | ✅ 3/3 |
+| `api-contract.spec.ts` | 4 | ✅ 4/4 |
+| `api-errors.spec.ts` | 3 | ✅ 3/3 |
 | `auth.spec.ts` | 9 | ✅ 9/9 |
-| `expense-notes.spec.ts` | 22 | ✅ 22/22 |
+| `db-roles.spec.ts` | 5 | ✅ 5/5 |
+| `email.spec.ts` | 1 | ✅ 1/1 |
+| `expense-notes.spec.ts` | 23 | ✅ 23/23 |
 | `hr-approval.spec.ts` | 8 | ✅ 8/8 |
-| `hr-org-chart.spec.ts` | 8 | ✅ 8/8 |
+| `hr-org-chart.spec.ts` | 10 | ✅ 10/10 |
+| `idempotency.spec.ts` | 6 | ✅ 6/6 |
+| `invitations.spec.ts` | 9 | ✅ 9/9 |
+| `list-order.spec.ts` | 2 | ✅ 2/2 |
+| `login-throttle.spec.ts` | 4 | ✅ 4/4 |
 | `manager-approval.spec.ts` | 10 | ✅ 10/10 |
-| `ocr-suggestion.spec.ts` | 8 | ✅ 8/8 |
+| `notifications.spec.ts` | 11 | ✅ 11/11 |
+| `observability.spec.ts` | 1 | ✅ 1/1 |
+| `ocr-analysis.spec.ts` | 10 | ✅ 10/10 |
+| `ocr-outbox.spec.ts` | 3 | ✅ 3/3 |
+| `ocr-suggestion.spec.ts` | 10 | ✅ 10/10 |
+| `orphan-receipts.spec.ts` | 4 | ✅ 4/4 |
+| `outbox-worker.spec.ts` | 10 | ✅ 10/10 |
 | `parcours-complet.spec.ts` | 1 | ✅ 1/1 |
-| `receipts.spec.ts` | 9 | ✅ 9/9 |
+| `receipt-cleanup.spec.ts` | 4 | ✅ 4/4 |
+| `receipts.spec.ts` | 10 | ✅ 10/10 |
+| `rls-isolation.spec.ts` | 11 | ✅ 11/11 |
+| `session-roles.spec.ts` | 4 | ✅ 4/4 |
 | `signup.spec.ts` | 7 | ✅ 7/7 |
-| **Total** | **89** | **✅ 89/89** |
-
-```
-Running 89 tests using 4 workers
-  ok  1 [chromium] › e2e\access-control.spec.ts:117:7 › Contrôle d’accès par rôle › [ACL-01] …
-  …
-  ok 89 [chromium] › e2e\signup.spec.ts:148:7 › Inscription › [SIGNUP-07] …
-
-  89 passed (2.6m)
-```
-
-Un PostgreSQL 17 natif occupait déjà le port 5433 de ce poste : le Postgres de Docker a été exposé sur 5434 le temps de l'exécution, avec `DATABASE_URL` surchargée dans l'environnement (`.env` inchangé).
+| `submission.spec.ts` | 2 | ✅ 2/2 |
+| `unverified-accounts.spec.ts` | 4 | ✅ 4/4 |
+| **Total** | **196** | **✅ 196/196** |
 
 ### Toutes les exécutions
 
 | Où | Date | Code | Résultat |
 |---|---|---|---|
-| Windows 11, poste de Stanislas | 22/10/2026 | `main` @ `e7239b6` | ✅ 89/89 en 2,6 min, 4 workers |
+| CI GitHub Actions, `ubuntu-latest`, 2 shards | 29/10/2026 | `main` @ `875d7d8` | ✅ 196/196 en 1,5 min par shard, 2 workers |
+| CI GitHub Actions, `ubuntu-latest`, 2 shards | 28/10/2026 | `main` @ `61e5a4e` | ✅ 194/194 en 1,8 et 2,0 min par shard, 2 workers |
+| Windows 11, poste de Stanislas | 22/10/2026 | `main` @ `e7239b6` | ✅ 89/89 en 2,6 min, 4 workers (PostgreSQL de Docker sur 5434 : le 5433 était pris par un PostgreSQL natif) |
 | macOS, poste de Florent, `make test-e2e` | 20/10/2026 | `main` | ✅ vert |
 | CI GitHub Actions, `ubuntu-latest`, `make test-e2e` | à chaque PR et push sur `main`, ici le 22/10/2026 | `main` @ `e7239b6` | ✅ 89/89 en 1,1 min, 2 workers (job `e2e` : 3 min 34 s) |
 | Linux isolé, sans Docker (campagne initiale) | 11/10/2026 | `main` @ `4fad1d3` | ✅ 89/89 en 2,4 min, 1 worker |
@@ -495,6 +539,7 @@ B8 (deux décisions simultanées pouvant toutes deux réussir) n'est plus dans c
   - codes 401 (sans session) / 403 (rôle refusé), corrigés depuis Q1.1 → `e2e/access-control.spec.ts` ;
   - schéma `companies` / `users` → `e2e/support/db.ts` (à garder aligné avec `scripts/seed.mjs`).
 - Les données de test (domaines `*.e2e.test`) sont purgées au début de chaque exécution ; celles de la dernière exécution restent en base pour l'analyse d'un échec.
+- Un test ajouté a sa ligne dans le tableau de son domaine (ID, scénario, niveau), et le total plus haut suit : `npm run check` échoue sinon.
 
 ## Dépendance ajoutée
 
@@ -504,9 +549,6 @@ B8 (deux décisions simultanées pouvant toutes deux réussir) n'est plus dans c
 
 `openapi.yaml` couvre les 16 opérations métier actuelles. Les contextes API des fixtures vérifient leurs réponses (statut, contenu, schéma et en-têtes) contre ce contrat, en conservant toutes les assertions métier existantes. Auth.js, S3 et Mailpit sont exclus de cette validation. Voir `docs/api/README.md`.
 
-- API-01 : montants stricts, plafond, calendrier et absence de création sur rejet.
-- API-02 : JSON/managerId invalides sans détachement ; `null` explicite conservé.
-- API-03 : neuf UUID de chemin invalides → 400, session/rôle prioritaires.
-- API-04 : reçus vides, PNG falsifié/tronqué et PDF corrompu refusés ; PDF réel → OCR vide.
+Scénarios : API-01 à API-04, section « Contrat et validation stricte » plus haut.
 
 NDF-07 et RECU-03 utilisent des octets JPEG/WebP/PDF réels depuis le commit de fixtures de 2-486. Le helper PDF possède une table xref et des offsets exacts.

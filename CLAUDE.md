@@ -144,7 +144,7 @@ Les consignes se mettent à jour avec le code, dans la même PR. `npm run check`
 | solde ou crée une dette | « Dette connue » et la fiche de l'ADR concernée |
 
 - Une vue se modifie dans son `.mmd`, jamais entre ses marqueurs dans la page : la recopie l'écraserait. Le texte de la page se modifie directement. Nouvelle vue : créer `docs/architecture/vues/<nom>.mmd`, placer ses marqueurs dans une figure de la page, puis `npm run generate:architecture`.
-- `npm run check` échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou un marqueur plus de schéma, si une ADR de `docs/adr/` n'a pas sa fiche, si `vues/schema.mmd` n'a pas exactement les tables des migrations, si un type d'événement de l'outbox n'est pas cité, ou si un script externe est chargé sans empreinte SRI (`integrity`, `crossorigin`). Le reste du texte ne se vérifie pas : le tableau ci-dessus fait foi.
+- `npm run check` échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou un marqueur plus de schéma, si une ADR de `docs/adr/` n'a pas sa fiche, si `vues/schema.mmd` n'a pas exactement les tables des migrations, si un type d'événement de l'outbox n'est pas cité, si un script externe est chargé sans empreinte SRI (`integrity`, `crossorigin`), ou si un ID de test E2E n'a pas sa ligne dans `docs/tests/E2E.md` (ou une ligne, plus de test). Le reste du texte ne se vérifie pas : le tableau ci-dessus fait foi.
 - Rien dans le tableau ne change (correctif local, test, refacto sans effet visible) : le dire dans la rubrique « Documentation » de la PR. Ce qui n'est plus vrai se corrige ou se retire : une doc fausse est pire qu'une doc absente.
 
 ## Conventions
