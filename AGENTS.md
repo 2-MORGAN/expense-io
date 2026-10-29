@@ -66,6 +66,7 @@ Décidé par l'ADR-005. Ce qui vérifie le code, et quand :
 | PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build ; sur les PR, contrat sans rupture et migrations et tests E2E existants inchangés) et `e2e` (`make test-e2e`), obligatoires pour fusionner, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte | ≈ 1 min et 3 min 30 |
 | Claude Code : avant une commande shell | hook `PreToolUse` (`.claude/hooks/guard-git.mjs`) : refuse `--no-verify`, `git commit -n`, `HUSKY=0`, la modification de `core.hooksPath`, le push sur `main`, le force-push, `gh pr create` sans `--repo` explicite ou vers le dépôt du cours, et `eslint --suppress-all` ou `--suppress-rule` | instantané |
 | Claude Code : avant une écriture de fichier | hook `PreToolUse` (`.claude/hooks/guard-frozen.mjs`) : refuse d'écrire dans une migration déjà dans `main`, ou de modifier, désactiver ou retirer un test E2E qui y est déjà ; ajouter une migration ou un test reste libre | ≈ 2 s sur un `.spec.ts`, instantané ailleurs |
+| Claude Code : avant d'écrire du code sans la recette | hook `PreToolUse` (`.claude/hooks/guard-recipe.mjs`) : à la première écriture dans `src/`, `migrations/`, `e2e/` ou `openapi.yaml` d'une session où `/nouvelle-fonctionnalite` n'a pas été lancée, demande à l'humain s'il faut la suivre (une fois par session) | instantané |
 | Claude Code : fin de tour | hook `Stop` (`.claude/hooks/check-on-stop.mjs`) : `npm run check` si le code a changé depuis le dernier check vert ; rouge, le tour continue une fois avec l'erreur, puis l'utilisateur est averti | ≈ 35 s |
 
 Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils donnent un retour rapide ; la garantie, c'est la CI. Les hooks Claude Code sont déclarés dans `.claude/settings.json`, versionné : ne pas les désactiver pour avancer, un refus signale un contournement du harnais.
@@ -131,7 +132,7 @@ Comme ce fichier, chaque dossier où l'on écrit du code a son `AGENTS.md` : ce 
 
 Dossiers : [`src/domain`](src/domain/AGENTS.md), [`src/application`](src/application/AGENTS.md), [`src/ports`](src/ports/AGENTS.md), [`src/adapters`](src/adapters/AGENTS.md), [`src/composition`](src/composition/AGENTS.md), [`src/http`](src/http/AGENTS.md), [`src/app/api`](src/app/api/AGENTS.md), [`src/app`](src/app/AGENTS.md), [`src/components`](src/components/AGENTS.md), [`src/lib`](src/lib/AGENTS.md), [`src/worker`](src/worker/AGENTS.md), [`migrations`](migrations/AGENTS.md), [`e2e`](e2e/AGENTS.md), [`scripts`](scripts/AGENTS.md), [`docs`](docs/AGENTS.md).
 
-**Pour une fonctionnalité nouvelle ou qui évolue, suivre la recette** [`.claude/skills/nouvelle-fonctionnalite/SKILL.md`](.claude/skills/nouvelle-fonctionnalite/SKILL.md) (skill `/nouvelle-fonctionnalite` de Claude Code) : cadrer et faire valider un plan, puis contrat, domaine, migration, port et adaptateur, cas d'usage, entrée, E2E, doc, vérifications et PR, jusqu'à sa « Définition de terminé ».
+**Pour une fonctionnalité nouvelle ou qui évolue, suivre la recette** [`.claude/skills/nouvelle-fonctionnalite/SKILL.md`](.claude/skills/nouvelle-fonctionnalite/SKILL.md) (skill `/nouvelle-fonctionnalite` de Claude Code) : cadrer et faire valider un plan, puis contrat, domaine, migration, port et adaptateur, cas d'usage, entrée, E2E, doc, vérifications et PR, jusqu'à sa « Définition de terminé ». Une demande de fonctionnalité passe par la recette, même formulée simplement : si l'humain ne l'a pas lancée, lui demander s'il faut la suivre avant d'écrire du code. Sous Claude Code, le hook `guard-recipe.mjs` pose la question si on l'oublie ; pour les autres agents, cette consigne seule.
 
 Les consignes se mettent à jour avec le code, dans la même PR. `npm run check` (`scripts/architecture/architecture.test.ts`) échoue si un dossier listé dans `scripts/architecture/agents.ts` perd son `AGENTS.md` ou son `CLAUDE.md`, si un `CLAUDE.md`, racine comprise, fait autre chose qu'importer `AGENTS.md`, si une couche de `scripts/architecture/layers.ts` n'a ni consignes ni exclusion motivée, si le bloc « Peut importer » a dérivé de la matrice (`npm run generate:architecture` le recopie), ou si une consigne (ce fichier compris) cite un chemin, un script npm ou une cible `make` qui n'existe pas. Le reste du texte se relit.
 
@@ -186,10 +187,10 @@ Ne pas « corriger au passage » un de ces points dans une PR sans rapport : ouv
 
 ## Façon de travailler (pour l'IA)
 
-1. Lire les fichiers concernés **et leurs voisins** avant de modifier, ainsi que l'`AGENTS.md` du dossier ; imiter les conventions locales.
-2. Pour une nouvelle fonctionnalité : suivre la recette `.claude/skills/nouvelle-fonctionnalite/SKILL.md` ; le contrat d'abord si l'API change, puis le domaine (règle + test), le port et l'adaptateur si une dépendance externe entre en jeu, le cas d'usage, la route fine, l'interface.
-3. Préserver le comportement observable existant (codes de réponse, formats JSON, parcours UI) sauf demande explicite ; sinon l'écrire dans la PR.
-4. Écrire ou mettre à jour les tests avec le code (« Harnais de validation », règle 2).
-5. Rester dans le périmètre demandé : pas de refacto opportuniste, pas de fichiers superflus.
-6. En cas de doute d'architecture, proposer plusieurs options avec leurs compromis plutôt que trancher en silence ; une décision structurante appelle une ADR.
+1. **L'IA propose, l'humain décide** : les choix d'architecture se présentent en options avec leurs compromis, et c'est l'humain qui tranche ; une décision structurante appelle une ADR. Pas de commit, de push ni de PR sans son accord explicite.
+2. Lire les fichiers concernés **et leurs voisins** avant de modifier, ainsi que l'`AGENTS.md` du dossier ; imiter les conventions locales.
+3. Pour une nouvelle fonctionnalité : suivre la recette `.claude/skills/nouvelle-fonctionnalite/SKILL.md` ; le contrat d'abord si l'API change, puis le domaine (règle + test), le port et l'adaptateur si une dépendance externe entre en jeu, le cas d'usage, la route fine, l'interface.
+4. Préserver le comportement observable existant (codes de réponse, formats JSON, parcours UI) sauf demande explicite ; sinon l'écrire dans la PR.
+5. Écrire ou mettre à jour les tests avec le code (« Harnais de validation », règle 2).
+6. Rester dans le périmètre demandé : pas de refacto opportuniste, pas de fichiers superflus.
 7. Mettre à jour la doc dans le même changement (« Documentation développeur »).

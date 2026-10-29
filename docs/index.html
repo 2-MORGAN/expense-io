@@ -2065,6 +2065,7 @@ flowchart TB
     direction TB
     guardHook["PreToolUse : guard-git.mjs&lt;br/&gt;refuse les contournements"]
     frozenHook["PreToolUse : guard-frozen.mjs&lt;br/&gt;migrations et tests E2E de main figés"]
+    recipeHook["PreToolUse : guard-recipe.mjs&lt;br/&gt;sans recette, demande à l'humain&lt;br/&gt;avant d'écrire du code"]
     stopHook["Stop : check-on-stop.mjs&lt;br/&gt;npm run check si le code a changé"]
   end
 
@@ -2075,6 +2076,7 @@ flowchart TB
   checkJob &amp; e2eJob --&gt;|"obligatoires"| mainBranch
   guardHook -.-&gt; commit
   frozenHook -.-&gt; change
+  recipeHook -.-&gt; change
   stopHook -.-&gt; push
 
   classDef local fill:#dbeafe,stroke:#2563eb,color:#111827
@@ -2112,7 +2114,7 @@ flowchart TB
             <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI), <code>make frozen</code> (migrations et tests E2E de <code>main</code> inchangés)</td><td>≈ 3 min pour la suite</td></tr>
             <tr><td>Couverture, à la demande</td><td><code>npm run test:coverage</code> (unitaires, Vitest v8) ; <code>npm run test:e2e:coverage</code> (E2E : serveur Next.js, worker et scripts, c8). Aucun seuil bloquant (<a href="#adr-005">ADR-005</a>) ; citer les branches, les lignes E2E sont gonflées</td><td>≈ 20 s ; suite E2E + rapport</td></tr>
             <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, build ; sur les PR : oasdiff, migrations et tests E2E existants inchangés) et <code>e2e</code> (2 shards), obligatoires, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte</td><td>≈ 1 min et 3 min 30</td></tr>
-            <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements (<code>guard-git.mjs</code>) et l’écriture d’une migration ou d’un test E2E déjà dans <code>main</code> (<code>guard-frozen.mjs</code>) ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
+            <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements (<code>guard-git.mjs</code>) et l’écriture d’une migration ou d’un test E2E déjà dans <code>main</code> (<code>guard-frozen.mjs</code>) ; avant la première écriture de code d’une session sans la recette <code>/nouvelle-fonctionnalite</code>, demande à l’humain s’il faut la suivre (<code>guard-recipe.mjs</code>) ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
           </tbody>
         </table>
       </div>

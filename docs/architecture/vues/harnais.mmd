@@ -17,6 +17,7 @@ flowchart TB
     direction TB
     guardHook["PreToolUse : guard-git.mjs<br/>refuse les contournements"]
     frozenHook["PreToolUse : guard-frozen.mjs<br/>migrations et tests E2E de main figés"]
+    recipeHook["PreToolUse : guard-recipe.mjs<br/>sans recette, demande à l'humain<br/>avant d'écrire du code"]
     stopHook["Stop : check-on-stop.mjs<br/>npm run check si le code a changé"]
   end
 
@@ -27,6 +28,7 @@ flowchart TB
   checkJob & e2eJob -->|"obligatoires"| mainBranch
   guardHook -.-> commit
   frozenHook -.-> change
+  recipeHook -.-> change
   stopHook -.-> push
 
   classDef local fill:#dbeafe,stroke:#2563eb,color:#111827
