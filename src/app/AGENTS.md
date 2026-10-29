@@ -1,6 +1,6 @@
 # src/app — pages, server actions et routes hors /api
 
-Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt. Les routes de l'API ont leurs consignes : `src/app/api/AGENTS.md`.
+Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt. Les routes de l'API ont leurs consignes : `src/app/api/AGENTS.md`.
 
 App Router de Next.js 16. Les pages restent minces : elles lisent la session et rendent des composants de `src/components`. `src/app/actions` contient les server actions (connexion, inscription), `src/app/verify-email` la route du lien de vérification d'email.
 

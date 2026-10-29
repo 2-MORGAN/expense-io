@@ -5,9 +5,10 @@ import { LAYERS, type Layer } from './layers'
 import { withBlock } from './mermaid'
 
 // Consignes par dossier, pour les agents IA comme pour les développeurs
-// (CLAUDE.md, « Consignes par dossier ») : un AGENTS.md, lu par Codex, Cursor,
+// (AGENTS.md, « Consignes par dossier ») : un AGENTS.md, lu par Codex, Cursor,
 // Copilot…, et à côté un CLAUDE.md qui ne fait que l'importer (`@AGENTS.md`)
-// pour Claude Code. Le bloc « Peut importer » d'un AGENTS.md recopie les
+// pour Claude Code, à la racine comme dans chaque dossier. Le bloc « Peut
+// importer » d'un AGENTS.md recopie les
 // droits de layers.ts (`npm run generate:architecture`) ; architecture.test.ts
 // vérifie qu'aucune consigne ne manque et qu'aucun chemin, script npm ou cible
 // make qu'elles citent n'a disparu : une consigne fausse est pire qu'une
@@ -54,9 +55,9 @@ export const LAYERS_WITHOUT_AGENTS: readonly string[] = [
   // Générés depuis openapi.yaml (`npm run generate:api`), sauf next-auth.d.ts.
   'src/generated',
   'src/types',
-  // Noyau partagé réduit à uuid.ts, décrit dans CLAUDE.md.
+  // Noyau partagé réduit à uuid.ts, décrit dans AGENTS.md.
   'src/utils',
-  // Un fichier chacun, décrit dans CLAUDE.md.
+  // Un fichier chacun, décrit dans AGENTS.md.
   'src/proxy',
   'src/instrumentation',
 ]
@@ -103,7 +104,7 @@ export function agentsWith(text: string, paths: readonly string[], layers: reado
   return hasImportsBlock(doc) ? withBlock(doc, IMPORTS_BLOCK, importsBlock(paths, layers), 'du AGENTS.md') : doc
 }
 
-/** Un CLAUDE.md de dossier n'est que l'import de son AGENTS.md. */
+/** Un CLAUDE.md, racine comprise, n'est que l'import de son AGENTS.md. */
 export function isClaudeImport(text: string): boolean {
   const lines = lf(text)
     .split('\n')
@@ -254,7 +255,7 @@ export function readAgentInputs(root: string): AgentInputs {
 export interface AgentGaps {
   /** Fichiers de consignes attendus et absents. */
   missing: string[]
-  /** CLAUDE.md de dossier qui n'est pas le seul import de son AGENTS.md. */
+  /** CLAUDE.md, de la racine ou d'un dossier, qui n'est pas le seul import de son AGENTS.md. */
   notImporting: string[]
   /** AGENTS.md ou CLAUDE.md hors de AGENT_DIRS : jamais vérifiés. */
   undeclared: string[]
@@ -289,9 +290,9 @@ export function agentGaps(
   const known = new Set(layers.map((layer) => layer.path))
   return {
     missing: declared.filter((file) => !(file in inputs.files)),
-    notImporting: dirs
-      .map(({ dir }) => `${dir}/${CLAUDE}`)
-      .filter((file) => file in inputs.files && !isClaudeImport(inputs.files[file])),
+    notImporting: [CLAUDE, ...dirs.map(({ dir }) => `${dir}/${CLAUDE}`)].filter(
+      (file) => file in inputs.files && !isClaudeImport(inputs.files[file])
+    ),
     undeclared: inputs.found.filter((file) => !declared.includes(file)),
     layers: [
       ...layers.filter((layer) => !covered.has(layer.path)).map((layer) => `${layer.path} : couche sans consignes`),
@@ -317,7 +318,7 @@ export function agentProblems(gaps: AgentGaps): string[] {
   const list = (title: string, items: readonly string[]) => (items.length ? [`${title} : ${items.join(' ; ')}`] : [])
   return [
     ...list('consigne manquante (scripts/architecture/agents.ts)', gaps.missing),
-    ...list(`${CLAUDE} de dossier qui n'est pas « ${CLAUDE_IMPORT} »`, gaps.notImporting),
+    ...list(`${CLAUDE} qui n'est pas « ${CLAUDE_IMPORT} »`, gaps.notImporting),
     ...list('consigne hors de AGENT_DIRS', gaps.undeclared),
     ...list('couche et consignes', gaps.layers),
     ...list('bloc « Peut importer » à regénérer', gaps.staleImports),

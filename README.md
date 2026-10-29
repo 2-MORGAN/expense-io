@@ -8,7 +8,7 @@ celles des managers qui n'ont pas de manager. Projet du cours ARLA (EPITA SIGL) 
 audit d'architecture puis refacto, sans casser le comportement existant.
 
 Ce README suffit pour lancer, vérifier et modifier le projet. Les règles
-détaillées, communes aux humains et aux IA, sont dans [`CLAUDE.md`](CLAUDE.md).
+détaillées, communes aux humains et aux IA, sont dans [`AGENTS.md`](AGENTS.md).
 Pour comprendre l'architecture, les services, les parcours et les ADR en
 schémas : la doc des développeurs, [`docs/index.html`](docs/index.html), à
 ouvrir dans un navigateur.
@@ -205,13 +205,13 @@ Validation des entrées, outils, compatibilité et transition des erreurs :
 
 ## Contribuer
 
-1. Lire [`CLAUDE.md`](CLAUDE.md). Seules les ADR au statut « Acceptée » font foi ([`docs/adr/`](docs/adr/README.md)).
+1. Lire [`AGENTS.md`](AGENTS.md). Seules les ADR au statut « Acceptée » font foi ([`docs/adr/`](docs/adr/README.md)).
 2. Partir de `main` à jour (`git pull`, puis `npm install` si `package.json` a changé). Une branche par changement, nommée avec le ticket Linear : `fix/2-471-correctifs-securite`, ou le nom que propose Linear.
 3. Commits conventionnels, comme l'historique : `feat(ocr): …`, `fix(api): …`, `test(e2e): …`, `docs(adr): …`, `chore: …`.
 4. Un bug corrigé = un test vu en échec avant la correction, en succès après.
    La doc des développeurs ([`docs/index.html`](docs/index.html)) se met à jour
-   dans la même PR que le code (`CLAUDE.md`, « Documentation développeur »).
-5. Ouvrir la PR avec `gh pr create --repo 2-MORGAN/expense-io --base main` (sans `--repo`, `gh` peut viser le dépôt du cours) et remplir le modèle.
+   dans la même PR que le code (`AGENTS.md`, « Documentation développeur »).
+5. Récupérer `main` d'abord : `git fetch`, et si elle a avancé, `git merge origin/main` dans la branche (pas de rebase d'une branche poussée), puis `npm run check`. Ouvrir ensuite la PR avec `gh pr create --repo 2-MORGAN/expense-io --base main` (sans `--repo`, `gh` peut viser le dépôt du cours) et remplir le modèle.
 6. Fusion par squash, une fois `check` et `e2e` verts et la PR relue par un pair. `main` refuse le push direct et le force-push.
 7. Un test E2E ne change que si une ADR acceptée décide le changement de comportement, et dans un commit séparé ([ADR-005 §2](docs/adr/ADR-005-harnais-de-validation.md#2-régression-ou-changement-voulu)).
 8. Une décision d'architecture s'écrit dans une ADR, à partir du [modèle](docs/adr/ADR-000-modele.md).
@@ -220,7 +220,7 @@ Validation des entrées, outils, compatibilité et transition des erreurs :
 
 | Chemin | Contenu |
 |---|---|
-| [`CLAUDE.md`](CLAUDE.md) | règles d'architecture, de sécurité et de vérification ; [`AGENTS.md`](AGENTS.md) y renvoie les autres assistants IA |
+| [`AGENTS.md`](AGENTS.md) | règles d'architecture, de sécurité et de vérification, lues par tous les assistants IA ; [`CLAUDE.md`](CLAUDE.md) l'importe pour Claude Code |
 | [`docs/index.html`](docs/index.html) | doc des développeurs : services, architecture du code, parcours, données, API, choix d'architecture et ADR, en schémas ; à ouvrir dans un navigateur |
 | [`docs/adr/`](docs/adr/README.md) | décisions d'architecture, leur statut et le modèle |
 | [`docs/audit/`](docs/audit/) | constats d'audit : sécurité (S), architecture (A), API (Q, B) |
@@ -230,7 +230,7 @@ Validation des entrées, outils, compatibilité et transition des erreurs :
 | [`docs/observability.md`](docs/observability.md), [`observability/`](observability/) | observabilité optionnelle : guide, puis tableau de bord, alertes et configuration de la pile Grafana (`docker-compose.observability.yml`) |
 | [`docs/analytics.md`](docs/analytics.md) | mesure d'usage optionnelle : questions, événements, rapports d'Umami (`docker-compose.analytics.yml`) |
 | [`docs/architecture/`](docs/architecture/README.md) | graphes Mermaid des couches et des routes, générés depuis le code (`npm run generate:architecture`) et vérifiés par `npm run check` ; vues écrites à la main (`vues/`) de la doc des développeurs |
-| `src/` | le code ; où placer quoi : « Où placer le code » dans `CLAUDE.md` |
+| `src/` | le code ; où placer quoi : « Où placer le code » dans `AGENTS.md` |
 | `migrations/` | schéma SQL versionné, seule source de vérité |
 | `e2e/` | tests Playwright |
 | `scripts/` | seed, bucket, lancement du serveur et du worker, moteur OCR, générateur des graphes d'architecture |
@@ -264,10 +264,10 @@ npm run analytics:demo -- --execute  # parcours de démonstration qui remplissen
 | `npm run migrate:up` : erreur d'authentification de l'utilisateur `expense` (code `28P01`) | Un autre PostgreSQL occupe le port 5433 (`netstat -ano \| findstr :5433` sous Windows). L'arrêter, ou exposer le conteneur sur un autre port et y faire pointer les variables `*DATABASE_URL` |
 | Avertissement `db.role.bypasses_rls` au démarrage, ou `MIGRATION_DATABASE_URL absent` | `.env` antérieur à 2-481 : reprendre les quatre variables `*DATABASE_URL` de `.env.example`, puis `npm run migrate:up` |
 | `npm run check` échoue juste après un pull | Une dépendance a changé : `npm install` |
-| Lint : erreur `sonarjs/…` | Règle de SonarQube : corriger le code. Les constats du code existant sont figés dans `eslint-suppressions.json`, qui ne fait que raccourcir ([`CLAUDE.md`](CLAUDE.md), « Où placer le code ») |
+| Lint : erreur `sonarjs/…` | Règle de SonarQube : corriger le code. Les constats du code existant sont figés dans `eslint-suppressions.json`, qui ne fait que raccourcir ([`AGENTS.md`](AGENTS.md), « Où placer le code ») |
 | Lint : « There are suppressions left that do not occur anymore » | Un constat figé a été corrigé : `npx eslint --prune-suppressions`, puis commiter `eslint-suppressions.json` avec la correction |
 | `npm run check` : « docs/architecture/… a dérivé du code » | Un import entre couches ou une route a changé : `npm run generate:architecture`, relire le diff, le commiter avec le code. Une flèche interdite ou une route sans garde se corrigent dans le code ([`docs/architecture/`](docs/architecture/README.md)) |
-| `npm run check` : « docs/index.html … », « ADR sans fiche », « table absente », « type d'événement » | La doc des développeurs n'a pas suivi le code : `npm run generate:architecture` recopie les schémas ; une ADR, une table ou un événement se décrivent à la main (`CLAUDE.md`, « Documentation développeur ») |
+| `npm run check` : « docs/index.html … », « ADR sans fiche », « table absente », « type d'événement » | La doc des développeurs n'a pas suivi le code : `npm run generate:architecture` recopie les schémas ; une ADR, une table ou un événement se décrivent à la main (`AGENTS.md`, « Documentation développeur ») |
 | Sous Windows, `npm run check` signale des types générés « not up-to-date » sans modification | Fichier extrait en fins de ligne CRLF avant l'ajout de `.gitattributes` : le supprimer, puis `git checkout -- <fichier>` |
 | Test E2E : « Executable doesn't exist » | Navigateur absent : `npx playwright install chromium` |
 | Réponse 500 | Lire la ligne `"level":"error"` du journal du serveur ([Journaux](#journaux)) |

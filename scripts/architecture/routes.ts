@@ -2,7 +2,7 @@ import { posix } from 'node:path'
 import ts from 'typescript'
 import { byText, type SourceFile } from './graph'
 
-// Qui peut appeler chaque route de src/app (CLAUDE.md, règle 2 : autorisation
+// Qui peut appeler chaque route de src/app (AGENTS.md, règle 2 : autorisation
 // côté serveur, à chaque route). La garde se lit dans le handler, sans
 // l'exécuter, et doit l'ouvrir : avant elle, seulement des déclarations sans
 // valeur et `const session = await auth()` ; au besoin en tête d'un `try` dont

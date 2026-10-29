@@ -7,7 +7,7 @@ import { decideExpenseNote } from '@/modules/validation/domain/DecideExpenseNote
 import { submitNote } from './notes'
 import { addMember, createCompany, type Member } from './tenant'
 
-// « Qui voit quoi » vit à deux endroits (CLAUDE.md, « Dette connue ») : dans
+// « Qui voit quoi » vit à deux endroits (AGENTS.md, « Dette connue ») : dans
 // le domaine pour une note (reçu : `canViewReceipt`, décision :
 // `decideExpenseNote`) et dans le WHERE des listes
 // (`PostgresExpenseNoteListRepository`), sans compter les policies RLS qui

@@ -1,6 +1,6 @@
 # src/ports — interfaces vers l'extérieur
 
-Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 Un port est une interface TypeScript que le cœur (cas d'usage et domaine de `src/modules`) appelle et qu'un adaptateur de `src/adapters` implémente : base, S3, OCR, email, outbox. Rien d'exécutable ici : des types, et quelques erreurs partagées (`NonRetryableError`).
 

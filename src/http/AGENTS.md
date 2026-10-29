@@ -1,6 +1,6 @@
 # src/http — briques HTTP communes
 
-Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 Ce que partagent les routes : garde de rôle, traduction des erreurs en `application/problem+json` (RFC 9457), validation par le contrat OpenAPI, mise en forme des DTO, lecture des formulaires multipart. Une route compose ces briques et n'en réécrit aucune.
 

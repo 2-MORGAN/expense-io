@@ -1,6 +1,6 @@
 # src/worker — processus de l'outbox
 
-Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 Processus à part (`npm run worker`, lancé aussi par `npm run dev`), connecté sous `expense_worker`. Il prend les événements de `outbox_events` dont le type a un handler, les traite, puis gère relances et lettres mortes (`dead`). Tout traitement asynchrone, email ou OCR, passe par ici (ADR-003).
 

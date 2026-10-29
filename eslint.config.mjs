@@ -3,7 +3,7 @@ import nextVitals from 'eslint-config-next/core-web-vitals'
 import nextTs from 'eslint-config-next/typescript'
 import sonarjs from 'eslint-plugin-sonarjs'
 
-// Règles d'architecture de CLAUDE.md et des ADR-001 et 002, vérifiées par les
+// Règles d'architecture de AGENTS.md et des ADR-001 et 002, vérifiées par les
 // règles natives d'ESLint (ADR-005, T6).
 //
 // Les listes LEGACY_* recensent le code existant qui enfreint encore une
@@ -85,7 +85,7 @@ const DOMAIN_IMPORT = {
     'components',
   ],
   message:
-    'Le domaine reste pur : ni base, ni framework, ni SDK, ni couche applicative ou d’infrastructure (CLAUDE.md, ADR-002 §3.3). Passer par un port de src/ports/.',
+    'Le domaine reste pur : ni base, ni framework, ni SDK, ni couche applicative ou d’infrastructure (AGENTS.md, ADR-002 §3.3). Passer par un port de src/ports/.',
 }
 
 // Mots-clés SQL en majuscules, comme dans tout le dépôt, et début d'une
@@ -94,7 +94,7 @@ const SQL_KEYWORD = String.raw`\b(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN|OR
 const SQL_STATEMENT = String.raw`^\s*(SELECT|INSERT|UPDATE|DELETE|WITH)\s`
 
 const SQL_INTERPOLATION_MESSAGE =
-  'SQL construit par interpolation ou concaténation : passer les valeurs en paramètres ($1, $2…) et choisir un tri ou une colonne dans une liste blanche (CLAUDE.md, règle 3).'
+  'SQL construit par interpolation ou concaténation : passer les valeurs en paramètres ($1, $2…) et choisir un tri ou une colonne dans une liste blanche (AGENTS.md, règle 3).'
 
 // Même détection sans tenir compte de la casse, mais seulement pour des
 // formes d'une requête SQL (« select … from », « order by »…) : un mot isolé
@@ -156,7 +156,7 @@ const eslintConfig = defineConfig([
     rules: { ...sonarjs.configs.recommended.rules, ...SONARJS_AWS_CDK_OFF },
   },
   {
-    // Comptes de démonstration publics (CLAUDE.md, README) et données de test.
+    // Comptes de démonstration publics (AGENTS.md, README) et données de test.
     name: 'expense-io/sonarjs-test-data',
     files: ['e2e/**', 'integration/**', 'scripts/seed.mjs', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
     rules: { 'sonarjs/no-hardcoded-passwords': 'off' },

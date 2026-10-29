@@ -1,6 +1,6 @@
 # src/components — interface React
 
-Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 Composants de l'interface, en français, stylés avec Tailwind 4 (variantes `dark:` comprises). Un composant interactif est `'use client'` et ne parle au serveur que par l'API HTTP.
 

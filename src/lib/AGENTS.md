@@ -1,6 +1,6 @@
 # src/lib — infrastructure transverse
 
-Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 Ce que tout le serveur partage : session (`auth.ts`), connexion à la base et contexte RLS (`db.ts`), stockage S3 (`storage.ts`), email (`email.ts`), outbox (`outbox.ts`), journal JSON (`log.ts`), jetons (`tokens.ts`), contrôles au démarrage (`authSecret.ts`, `dbRole.ts`), limite de tentatives de connexion (`loginThrottle.ts`), observabilité OpenTelemetry (`src/lib/telemetry`, ADR-007). Pas de règle métier ici.
 

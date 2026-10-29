@@ -1,6 +1,6 @@
 # integration — couche d'intégration (Vitest, ADR-009)
 
-Consignes du dossier, en complément du [CLAUDE.md](../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 La couche qui donne le plus de confiance pour son coût (testing trophy) : plusieurs unités réelles ensemble, contre le vrai PostgreSQL sous la RLS, le S3 et le SMTP de `docker-compose.yml`, sans serveur ni navigateur. Ici : le support commun (`integration/support`) et les tests qui traversent plusieurs couches. Le test d'un seul adaptateur, cas d'usage ou handler du worker vit à côté de son code (`src/**/*.integration.test.ts`) ; celui d'un composant React aussi (`*.test.tsx`, projet `components`, sans Docker).
 

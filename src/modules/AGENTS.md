@@ -1,6 +1,6 @@
 # src/modules — domaine et cas d'usage de chaque module
 
-Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 Monolithe modulaire, étape 1 (ADR-002 §3.2 : trois domaines cœurs et l'OCR en support) : un hexagone par module, avec son domaine (`domain/`) et ses cas d'usage (`application/`). Chaque module a aussi ses ports (`ports/`) et ses adaptateurs (`adapters/`) ; `src/ports` et `src/adapters` ne gardent que le noyau partagé sans langage métier (outbox, email, stockage), et `src/composition` reste commun.
 

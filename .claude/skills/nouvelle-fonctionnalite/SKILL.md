@@ -5,7 +5,7 @@ description: Recette pour implémenter une fonctionnalité nouvelle ou faire év
 
 # Nouvelle fonctionnalité
 
-Recette pas à pas, pour un agent comme pour un humain. Elle s'appuie sur le [CLAUDE.md](../../../CLAUDE.md) de la racine et sur l'`AGENTS.md` de chaque dossier touché : le lire au moment d'écrire dans ce dossier. Chemins donnés depuis la racine du dépôt.
+Recette pas à pas, pour un agent comme pour un humain. Elle s'appuie sur l'[AGENTS.md](../../../AGENTS.md) de la racine et sur l'`AGENTS.md` de chaque dossier touché : le lire au moment d'écrire dans ce dossier. Chemins donnés depuis la racine du dépôt.
 
 ## 0. Partir propre
 
@@ -21,9 +21,9 @@ Avant tout code, écrire un plan court et le montrer :
 - **Ce qui change pour l'utilisateur** : opération HTTP, écran, email. Si un comportement existant change (statut HTTP, champ JSON, texte affiché), s'arrêter : il faut une ADR acceptée (ADR-005 §2).
 - **La sécurité** : qui a le droit, borné à quelle entreprise, quelle réponse en cas de refus (401, 403, 404).
 - **Les tests** : unitaires (règle, cas d'usage) et E2E (IDs nouveaux).
-- **Une décision d'architecture** (couche ou droit nouveau dans `scripts/architecture/layers.ts`, dépendance npm, nouveau service) : la proposer avec ses options. Elle appelle une ADR (`docs/adr`) ou une justification dans la PR.
+- **Les décisions d'intégration** : où la fonctionnalité se branche (couche d'entrée, cas d'usage, port, migration), ce qu'on réutilise, toute dépendance ou couche nouvelle. Pour chacune, les options et leurs compromis. Une couche ou un droit nouveau dans `scripts/architecture/layers.ts`, une dépendance npm ou un nouveau service appellent une ADR (`docs/adr`) ou une justification dans la PR.
 
-Demander une validation si la demande est ambiguë, ou si le plan touche à la sécurité, au schéma ou à un comportement existant. Ne pas « corriger au passage » une dette sans rapport.
+**L'IA propose, l'humain décide.** Toujours faire valider le plan : l'humain choisit entre les options, et aucun code ne s'écrit avant son accord. Ne pas « corriger au passage » une dette sans rapport.
 
 ## 2. Contrat d'API
 
@@ -57,7 +57,7 @@ Un scénario par comportement observable nouveau, avec un ID nouveau inscrit dan
 
 ## 9. Documentation
 
-Le tableau « Documentation développeur » du CLAUDE.md dit quoi mettre à jour : sections de `docs/index.html`, vues de `docs/architecture/vues` (`docs/AGENTS.md`). `npm run generate:architecture` si une route, une couche ou un import entre couches change. Les `AGENTS.md` des dossiers touchés aussi, si une consigne n'est plus vraie.
+Le tableau « Documentation développeur » de l'AGENTS.md de la racine dit quoi mettre à jour : sections de `docs/index.html`, vues de `docs/architecture/vues` (`docs/AGENTS.md`). `npm run generate:architecture` si une route, une couche ou un import entre couches change. Les `AGENTS.md` des dossiers touchés aussi, si une consigne n'est plus vraie.
 
 ## 10. Vérifier
 
@@ -67,7 +67,7 @@ Le tableau « Documentation développeur » du CLAUDE.md dit quoi mettre à jour
 
 ## 11. PR
 
-`gh pr create --repo 2-MORGAN/expense-io --base main`, avec le modèle `.github/pull_request_template.md` rempli : vérifications lancées et non lancées (avec la raison), doc, changement de comportement, dépendance.
+Pas de commit, de push ni de PR sans l'accord explicite de l'humain. Récupérer `main` d'abord : `git fetch`, et si `origin/main` a avancé, `git merge origin/main` (jamais de rebase d'une branche poussée), résoudre les conflits, relancer l'étape 10, pousser. Puis `gh pr create --repo 2-MORGAN/expense-io --base main`, avec le modèle `.github/pull_request_template.md` rempli : vérifications lancées et non lancées (avec la raison), doc, changement de comportement, dépendance.
 
 ## Définition de terminé
 
@@ -78,3 +78,4 @@ Le tableau « Documentation développeur » du CLAUDE.md dit quoi mettre à jour
 - [ ] Les tests unitaires et E2E nouveaux sont verts ; aucun test existant n'a été modifié.
 - [ ] `docs/index.html`, ses vues, `docs/tests/E2E.md` et les `AGENTS.md` touchés sont à jour.
 - [ ] `npm run check` est vert ; les E2E ont été lancés, ou leur absence est dite dans la PR.
+- [ ] Le plan et chaque choix d'intégration ont été validés par l'humain ; commit et PR faits avec son accord.

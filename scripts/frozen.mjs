@@ -1,4 +1,4 @@
-// Migrations et tests E2E déjà dans main : figés (ADR-005 §2, CLAUDE.md,
+// Migrations et tests E2E déjà dans main : figés (ADR-005 §2, AGENTS.md,
 // « Harnais de validation », règle 3). Une migration fusionnée a tourné sur
 // d'autres bases : la corriger, c'est en écrire une nouvelle. Un test E2E
 // existant ne se modifie, ne se désactive ni ne se supprime pour faire passer

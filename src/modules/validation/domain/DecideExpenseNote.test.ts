@@ -9,7 +9,7 @@ import {
 } from './DecideExpenseNote'
 
 // Règle « valider ou rejeter une note » : qui peut trancher quelle note,
-// seulement si elle est en attente. Miroir du workflow CLAUDE.md :
+// seulement si elle est en attente. Miroir du workflow AGENTS.md :
 // employé → manager direct, manager racine → RH de l'entreprise.
 
 const pendingNote = () =>

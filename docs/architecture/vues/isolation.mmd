@@ -1,6 +1,6 @@
 flowchart TB
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
 
   request(["Requête HTTP sur /api/**"])
   guard["① requireRole() : 401 sans session, 403 si le rôle est refusé<br/>rôle relu en base à chaque auth() (S9)"]

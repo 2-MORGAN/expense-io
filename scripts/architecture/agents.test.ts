@@ -108,7 +108,7 @@ describe('écarts des consignes', () => {
     const gaps = agentGaps(
       inputs({
         'AGENTS.md': 'Voir [CLAUDE.md](CLAUDE.md), `npm run check`, `make dev`.\n',
-        'CLAUDE.md': '# Racine\n',
+        'CLAUDE.md': '@AGENTS.md\n',
         'src/domain/AGENTS.md': fresh,
         'src/domain/CLAUDE.md': '@AGENTS.md\n',
         'docs/AGENTS.md': '# docs\n',
@@ -139,7 +139,7 @@ describe('écarts des consignes', () => {
     )
     expect(gaps).toEqual({
       missing: ['docs/CLAUDE.md'],
-      notImporting: ['src/domain/CLAUDE.md'],
+      notImporting: ['CLAUDE.md', 'src/domain/CLAUDE.md'],
       undeclared: ['e2e/AGENTS.md'],
       layers: ['src/ports : couche sans consignes', 'src/supprimee : absente de layers.ts'],
       staleImports: ['src/domain/AGENTS.md'],

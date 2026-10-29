@@ -1,12 +1,12 @@
 # scripts — outils du dépôt
 
-Consignes du dossier, en complément du [CLAUDE.md](../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 Scripts Node lancés par `package.json` : poste de dev (`scripts/dev.mjs`, `scripts/seed.mjs`, `scripts/ensure-bucket.mjs`), base (`scripts/provision-db-roles.mjs`), contrat (`scripts/generate-api.mjs`, `scripts/check-api.mjs`), exploitation (`scripts/reconcile-orphan-receipts.mjs`, `scripts/clean-notes-without-receipt.mjs`), mesure d'usage (`scripts/analytics-setup.mjs`, `scripts/analytics-demo.mjs`), et en TypeScript les contrôles d'architecture et de doc (`scripts/architecture`) et la couverture (`scripts/coverage`).
 
 ## Ajouter un script
 
-1. Une entrée dans `package.json` (`"nom:action": "node scripts/nom.mjs"`), citée dans « Commandes » de `CLAUDE.md` et « Démarrer » de `docs/index.html`.
+1. Une entrée dans `package.json` (`"nom:action": "node scripts/nom.mjs"`), citée dans « Commandes » de l'`AGENTS.md` de la racine et « Démarrer » de `docs/index.html`.
 2. En tête, un commentaire : ce qu'il fait, pourquoi (ticket, ADR), ses options.
 3. Réglages par l'environnement (`dotenv`, variables de `.env.example`), jamais en dur.
 4. La bonne connexion : `WORKER_DATABASE_URL` (soumise à la RLS) par défaut ; `MIGRATION_DATABASE_URL` (propriétaire) seulement pour le schéma, le seed ou un nettoyage ponctuel.
