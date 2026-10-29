@@ -89,7 +89,9 @@ Dans Umami, site « Expense.io » :
   `localStorage.setItem('umami.disabled', '1')`, dans la console de
   l'application, exclut ce navigateur de la mesure.
 - **Gestes d'un visiteur** : « Replays », choisir une session : mise en page,
-  clics, défilement et saisies rejoués, tout texte remplacé par des `*`.
+  clics, défilement et saisies rejoués, tout texte remplacé par des `*`. La
+  liste masque par défaut les replays de moins de 5 s d'activité (« Replay
+  Filter »).
 
 Entonnoirs et objectifs sont créés par `npm run analytics:setup`, qui les
 retrouve par leur nom. Umami reconnaît un visiteur à son navigateur et à son
@@ -194,6 +196,7 @@ relève de l'[observabilité](observability.md), pas d'Umami.
 | Heatmap sur une page grise d'erreur | domaine du site sans le port de l'application (`localhost` seul vise le port 80) : `npm run analytics:setup` lui donne l'hôte d'`APP_URL` |
 | Heatmap sur la page de connexion | pas de session sur l'application dans ce navigateur, ou Umami sur un autre site qu'elle |
 | Heatmap vide | `UMAMI_HEATMAP=true` absent de `.env` ; heatmap coupée dans les réglages du site (`npm run analytics:setup` la rallume) ; page hors de `/expenses`, `/manager` et `/hr` |
+| « Replays » affiche « No data available » | l'interface masque les replays de moins de 5 s d'activité : « Replay Filter », durée minimale 0, « Apply » |
 | Aucun replay | `UMAMI_HEATMAP=true` absent de `.env` ; replays coupés dans les réglages du site (`npm run analytics:setup` les rallume) ; page hors de `/expenses`, `/manager` et `/hr` |
 | Entonnoir vide | personne n'est encore passé par sa première étape sur la période choisie (une inscription pour « Inscription → invitation ») ; il ne compte que les étapes franchies dans l'ordre, dans le délai ; `npm run analytics:setup` le recrée s'il manque |
 | Port 3002 déjà pris | `UMAMI_PORT`, puis `npm run analytics:setup` |
