@@ -151,7 +151,7 @@ repris dans la ligne `http.error` du journal.
 
 En option, le serveur et le worker envoient leurs traces, métriques et journaux
 (OpenTelemetry) à Grafana, avec un tableau de bord et des alertes prêts
-([ADR-007](docs/adr/ADR-007-observabilite.md), proposée) :
+([ADR-007](docs/adr/ADR-007-observabilite.md), acceptée) :
 
 ```bash
 make observability   # sans make : docker compose -f docker-compose.observability.yml up -d --wait
@@ -169,7 +169,7 @@ métrique : [`docs/observability.md`](docs/observability.md).
 En option, le navigateur envoie à Umami les pages vues et trois événements
 (note commencée, note envoyée avec le sort de la suggestion OCR, invitation
 envoyée), pour savoir comment le produit est utilisé
-([ADR-008](docs/adr/ADR-008-mesure-usage-umami.md), proposée) :
+([ADR-008](docs/adr/ADR-008-mesure-usage-umami.md), acceptée) :
 
 ```bash
 make analytics   # sans make : docker compose -f docker-compose.analytics.yml up -d --wait, puis npm run analytics:setup

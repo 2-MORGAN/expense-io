@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Acceptée** le 28 octobre 2026 par le PO (Florent), fusion avant le gel. Proposée le 28 octobre. **Amendement du 29 octobre proposé** (heatmap et replays sans texte, voir en fin de document) |
+| Statut | **Acceptée** le 28 octobre 2026 par le PO (Florent), fusion avant le gel. Proposée le 28 octobre. **Amendement du 29 octobre accepté** le 29 octobre par le PO (heatmap et replays sans texte, voir en fin de document) |
 | Date | 28 octobre 2026 |
 | Auteur | Stanislas Beguin (WS5) |
 | Validateur | Florent (PO) |
@@ -154,9 +154,9 @@ script, et les tests E2E existants passent sans modification.
 - Démarrage, scénario de démonstration et lecture des rapports :
   `docs/analytics.md`.
 
-## Amendement du 29 octobre 2026 : heatmap et replays (proposé)
+## Amendement du 29 octobre 2026 : heatmap et replays (accepté)
 
-Proposé par Stanislas Beguin (WS5), à accepter par le PO. Les sections
+Proposé par Stanislas Beguin (WS5), accepté le 29 octobre 2026 par le PO (Florent). Les sections
 ci-dessus restent la référence ; cet amendement les complète, et revient sur
 la remarque de l'option E (enregistrement des sessions « à proscrire ») pour
 des replays sans aucun texte (point 4).
