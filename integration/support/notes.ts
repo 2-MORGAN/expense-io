@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { PostgresExpenseNoteDecisionRepository } from '@/adapters/PostgresExpenseNoteDecisionRepository'
-import { PostgresExpenseNoteSubmissionRepository } from '@/adapters/PostgresExpenseNoteSubmissionRepository'
-import type { Decision } from '@/domain/validation/DecideExpenseNote'
-import type { DecidedExpenseNote } from '@/ports/ExpenseNoteDecisionRepository'
-import type { SubmittedExpenseNote } from '@/ports/ExpenseNoteSubmissionRepository'
+import { PostgresExpenseNoteDecisionRepository } from '@/modules/validation/adapters/PostgresExpenseNoteDecisionRepository'
+import { PostgresExpenseNoteSubmissionRepository } from '@/modules/expenses/adapters/PostgresExpenseNoteSubmissionRepository'
+import type { Decision } from '@/modules/validation/domain/DecideExpenseNote'
+import type { DecidedExpenseNote } from '@/modules/validation/ports/ExpenseNoteDecisionRepository'
+import type { SubmittedExpenseNote } from '@/modules/expenses/ports/ExpenseNoteSubmissionRepository'
 import type { Member } from './tenant'
 
 // Notes créées et tranchées par les vrais adaptateurs, sous `expense_app` :

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Proposée** |
+| Statut | **Acceptée** le 29 octobre 2026 par le PO (Florent) |
 | Date | 29 octobre 2026 |
 | Auteur | Stanislas Beguin (WS5) |
 | Validateur | Florent (PO) |

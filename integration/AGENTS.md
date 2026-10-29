@@ -25,8 +25,8 @@ La couche qui donne le plus de confiance pour son coût (testing trophy) : plusi
 
 ## Exemples à copier
 
-- `src/adapters/PostgresExpenseNoteDecisionRepository.integration.test.ts` : un adaptateur sous la RLS, concurrence comprise.
-- `src/application/SubmitExpenseNote.integration.test.ts` : un cas d'usage avec ses vrais adaptateurs, compensation S3 comprise.
+- `src/modules/validation/adapters/PostgresExpenseNoteDecisionRepository.integration.test.ts` : un adaptateur sous la RLS, concurrence comprise.
+- `src/modules/expenses/application/SubmitExpenseNote.integration.test.ts` : un cas d'usage avec ses vrais adaptateurs, compensation S3 comprise.
 - `integration/api-expense-notes.integration.test.ts` : des routes appelées dans le processus.
 - `integration/visibility.integration.test.ts` et `integration/visibility-where.integration.test.ts` : la matrice « qui voit quoi », sous la RLS et sans.
 - `src/components/PendingApprovalsPanel.test.tsx` : un composant, réseau simulé.

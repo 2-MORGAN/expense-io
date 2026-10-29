@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { PgEventOutbox } from './PgEventOutbox'
-import { findCompanyRecipients } from './PgNotificationEvents'
+import { findCompanyRecipients } from '@/modules/expenses/adapters/PgNotificationEvents'
 import { withUserScope } from '@/lib/db'
 import { scopeToCompany } from '@/lib/outbox'
 import { eventsOfCompany } from '../../integration/support/outbox'

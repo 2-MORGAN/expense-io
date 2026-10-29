@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { EmailNotificationAdapter } from './EmailNotificationAdapter'
+import { EmailNotificationAdapter } from '@/modules/expenses/adapters/EmailNotificationAdapter'
 import { SmtpEmailAdapter } from './SmtpEmailAdapter'
 import { createEmailSender } from '@/lib/email'
 import { waitForEmail } from '../../integration/support/mailpit'

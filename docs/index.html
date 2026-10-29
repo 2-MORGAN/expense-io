@@ -665,7 +665,7 @@ flowchart TB
           <tbody>
             <tr><td><strong>Web</strong> (Next.js)</td><td>pages, server actions, route handlers <code>/api/**</code>, Auth.js, garde de navigation</td><td><code>npm run dev</code>, port 3000</td><td><code>npm run build</code> puis <code>npm run start</code></td><td><code>src/app</code>, <code>src/proxy.ts</code></td></tr>
             <tr><td><strong>Worker</strong></td><td>consomme l'outbox : emails d'identité, notifications, analyse des reçus ; nettoie les analyses terminées</td><td>lancé par <code>npm run dev</code> ; seul : <code>npm run worker</code></td><td>second processus supervisé, <code>npm run worker</code></td><td><code>src/worker</code></td></tr>
-            <tr><td><strong>Moteur OCR</strong></td><td>processus enfant jetable par analyse : sharp réduit l'image, Tesseract lit le texte ; tué à l'échéance</td><td>lancé par le web (route synchrone) et par le worker</td><td>idem ; exige <code>tessdata/</code> et les processus enfants</td><td><code>scripts/ocr-engine.mjs</code>, <code>src/adapters/TesseractOcrAdapter.ts</code></td></tr>
+            <tr><td><strong>Moteur OCR</strong></td><td>processus enfant jetable par analyse : sharp réduit l'image, Tesseract lit le texte ; tué à l'échéance</td><td>lancé par le web (route synchrone) et par le worker</td><td>idem ; exige <code>tessdata/</code> et les processus enfants</td><td><code>scripts/ocr-engine.mjs</code>, <code>src/modules/receipt-analysis/adapters/TesseractOcrAdapter.ts</code></td></tr>
             <tr><td><strong>PostgreSQL 16</strong></td><td>données, RLS, outbox, verrous des moteurs OCR</td><td>Docker, port 5433 ; web sous <code>expense_app</code>, worker sous <code>expense_worker</code>, migrations sous <code>expense</code></td><td>base gérée, mêmes rôles ; un processus refuse de démarrer sous un rôle qui contourne la RLS</td><td><code>migrations/</code>, <code>src/lib/db.ts</code>, <code>src/lib/dbRole.ts</code></td></tr>
             <tr><td><strong>S3</strong></td><td>reçus des notes et des analyses, sous <code>receipts/{companyId}/…</code></td><td>LocalStack 3.8.1, port 4567</td><td>tout stockage compatible S3</td><td><code>src/lib/storage.ts</code>, <code>src/adapters/S3ReceiptAdapter.ts</code></td></tr>
             <tr><td><strong>SMTP</strong></td><td>invitations, vérifications d'email, notifications</td><td>Mailpit : SMTP 1025, interface 8025, aucun email ne sort</td><td>fournisseur transactionnel (port 465, <code>SMTP_SECURE</code>)</td><td><code>src/lib/email.ts</code>, <code>src/adapters/SmtpEmailAdapter.ts</code></td></tr>
@@ -712,14 +712,14 @@ flowchart LR
 
   subgraph sgCoeur["Cœur : sans infrastructure"]
     direction TB
-    usecases["Cas d'usage&lt;br/&gt;src/application"]
-    ports["Ports&lt;br/&gt;src/ports"]
-    domain["Domaine&lt;br/&gt;src/domain"]
+    usecases["Cas d'usage&lt;br/&gt;modules/*/application"]
+    ports["Ports du module&lt;br/&gt;modules/*/ports&lt;br/&gt;+ noyau src/ports"]
+    domain["Domaine&lt;br/&gt;modules/*/domain&lt;br/&gt;expenses · identity · validation&lt;br/&gt;receipt-analysis en support"]
   end
 
   subgraph sgInfra["Infrastructure"]
     direction TB
-    adapters["Adaptateurs&lt;br/&gt;src/adapters"]
+    adapters["Adaptateurs du module&lt;br/&gt;modules/*/adapters&lt;br/&gt;+ noyau src/adapters"]
     lib["src/lib&lt;br/&gt;db · auth · storage&lt;br/&gt;outbox · log"]
   end
 
@@ -745,6 +745,112 @@ flowchart LR
         <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
       </figure>
 
+      <figure class="diagram" id="fig-modules">
+        <figcaption>
+          <span class="fig-title">Monolithe modulaire : un déployable, deux processus, quatre modules-hexagones</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/modules.mmd">vues/modules.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/modules.mmd -->
+<pre class="mermaid">
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  user(["Navigateur&lt;br/&gt;employé · manager · RH"])
+
+  subgraph deploy["Un seul déployable · un dépôt, un build"]
+    direction LR
+    web["Processus web · Next.js :3000&lt;br/&gt;pages · server actions · /api/**"]
+    worker["Processus worker&lt;br/&gt;boucles outbox · emails · OCR"]
+  end
+
+  composition["Composition&lt;br/&gt;src/composition&lt;br/&gt;assemble, une fois par processus"]
+
+  subgraph modules["Code : quatre modules-hexagones (ADR-002 §3.2)"]
+    direction LR
+    subgraph modOcr["receipt-analysis · support"]
+      direction TB
+      ocrApp["Cas d'usage&lt;br/&gt;analyser · suggérer&lt;br/&gt;capacité"]
+      ocrDom["Domaine&lt;br/&gt;ticket · total TTC&lt;br/&gt;marchand"]
+    end
+    subgraph modId["identity · cœur"]
+      direction TB
+      idApp["Cas d'usage&lt;br/&gt;inscription · invitation&lt;br/&gt;emails d'identité"]
+      idDom["Domaine&lt;br/&gt;compte · invitation&lt;br/&gt;vérification"]
+    end
+    subgraph modExp["expenses · cœur"]
+      direction TB
+      expApp["Cas d'usage&lt;br/&gt;soumettre · lister&lt;br/&gt;URL de reçu"]
+      expDom["Domaine&lt;br/&gt;note · accès reçu · tri"]
+    end
+    subgraph modVal["validation · cœur"]
+      direction TB
+      valApp["Cas d'usage&lt;br/&gt;trancher : manager, RH"]
+      valDom["Domaine&lt;br/&gt;qui tranche quoi&lt;br/&gt;une seule fois"]
+    end
+  end
+
+  backbone[("Épine dorsale : outbox_events&lt;br/&gt;les modules ne s'appellent jamais&lt;br/&gt;ils publient des événements")]
+
+  subgraph shared["Ports + adaptateurs : par module · noyau partagé"]
+    direction LR
+    ports["Ports&lt;br/&gt;modules/*/ports&lt;br/&gt;+ noyau src/ports"]
+    adapters["Adaptateurs&lt;br/&gt;modules/*/adapters&lt;br/&gt;+ noyau src/adapters"]
+  end
+
+  pg[("PostgreSQL 16 · 5433&lt;br/&gt;données · RLS · outbox")]
+  s3[("S3 · 4567&lt;br/&gt;reçus par entreprise")]
+  smtp["SMTP · Mailpit&lt;br/&gt;1025 · interface 8025"]
+  ocrKid["Moteur OCR jetable&lt;br/&gt;processus enfant&lt;br/&gt;sharp + tesseract.js"]
+
+  user --&gt;|"pages, fetch JSON"| web
+  web &amp; worker --&gt; composition
+  composition --&gt; expApp &amp; valApp &amp; idApp &amp; ocrApp
+  expApp --&gt; expDom
+  idApp --&gt; idDom
+  ocrApp --&gt; ocrDom
+  valApp --&gt; valDom
+  valDom -.-&gt;|"lit la note, les rôles"| expDom
+  expApp &amp; valApp &amp; idApp &amp; ocrApp --&gt;|"note créée · décision&lt;br/&gt;invitation · analyse"| backbone
+  expApp &amp; valApp &amp; idApp &amp; ocrApp -.-&gt;|"via leurs ports"| ports
+  ports -.-&gt;|"implémentés par"| adapters
+  backbone --&gt; worker
+  worker --&gt;|"emails"| smtp
+  worker --&gt;|"analyse détachée"| ocrKid
+  adapters --&gt; pg
+  adapters --&gt; s3
+
+  classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef support fill:#f3e8ff,stroke:#7c3aed,color:#111827
+  classDef partage fill:#fef9c3,stroke:#a16207,color:#111827
+  classDef infra fill:#fefce8,stroke:#a16207,color:#111827
+  classDef epine fill:#059669,stroke:#065f46,color:#ffffff
+  classDef externe fill:#f3f4f6,stroke:#6b7280,color:#111827
+  class web,worker,composition entree
+  class expApp,expDom,valApp,valDom,idApp,idDom coeur
+  class ocrApp,ocrDom support
+  class ports,adapters partage
+  class pg,s3,smtp,ocrKid infra
+  class backbone epine
+  class user externe
+</pre>
+<!-- fin : vues/modules.mmd -->
+        </div>
+        <ul class="legend" aria-label="Légende">
+          <li><i style="background:#dbeafe;border-color:#2563eb"></i>entrées et assemblage</li>
+          <li><i style="background:#dcfce7;border-color:#16a34a"></i>modules cœurs (dépenses, identité)</li>
+          <li><i style="background:#f3e8ff;border-color:#7c3aed"></i>module support (analyse de reçu)</li>
+          <li><i style="background:#059669;border-color:#065f46"></i>épine dorsale : l'outbox, une table PG pas un broker</li>
+          <li><i style="background:#fef9c3;border-color:#a16207"></i>noyau partagé (outbox, email, stockage blob) + ports/adaptateurs de chaque module</li>
+          <li>pointillés : le cas d'usage ne connaît que des ports, jamais l'implémentation</li>
+        </ul>
+        <p class="fig-note">La touche du schéma : les modules ne se parlent jamais directement. Ils publient des événements dans la même table qui les a vus naître — note créée, décision tranchée, invitation envoyée — et c'est le worker, deuxième processus du même déployable, qui les consomme. Chaque module possède ses ports et ses adaptateurs ; seuls les mécanismes sans langage métier (outbox, envoi d'email, stockage blob) restent partagés. Un seul build, deux processus, zéro broker : le jour où un module doit s'extraire, sa frontière est déjà dessinée.</p>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
       <h3 id="couches">Couches et règles<a class="anchor" href="#couches" aria-label="Lien vers cette section">#</a></h3>
       <div class="table-wrap">
         <table>
@@ -752,10 +858,12 @@ flowchart LR
           <tbody>
             <tr><td><code>src/app/api/**/route.ts</code> et <code>src/http/</code></td><td>authentifier (<code>requireRole</code>), valider l'entrée selon le contrat, appeler un cas d'usage, formater la réponse (DTO, <code>problem+json</code>)</td><td>SQL, règle métier, appel direct à <code>lib/storage</code></td></tr>
             <tr><td><code>src/app/actions/</code>, pages</td><td>server actions (inscription, connexion, déconnexion) ; une page serveur peut appeler un cas d'usage par <code>src/composition</code></td><td>SQL, droits ; <code>src/composition</code> depuis un fichier <code>'use client'</code></td></tr>
-            <tr><td><code>src/application/</code></td><td>cas d'usage : enchaîner les étapes (<code>SubmitExpenseNote</code>, <code>DecideExpenseNote</code>, <code>ListExpenseNotes</code>, <code>GetReceiptUrl</code>, <code>SignUp</code>, <code>InviteEmployee</code>, OCR…)</td><td>toute infrastructure : seulement domaine, ports et <code>node:crypto</code></td></tr>
-            <tr><td><code>src/domain/</code></td><td>règles pures : qui peut décider, qui voit quel reçu (<code>canViewReceipt</code>), tri des listes (<code>parseNoteSort</code>), transitions, lecture d'un ticket (<code>parseReceiptText</code>), identité, notifications</td><td><code>pg</code>, <code>next</code>, <code>aws-sdk</code>, <code>auth</code>, toute autre couche</td></tr>
-            <tr><td><code>src/ports/</code></td><td>interfaces : stockage, OCR, outbox, notifications, repositories</td><td>une implémentation</td></tr>
-            <tr><td><code>src/adapters/</code>, <code>src/lib/</code></td><td>implémentations : PostgreSQL par <code>withUserScope()</code>, S3, SMTP, Tesseract ; session, journal, outbox</td><td>règle métier</td></tr>
+            <tr><td><code>src/modules/expenses/application/</code>, <code>src/modules/identity/application/</code>, <code>src/modules/validation/application/</code>, <code>src/modules/receipt-analysis/application/</code></td><td>cas d'usage par module : expenses (<code>SubmitExpenseNote</code>, <code>ListExpenseNotes</code>, <code>GetReceiptUrl</code>), validation (<code>DecideExpenseNote</code>), identity (<code>SignUp</code>, <code>InviteEmployee</code>), receipt-analysis en support (OCR…)</td><td>toute infrastructure : seulement le domaine et les ports du module, le noyau partagé et <code>node:crypto</code> ; jamais un autre module</td></tr>
+            <tr><td><code>src/modules/expenses/domain/</code>, <code>src/modules/identity/domain/</code>, <code>src/modules/validation/domain/</code>, <code>src/modules/receipt-analysis/domain/</code></td><td>règles pures par module — expenses : accès reçu (<code>canViewReceipt</code>), tri, transitions ; validation : décision (<code>decideExpenseNote</code>) ; identity ; support OCR : lecture ticket (<code>parseReceiptText</code>), <code>UUID</code> partagé via <code>src/utils/uuid</code></td><td><code>pg</code>, <code>next</code>, <code>aws-sdk</code>, <code>auth</code>, toute autre couche ; dépendances déclarées seules : expenses et validation → rôles d'identity, validation → note d'expenses, expenses → Reçu du support</td></tr>
+            <tr><td><code>src/modules/*/ports/</code></td><td>contrats du module, dans son langage : repositories, analyse, notifications, invitations</td><td>une implémentation ; un import vers un autre module</td></tr>
+            <tr><td><code>src/ports/</code> (noyau partagé)</td><td>mécanismes sans langage métier : <code>EventOutbox</code>, <code>EmailPort</code>, <code>ReceiptStoragePort</code></td><td>une règle métier, une dépendance vers un module</td></tr>
+            <tr><td><code>src/modules/*/adapters/</code></td><td>implémentations du module : PostgreSQL par <code>withUserScope()</code>, Tesseract isolé, notifications</td><td>règle métier ; un import vers un autre module (noyau <code>src/adapters</code> autorisé)</td></tr>
+            <tr><td><code>src/adapters/</code> (noyau partagé), <code>src/lib/</code></td><td>mécanismes : <code>PgEventOutbox</code>, <code>S3ReceiptAdapter</code>, <code>SmtpEmailAdapter</code> ; session, journal, outbox</td><td>règle métier</td></tr>
             <tr><td><code>src/composition/</code></td><td>assemble cas d'usage et adaptateurs, une fois par processus</td><td>logique propre</td></tr>
             <tr><td><code>src/worker/</code></td><td>adaptateur entrant de l'outbox, comme une route ; fait sa propre composition</td><td>règle métier propre</td></tr>
             <tr><td><code>migrations/</code></td><td>seule vérité du schéma : SQL horodaté, avec sa partie <code>down</code></td><td>DDL dans le code, édition d'une migration existante</td></tr>
@@ -763,24 +871,26 @@ flowchart LR
         </table>
       </div>
 
-      <h3 id="ports">Ports et adaptateurs<a class="anchor" href="#ports" aria-label="Lien vers cette section">#</a></h3>
+      <h3 id="ports">Ports et adaptateurs : par module, noyau partagé<a class="anchor" href="#ports" aria-label="Lien vers cette section">#</a></h3>
+      <p>Chaque module possède ses ports et ses adaptateurs. Seuls les mécanismes sans langage métier restent partagés : l'outbox, l'envoi d'email et le stockage blob.</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Port (<code>src/ports</code>)</th><th>Adaptateur (<code>src/adapters</code>)</th><th>Utilisé par</th></tr></thead>
+          <thead><tr><th>Module</th><th>Port</th><th>Adaptateur</th><th>Utilisé par</th></tr></thead>
           <tbody>
-            <tr><td><code>ExpenseNoteSubmissionRepository</code></td><td><code>PostgresExpenseNoteSubmissionRepository</code></td><td><code>SubmitExpenseNote</code></td></tr>
+            <tr><td rowspan="6"><code>expenses</code></td><td><code>ExpenseNoteSubmissionRepository</code></td><td><code>PostgresExpenseNoteSubmissionRepository</code></td><td><code>SubmitExpenseNote</code></td></tr>
             <tr><td><code>ExpenseNoteDecisionRepository</code></td><td><code>PostgresExpenseNoteDecisionRepository</code></td><td><code>DecideExpenseNote</code></td></tr>
             <tr><td><code>ExpenseNoteListRepository</code></td><td><code>PostgresExpenseNoteListRepository</code> (tri par table de requêtes fixes, départage par <code>id</code>)</td><td><code>ListExpenseNotes</code></td></tr>
             <tr><td><code>ReceiptAccessRepository</code></td><td><code>PostgresReceiptAccessRepository</code></td><td><code>GetReceiptUrl</code></td></tr>
-            <tr><td><code>ReceiptStoragePort</code></td><td><code>S3ReceiptAdapter</code></td><td>soumission, URL de reçu, analyses, worker</td></tr>
             <tr><td><code>ReceiptInspector</code></td><td><code>inspectReceipt</code> (signature, format réel, décodage)</td><td>validation des reçus à la création</td></tr>
-            <tr><td><code>OcrPort</code></td><td><code>TesseractOcrAdapter</code> (processus enfant)</td><td><code>SuggestReceiptFields</code></td></tr>
+            <tr><td><code>NotificationPort</code></td><td><code>EmailNotificationAdapter</code> ; <code>ConsoleNotificationAdapter</code> en test</td><td>handlers du worker</td></tr>
+            <tr><td rowspan="2"><code>identity</code></td><td><code>AccountRegistry</code>, <code>InvitationRepository</code>, <code>IdentityEmailTokens</code></td><td><code>PostgresAccountRegistry</code>, <code>PostgresInvitationRepository</code>, <code>PgIdentityEmailTokens</code> (fonctions <code>SECURITY DEFINER</code>)</td><td><code>SignUp</code>, <code>InviteEmployee</code>, <code>SendIdentityEmails</code></td></tr>
+            <tr><td><code>CompanyDirectory</code></td><td><code>PostgresCompanyDirectory</code></td><td>routes RH de l'annuaire et du rattachement</td></tr>
+            <tr><td rowspan="3"><code>receipt-analysis</code></td><td><code>OcrPort</code></td><td><code>TesseractOcrAdapter</code> (processus enfant)</td><td><code>SuggestReceiptFields</code></td></tr>
             <tr><td><code>OcrExecutionPort</code></td><td><code>PostgresOcrExecution</code> (verrous transactionnels : deux moteurs par base)</td><td><code>OcrRequests</code>, <code>ProcessReceiptAnalysis</code></td></tr>
             <tr><td><code>ReceiptAnalysisRepository</code>, <code>ReceiptAnalysisWorkPort</code></td><td><code>PostgresReceiptAnalysisRepository</code>, <code>PostgresReceiptAnalysisWork</code></td><td><code>ReceiptAnalyses</code>, <code>ProcessReceiptAnalysis</code></td></tr>
-            <tr><td><code>CompanyDirectory</code></td><td><code>PostgresCompanyDirectory</code></td><td>routes RH de l'annuaire et du rattachement</td></tr>
-            <tr><td><code>AccountRegistry</code>, <code>InvitationRepository</code>, <code>IdentityEmailTokens</code></td><td><code>PostgresAccountRegistry</code>, <code>PostgresInvitationRepository</code>, <code>PgIdentityEmailTokens</code> (fonctions <code>SECURITY DEFINER</code>)</td><td><code>SignUp</code>, <code>InviteEmployee</code>, <code>SendIdentityEmails</code></td></tr>
-            <tr><td><code>EventOutbox</code></td><td><code>PgEventOutbox</code> (dans la transaction de l'appelant)</td><td>repositories de soumission, de décision, d'invitation et d'analyse</td></tr>
-            <tr><td><code>NotificationPort</code>, <code>EmailPort</code></td><td><code>EmailNotificationAdapter</code>, <code>SmtpEmailAdapter</code> ; <code>ConsoleNotificationAdapter</code> en test</td><td>handlers du worker</td></tr>
+            <tr><td rowspan="3">noyau partagé</td><td><code>EventOutbox</code></td><td><code>PgEventOutbox</code> (dans la transaction de l'appelant)</td><td>repositories de soumission, de décision, d'invitation et d'analyse</td></tr>
+            <tr><td><code>EmailPort</code></td><td><code>SmtpEmailAdapter</code></td><td><code>EmailNotificationAdapter</code>, emails d'identité</td></tr>
+            <tr><td><code>ReceiptStoragePort</code></td><td><code>S3ReceiptAdapter</code></td><td>soumission, URL de reçu, analyses, worker</td></tr>
           </tbody>
         </table>
       </div>
@@ -808,9 +918,19 @@ flowchart TB
   m_proxy["proxy"]
   m_types["types"]
   m_worker["worker"]
-  m_application["application"]
-  m_domain["domain"]
   m_generated["generated"]
+  m_modules_2f_expenses_2f_application["modules/expenses/application"]
+  m_modules_2f_expenses_2f_domain["modules/expenses/domain"]
+  m_modules_2f_expenses_2f_ports["modules/expenses/ports"]
+  m_modules_2f_identity_2f_application["modules/identity/application"]
+  m_modules_2f_identity_2f_domain["modules/identity/domain"]
+  m_modules_2f_identity_2f_ports["modules/identity/ports"]
+  m_modules_2f_receipt_2d_analysis_2f_application["modules/receipt-analysis/application"]
+  m_modules_2f_receipt_2d_analysis_2f_domain["modules/receipt-analysis/domain"]
+  m_modules_2f_receipt_2d_analysis_2f_ports["modules/receipt-analysis/ports"]
+  m_modules_2f_validation_2f_application["modules/validation/application"]
+  m_modules_2f_validation_2f_domain["modules/validation/domain"]
+  m_modules_2f_validation_2f_ports["modules/validation/ports"]
   m_ports["ports"]
   m_utils["utils"]
   m_adapters["adapters"]
@@ -829,6 +949,10 @@ flowchart TB
   m_lib_2f_storage["lib/storage"]
   m_lib_2f_telemetry["lib/telemetry"]
   m_lib_2f_tokens["lib/tokens"]
+  m_modules_2f_expenses_2f_adapters["modules/expenses/adapters"]
+  m_modules_2f_identity_2f_adapters["modules/identity/adapters"]
+  m_modules_2f_receipt_2d_analysis_2f_adapters["modules/receipt-analysis/adapters"]
+  m_modules_2f_validation_2f_adapters["modules/validation/adapters"]
   p__40_aws_2d_sdk(["@aws-sdk"])
   p__40_opentelemetry(["@opentelemetry"])
   p_next(["next"])
@@ -840,9 +964,6 @@ flowchart TB
   p_sharp(["sharp"])
   m_adapters --&gt; p_nodemailer
   m_adapters --&gt; p_pg
-  m_adapters --&gt; p_sharp
-  m_adapters --&gt; m_domain
-  m_adapters --&gt; m_lib_2f_db
   m_adapters --&gt; m_lib_2f_storage
   m_adapters --&gt; m_ports
   m_app --&gt; p_next
@@ -854,39 +975,44 @@ flowchart TB
   m_app --&gt; m_lib_2f_auth
   m_app_2f_actions --&gt; p_next
   m_app_2f_actions --&gt; p_next_2d_auth
-  m_app_2f_actions --&gt; m_application
   m_app_2f_actions --&gt; m_composition
   m_app_2f_actions --&gt; m_lib_2f_auth
   m_app_2f_actions --&gt; m_lib_2f_authErrors
+  m_app_2f_actions --&gt; m_modules_2f_identity_2f_application
   m_app_2f_api --&gt; p_next
-  m_app_2f_api --&gt; m_application
   m_app_2f_api --&gt; m_composition
-  m_app_2f_api --&gt; m_domain
   m_app_2f_api --&gt; m_http
   m_app_2f_api --&gt; m_lib_2f_auth
+  m_app_2f_api --&gt; m_modules_2f_expenses_2f_application
+  m_app_2f_api --&gt; m_modules_2f_identity_2f_domain
   m_app_2f_verify_2d_email --&gt; p_next
   m_app_2f_verify_2d_email --&gt; m_composition
-  m_application --&gt; p_node_3a_crypto
-  m_application --&gt; m_domain
-  m_application --&gt; m_ports
   m_components --&gt; p_next
   m_components --&gt; p_react
   m_components --&gt; m_app_2f_actions
   m_components --&gt; m_http
   m_components --&gt; m_types
   m_composition --&gt; m_adapters
-  m_composition --&gt; m_application
   m_composition --&gt; m_lib_2f_tokens
-  m_composition --&gt; m_ports
-  m_domain --&gt; m_generated
-  m_domain --&gt; m_ports
+  m_composition --&gt; m_modules_2f_expenses_2f_adapters
+  m_composition --&gt; m_modules_2f_expenses_2f_application
+  m_composition --&gt; m_modules_2f_expenses_2f_ports
+  m_composition --&gt; m_modules_2f_identity_2f_adapters
+  m_composition --&gt; m_modules_2f_identity_2f_application
+  m_composition --&gt; m_modules_2f_receipt_2d_analysis_2f_adapters
+  m_composition --&gt; m_modules_2f_receipt_2d_analysis_2f_application
+  m_composition --&gt; m_modules_2f_validation_2f_adapters
+  m_composition --&gt; m_modules_2f_validation_2f_application
   m_http --&gt; p_next_2d_auth
   m_http --&gt; m_composition
-  m_http --&gt; m_domain
   m_http --&gt; m_generated
   m_http --&gt; m_lib_2f_auth
   m_http --&gt; m_lib_2f_log
-  m_http --&gt; m_ports
+  m_http --&gt; m_modules_2f_expenses_2f_domain
+  m_http --&gt; m_modules_2f_identity_2f_domain
+  m_http --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
+  m_http --&gt; m_modules_2f_receipt_2d_analysis_2f_ports
+  m_http --&gt; m_modules_2f_validation_2f_domain
   m_http --&gt; m_types
   m_instrumentation --&gt; p_next
   m_instrumentation --&gt; m_lib_2f_authSecret
@@ -914,22 +1040,71 @@ flowchart TB
   m_lib_2f_outbox --&gt; m_lib_2f_db
   m_lib_2f_outbox --&gt; m_ports
   m_lib_2f_sessionUser --&gt; p_react
-  m_lib_2f_sessionUser --&gt; m_domain
   m_lib_2f_sessionUser --&gt; m_lib_2f_db
+  m_lib_2f_sessionUser --&gt; m_modules_2f_identity_2f_domain
   m_lib_2f_storage --&gt; p__40_aws_2d_sdk
-  m_lib_2f_storage --&gt; m_domain
+  m_lib_2f_storage --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
   m_lib_2f_telemetry --&gt; p__40_opentelemetry
   m_lib_2f_telemetry --&gt; m_lib_2f_log
   m_lib_2f_telemetry --&gt; m_lib_2f_outbox
-  m_ports --&gt; m_domain
+  m_modules_2f_expenses_2f_adapters --&gt; p_pg
+  m_modules_2f_expenses_2f_adapters --&gt; p_sharp
+  m_modules_2f_expenses_2f_adapters --&gt; m_adapters
+  m_modules_2f_expenses_2f_adapters --&gt; m_lib_2f_db
+  m_modules_2f_expenses_2f_adapters --&gt; m_modules_2f_expenses_2f_domain
+  m_modules_2f_expenses_2f_adapters --&gt; m_modules_2f_expenses_2f_ports
+  m_modules_2f_expenses_2f_adapters --&gt; m_modules_2f_identity_2f_domain
+  m_modules_2f_expenses_2f_adapters --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
+  m_modules_2f_expenses_2f_adapters --&gt; m_ports
+  m_modules_2f_expenses_2f_application --&gt; p_node_3a_crypto
+  m_modules_2f_expenses_2f_application --&gt; m_modules_2f_expenses_2f_domain
+  m_modules_2f_expenses_2f_application --&gt; m_modules_2f_expenses_2f_ports
+  m_modules_2f_expenses_2f_application --&gt; m_ports
+  m_modules_2f_expenses_2f_domain --&gt; m_modules_2f_identity_2f_domain
+  m_modules_2f_expenses_2f_ports --&gt; m_modules_2f_expenses_2f_domain
+  m_modules_2f_expenses_2f_ports --&gt; m_modules_2f_identity_2f_domain
+  m_modules_2f_expenses_2f_ports --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
+  m_modules_2f_identity_2f_adapters --&gt; p_pg
+  m_modules_2f_identity_2f_adapters --&gt; m_adapters
+  m_modules_2f_identity_2f_adapters --&gt; m_lib_2f_db
+  m_modules_2f_identity_2f_adapters --&gt; m_modules_2f_identity_2f_domain
+  m_modules_2f_identity_2f_adapters --&gt; m_modules_2f_identity_2f_ports
+  m_modules_2f_identity_2f_application --&gt; m_modules_2f_identity_2f_domain
+  m_modules_2f_identity_2f_application --&gt; m_modules_2f_identity_2f_ports
+  m_modules_2f_identity_2f_application --&gt; m_ports
+  m_modules_2f_identity_2f_domain --&gt; m_ports
+  m_modules_2f_identity_2f_domain --&gt; m_utils
+  m_modules_2f_receipt_2d_analysis_2f_adapters --&gt; m_adapters
+  m_modules_2f_receipt_2d_analysis_2f_adapters --&gt; m_lib_2f_db
+  m_modules_2f_receipt_2d_analysis_2f_adapters --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
+  m_modules_2f_receipt_2d_analysis_2f_adapters --&gt; m_modules_2f_receipt_2d_analysis_2f_ports
+  m_modules_2f_receipt_2d_analysis_2f_adapters --&gt; m_ports
+  m_modules_2f_receipt_2d_analysis_2f_application --&gt; p_node_3a_crypto
+  m_modules_2f_receipt_2d_analysis_2f_application --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
+  m_modules_2f_receipt_2d_analysis_2f_application --&gt; m_modules_2f_receipt_2d_analysis_2f_ports
+  m_modules_2f_receipt_2d_analysis_2f_application --&gt; m_ports
+  m_modules_2f_receipt_2d_analysis_2f_domain --&gt; m_generated
+  m_modules_2f_receipt_2d_analysis_2f_domain --&gt; m_modules_2f_receipt_2d_analysis_2f_ports
+  m_modules_2f_receipt_2d_analysis_2f_domain --&gt; m_ports
+  m_modules_2f_receipt_2d_analysis_2f_domain --&gt; m_utils
+  m_modules_2f_receipt_2d_analysis_2f_ports --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
+  m_modules_2f_receipt_2d_analysis_2f_ports --&gt; m_ports
+  m_modules_2f_validation_2f_adapters --&gt; m_adapters
+  m_modules_2f_validation_2f_adapters --&gt; m_lib_2f_db
+  m_modules_2f_validation_2f_adapters --&gt; m_modules_2f_expenses_2f_domain
+  m_modules_2f_validation_2f_adapters --&gt; m_modules_2f_validation_2f_domain
+  m_modules_2f_validation_2f_adapters --&gt; m_modules_2f_validation_2f_ports
+  m_modules_2f_validation_2f_application --&gt; m_modules_2f_validation_2f_domain
+  m_modules_2f_validation_2f_application --&gt; m_modules_2f_validation_2f_ports
+  m_modules_2f_validation_2f_domain --&gt; m_modules_2f_expenses_2f_domain
+  m_modules_2f_validation_2f_domain --&gt; m_modules_2f_identity_2f_domain
+  m_modules_2f_validation_2f_ports --&gt; m_modules_2f_validation_2f_domain
   m_proxy --&gt; p_next
   m_proxy --&gt; m_lib_2f_auth
   m_types --&gt; p_next_2d_auth
   m_worker --&gt; p_pg
   m_worker --&gt; m_adapters
-  m_worker --&gt; m_application
   m_worker --&gt; m_composition
-  m_worker --&gt; m_domain
   m_worker --&gt; m_lib_2f_db
   m_worker --&gt; m_lib_2f_dbRole
   m_worker --&gt; m_lib_2f_email
@@ -937,13 +1112,22 @@ flowchart TB
   m_worker --&gt; m_lib_2f_outbox
   m_worker --&gt; m_lib_2f_telemetry
   m_worker --&gt; m_lib_2f_tokens
+  m_worker --&gt; m_modules_2f_expenses_2f_adapters
+  m_worker --&gt; m_modules_2f_expenses_2f_domain
+  m_worker --&gt; m_modules_2f_expenses_2f_ports
+  m_worker --&gt; m_modules_2f_identity_2f_adapters
+  m_worker --&gt; m_modules_2f_identity_2f_application
+  m_worker --&gt; m_modules_2f_identity_2f_domain
+  m_worker --&gt; m_modules_2f_receipt_2d_analysis_2f_adapters
+  m_worker --&gt; m_modules_2f_receipt_2d_analysis_2f_application
+  m_worker --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
   m_worker --&gt; m_ports
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
   class m_app,m_app_2f_actions,m_app_2f_api,m_app_2f_verify_2d_email,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
-  class m_application,m_domain,m_generated,m_ports,m_utils coeur
+  class m_generated,m_modules_2f_expenses_2f_application,m_modules_2f_expenses_2f_domain,m_modules_2f_expenses_2f_ports,m_modules_2f_identity_2f_application,m_modules_2f_identity_2f_domain,m_modules_2f_identity_2f_ports,m_modules_2f_receipt_2d_analysis_2f_application,m_modules_2f_receipt_2d_analysis_2f_domain,m_modules_2f_receipt_2d_analysis_2f_ports,m_modules_2f_validation_2f_application,m_modules_2f_validation_2f_domain,m_modules_2f_validation_2f_ports,m_ports,m_utils coeur
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
-  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_telemetry,m_lib_2f_tokens infra
+  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_telemetry,m_lib_2f_tokens,m_modules_2f_expenses_2f_adapters,m_modules_2f_identity_2f_adapters,m_modules_2f_receipt_2d_analysis_2f_adapters,m_modules_2f_validation_2f_adapters infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
   class p__40_aws_2d_sdk,p__40_opentelemetry,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react,p_sharp paquet
 </pre>
@@ -976,8 +1160,8 @@ flowchart LR
   %% À tenir à jour avec CLAUDE.md (« Où placer le code »).
 
   q{"Que dois-tu&lt;br/&gt;ajouter ?"}
-  domain["src/domain/&lt;br/&gt;règle pure, testée par Vitest à côté"]
-  usecase["src/application/&lt;br/&gt;cas d'usage, ne voit que des ports"]
+  domain["src/modules/*/domain/&lt;br/&gt;règle pure, testée par Vitest à côté"]
+  usecase["src/modules/*/application/&lt;br/&gt;cas d'usage, ne voit que des ports&lt;br/&gt;et le domaine de son module"]
   port["port dans src/ports/&lt;br/&gt;adaptateur dans src/adapters/&lt;br/&gt;assemblage dans src/composition/"]
   route["openapi.yaml d'abord, npm run generate:api&lt;br/&gt;puis route.ts fine"]
   event["type d'événement de l'outbox&lt;br/&gt;+ handler déclaré dans src/worker/handlers.ts"]
@@ -1232,7 +1416,7 @@ stateDiagram-v2
       <div class="callout">
         <span class="callout-title">Ajouter un traitement asynchrone</span>
         <ol>
-          <li>Déclarer le type d'événement, une constante de <code>src/domain</code> (<code>'objet.action'</code>).</li>
+          <li>Déclarer le type d'événement, une constante du domaine de son module, dans <code>src/modules</code> (<code>'objet.action'</code>).</li>
           <li>Le publier par <code>PgEventOutbox</code> dans la transaction métier (celle de <code>withUserScope</code>), avec un payload figé et sans secret.</li>
           <li>Écrire le handler dans <code>src/worker</code> : <code>handle(event, client)</code> s'il est court, <code>run(event, signal)</code> idempotent s'il est long, puis le déclarer dans <code>buildHandlers()</code>.</li>
           <li>Le tester, puis l'ajouter au tableau ci-dessus et à <code>vues/outbox.mmd</code> : <code>npm run check</code> échoue tant que la page ne le cite pas.</li>
@@ -1831,7 +2015,7 @@ flowchart TB
   adr6["ADR-006 · Stratégie de migration&lt;br/&gt;Strangler Fig, Branch by Abstraction"]
   adr7["ADR-007 · Observabilité&lt;br/&gt;OpenTelemetry, Grafana, optionnelle"]
   adr8["ADR-008 · Mesure d'usage&lt;br/&gt;Umami, optionnelle"]
-  adr9["ADR-009 · Couche d'intégration (proposée)&lt;br/&gt;Vitest sur PostgreSQL, S3, SMTP ; composants"]
+  adr9["ADR-009 · Couche d'intégration&lt;br/&gt;Vitest sur PostgreSQL, S3, SMTP ; composants"]
 
   adr2 --&gt;|"module de permissions"| adr1
   adr2 --&gt;|"ports, worker = adaptateur entrant"| adr3
@@ -1890,7 +2074,7 @@ flowchart TB
           <h4>Décide</h4>
           <ul>
             <li>Monolithe modulaire hexagonal léger : route fine, cas d'usage, domaine pur, ports, adaptateurs.</li>
-            <li>Trois domaines cœurs (identité et tenancy, note de frais, validation) ; OCR et future facturation derrière des ports.</li>
+            <li>Trois domaines cœurs (identité et tenancy, note de frais, validation), fusion note + validation écartée ; OCR et future facturation derrière des ports. Dans le code, quatre modules-hexagones (<code>identity</code>, <code>expenses</code>, <code>validation</code>, <code>receipt-analysis</code> en support), chacun avec domaine, cas d'usage, ports et adaptateurs ; noyau partagé sans langage métier (outbox, email, stockage blob).</li>
             <li>La matrice « où va quoi » (§3.3) ; une page serveur peut appeler la composition (amendement du 27/10).</li>
             <li>B8 : décision atomique, 409 à la seconde ; B16 : <code>decided_by</code> et <code>decided_at</code>.</li>
           </ul>
@@ -2014,9 +2198,9 @@ flowchart TB
         </article>
 
         <article class="card adr violet" id="adr-009">
-          <header><span class="num">ADR-009</span><span class="tag">Proposée</span></header>
+          <header><span class="num">ADR-009</span><span class="tag tag-ok">Acceptée</span></header>
           <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-009-couche-integration.md">Couche d'intégration : Vitest contre PostgreSQL, S3 et SMTP, et tests de composants</a></h3>
-          <p class="meta">Stanislas Beguin (WS5, qualité) · proposée le 29/10/2026, à faire accepter par le PO</p>
+          <p class="meta">Stanislas Beguin (WS5, qualité) · acceptée le 29/10/2026 par le PO</p>
           <h4>Décide</h4>
           <ul>
             <li>Deux configurations Vitest : <code>unit</code> et <code>components</code> (jsdom) dans <code>npm run check</code>, sans Docker ; <code>*.integration.test.ts</code> contre l'infrastructure de <code>docker-compose.yml</code>, job <code>integration</code> attendu par <code>e2e</code>.</li>
@@ -2181,12 +2365,12 @@ flowchart TB
         <table>
           <thead><tr><th>Niveau</th><th>Outil</th><th>Ce qu'il protège</th><th>Où</th></tr></thead>
           <tbody>
-            <tr><td>Statique</td><td>ESLint, SonarJS, <code>tsc</code> strict</td><td>erreurs de code et de types, règles d'architecture de CLAUDE.md</td><td><code>eslint.config.mjs</code></td></tr>
+            <tr><td>Statique</td><td>ESLint, SonarJS, <code>tsc</code> strict (scripts <code>.mjs</code> en <code>// @ts-check</code> compris), règles typées sur les promesses</td><td>erreurs de code et de types, règles d'architecture de CLAUDE.md, promesse oubliée hors de sa transaction</td><td><code>eslint.config.mjs</code>, <code>eslint.promises.config.mjs</code> (<code>npm run lint:promises</code>, dans <code>npm run check</code>)</td></tr>
             <tr><td>Unitaire</td><td>Vitest, projet <code>unit</code></td><td>règles métier pures, en millisecondes, sans infrastructure</td><td><code>*.test.ts</code> à côté du code</td></tr>
             <tr><td>Composants</td><td>Vitest, projet <code>components</code> (jsdom, Testing Library)</td><td>écrans rendus avec leurs enfants, interactions, erreurs traduites, panne serveur comprise ; réseau simulé</td><td><code>*.test.tsx</code> à côté du composant</td></tr>
-            <tr><td>Architecture et doc</td><td>Vitest</td><td>matrice des couches, garde de chaque route, graphes et cette page à jour, consignes par dossier sans chemin ni commande périmés</td><td><code>scripts/architecture</code></td></tr>
+            <tr><td>Architecture et doc</td><td>Vitest</td><td>matrice des couches, garde de chaque route, graphes et cette page à jour, consignes par dossier sans chemin ni commande périmés, registre des E2E (<code>docs/tests/E2E.md</code>) avec une ligne par ID de test</td><td><code>scripts/architecture</code></td></tr>
             <tr><td>Contrat</td><td>Redocly, openapi-typescript, Ajv, oasdiff</td><td>contrat valide, artefacts à jour, chaque route dans le contrat, chaque réponse E2E conforme, aucune rupture par rapport à <code>main</code></td><td><code>npm run check:api</code>, <code>e2e/support/api.ts</code>, <code>scripts/check-api-breaking.sh</code></td></tr>
-            <tr><td>Intégration</td><td>Vitest (<code>vitest.integration.config.mts</code>, <a href="#adr-009">ADR-009</a>, proposée)</td><td>chaque adaptateur sous la RLS, cas d'usage avec leurs vrais adaptateurs (compensation S3), routes appelées dans le processus, handlers du worker sous <code>expense_worker</code>, matrice « qui voit quoi » domaine ⟺ requêtes</td><td><code>*.integration.test.ts</code> à côté du code, <code>integration/</code></td></tr>
+            <tr><td>Intégration</td><td>Vitest (<code>vitest.integration.config.mts</code>, <a href="#adr-009">ADR-009</a>)</td><td>chaque adaptateur sous la RLS, cas d'usage avec leurs vrais adaptateurs (compensation S3), routes appelées dans le processus, handlers du worker sous <code>expense_worker</code>, matrice « qui voit quoi » domaine ⟺ requêtes</td><td><code>*.integration.test.ts</code> à côté du code, <code>integration/</code></td></tr>
             <tr><td>Intégration base</td><td>Playwright sans navigateur</td><td>policies RLS, concurrence, pannes injectées, worker : les scénarios existants, figés</td><td><code>e2e/</code> (ISO-07, OUTBOX…)</td></tr>
             <tr><td>E2E</td><td>Playwright</td><td>comportement observable : parcours, codes HTTP, JSON, droits, isolation</td><td><code>e2e/</code>, IDs dans <code>docs/tests/E2E.md</code></td></tr>
           </tbody>
@@ -2198,7 +2382,7 @@ flowchart TB
           <thead><tr><th>Moment</th><th>Ce qui tourne</th><th>Durée</th></tr></thead>
           <tbody>
             <tr><td><code>git commit</code></td><td>hook pre-commit : ESLint avec cache</td><td>≈ 3 s</td></tr>
-            <tr><td><code>git push</code></td><td>hook pre-push : <code>npm run check</code></td><td>≈ 35 s</td></tr>
+            <tr><td><code>git push</code></td><td>hook pre-push : <code>npm run check</code></td><td>≈ 50 s</td></tr>
             <tr><td>À la demande</td><td><code>make test-integration</code> (≈ 15 s), <code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI), <code>make frozen</code> (migrations et tests E2E de <code>main</code> inchangés)</td><td>≈ 3 min pour la suite</td></tr>
             <tr><td>Couverture, à la demande</td><td><code>npm run test:coverage</code> (unitaires et composants, Vitest v8, tout <code>src/</code>) ; <code>npm run test:integration -- --coverage</code> (intégration) ; <code>npm run test:e2e:coverage</code> (E2E : serveur Next.js, worker et scripts, c8). Aucun seuil bloquant (<a href="#adr-005">ADR-005</a>) ; citer les branches, les lignes E2E sont gonflées</td><td>≈ 20 s ; suite E2E + rapport</td></tr>
             <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires et composants, contrat, build ; sur les PR : oasdiff, migrations et tests E2E existants inchangés), <code>integration</code> et <code>e2e</code> (2 shards, attend aussi <code>integration</code>) ; <code>check</code> et <code>e2e</code> obligatoires, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte</td><td>≈ 1 min et 3 min 30</td></tr>
@@ -2214,7 +2398,7 @@ flowchart TB
           <thead><tr><th>Quoi</th><th>Où</th><th>Tenu à jour par</th></tr></thead>
           <tbody>
             <tr><td>Règles communes</td><td><code>CLAUDE.md</code> et <code>AGENTS.md</code> à la racine</td><td>la main ; chemins, scripts npm et cibles <code>make</code> cités vérifiés</td></tr>
-            <tr><td>Consignes d'un dossier</td><td><code>AGENTS.md</code> de <code>src/domain</code>, <code>src/application</code>, <code>src/ports</code>, <code>src/adapters</code>, <code>src/composition</code>, <code>src/http</code>, <code>src/app/api</code>, <code>src/app</code>, <code>src/components</code>, <code>src/lib</code>, <code>src/worker</code>, <code>migrations</code>, <code>e2e</code>, <code>integration</code>, <code>scripts</code>, <code>docs</code></td><td>la main, sauf le bloc « Peut importer », recopié de <code>layers.ts</code> par <code>npm run generate:architecture</code></td></tr>
+            <tr><td>Consignes d'un dossier</td><td><code>AGENTS.md</code> de <code>src/modules</code>, <code>src/ports</code>, <code>src/adapters</code>, <code>src/composition</code>, <code>src/http</code>, <code>src/app/api</code>, <code>src/app</code>, <code>src/components</code>, <code>src/lib</code>, <code>src/worker</code>, <code>migrations</code>, <code>e2e</code>, <code>scripts</code>, <code>docs</code>, <code>integration</code></td><td>la main, sauf le bloc « Peut importer », recopié de <code>layers.ts</code> par <code>npm run generate:architecture</code></td></tr>
             <tr><td>Recette d'une fonctionnalité</td><td><code>.claude/skills/nouvelle-fonctionnalite/SKILL.md</code> (skill <code>/nouvelle-fonctionnalite</code>)</td><td>la main : plan validé, contrat, domaine, migration, port et adaptateur, cas d'usage, entrée, E2E, doc, vérifications, PR, définition de terminé</td></tr>
           </tbody>
         </table>
@@ -2397,7 +2581,7 @@ flowchart TB
           <thead><tr><th>Si le changement…</th><th>Mettre à jour</th></tr></thead>
           <tbody>
             <tr><td>change un import entre couches, une couche, une route ou sa garde</td><td><code>npm run generate:architecture</code>, relire le diff ; la section concernée si le sens change</td></tr>
-            <tr><td>ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement</td><td><code>vues/systeme.mmd</code>, <code>vues/hexagone.mmd</code> ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs », « Déploiement et exploitation »</td></tr>
+            <tr><td>ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement</td><td><code>vues/systeme.mmd</code>, <code>vues/hexagone.mmd</code>, <code>vues/modules.mmd</code> ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs »</td></tr>
             <tr><td>modifie un parcours : soumission, décision, outbox, OCR, inscription, invitation, session</td><td>la vue de séquence correspondante et le texte de « Parcours clés »</td></tr>
             <tr><td>ajoute une migration : table, colonne, policy, rôle, fonction <code>SECURITY DEFINER</code></td><td><code>vues/schema.mmd</code> et « Données et isolation »</td></tr>
             <tr><td>ajoute un type d'événement de l'outbox</td><td>le tableau des événements et <code>vues/outbox.mmd</code></td></tr>

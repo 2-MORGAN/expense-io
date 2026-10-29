@@ -1,3 +1,4 @@
+// @ts-check
 // Peuple une base de démonstration entièrement navigable dès `make dev` :
 // une entreprise, un hr_admin, un manager racine, un employé qui lui est
 // rattaché, et une note de frais en attente pour chacun des deux (avec un
@@ -64,6 +65,14 @@ async function resolveCompany() {
   return inserted.rows[0].id
 }
 
+/**
+ * @param {string} email
+ * @param {string} name
+ * @param {string} password
+ * @param {'employee' | 'manager' | 'hr_admin'} role
+ * @param {string} companyId
+ * @param {string | null} [managerId]
+ */
 async function upsertUser(email, name, password, role, companyId, managerId = null) {
   const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email])
   if (existing.rows[0]) {
@@ -82,6 +91,11 @@ async function upsertUser(email, name, password, role, companyId, managerId = nu
   return inserted.rows[0].id
 }
 
+/**
+ * @param {string} userId
+ * @param {string} description
+ * @param {number} amount
+ */
 async function seedExpenseNote(userId, description, amount) {
   const existing = await pool.query(
     'SELECT id FROM expense_notes WHERE user_id = $1 AND description = $2',

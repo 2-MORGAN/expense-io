@@ -5,7 +5,7 @@ import { requireRole } from '@/http/requireRole'
 import { readJsonBody, validateInput } from '@/http/validation'
 import type { Invitation } from '@/http/dto'
 import { inviteEmployee } from '@/composition/identity'
-import { InvalidEmail } from '@/domain/identity/identity'
+import { InvalidEmail } from '@/modules/identity/domain/identity'
 
 // Invitation d'un salarié par la RH (S7, ADR-001 §3) : l'email part par
 // l'outbox, le lien vaut vérification de l'adresse. Erreurs au format commun

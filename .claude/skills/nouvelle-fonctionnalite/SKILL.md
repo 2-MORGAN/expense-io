@@ -31,7 +31,7 @@ Si une opération HTTP change : `openapi.yaml` d'abord (lire `docs/api/README.md
 
 ## 3. Domaine
 
-La règle pure et son test, vu rouge puis vert : `src/domain/AGENTS.md`. `npx vitest src/domain` relance les tests à chaque modification.
+La règle pure et son test, vu rouge puis vert : `src/modules/AGENTS.md`. `npx vitest src/modules` relance les tests à chaque modification.
 
 ## 4. Migration
 
@@ -43,7 +43,7 @@ Si la base ou une dépendance externe est touchée : `src/ports/AGENTS.md`, puis
 
 ## 6. Cas d'usage et branchement
 
-`src/application/AGENTS.md` (test avec de faux ports), puis `src/composition/AGENTS.md`.
+`src/modules/AGENTS.md` (test avec de faux ports), puis `src/composition/AGENTS.md`.
 
 ## 7. Entrée
 
@@ -71,7 +71,7 @@ Le tableau « Documentation développeur » du CLAUDE.md dit quoi mettre à jour
 
 ## Définition de terminé
 
-- [ ] La règle métier est dans `src/domain` et testée.
+- [ ] La règle métier est dans `src/modules/<module>/domain` et testée.
 - [ ] Chaque méthode de route nouvelle ouvre sur sa garde (`requireRole`), valide son entrée par le contrat, ne fait ni SQL ni règle métier.
 - [ ] Toute donnée d'une entreprise passe par `withUserScope()` et la RLS ; aucun id venu du client n'est cru sans contrôle de périmètre.
 - [ ] Les erreurs sont en `application/problem+json`, avec un `code` du contrat traduit en français dans l'interface.

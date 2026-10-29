@@ -4,7 +4,7 @@ import { AuthError, CredentialsSignin } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { signIn, signOut } from '@/lib/auth'
 import { EMAIL_NOT_VERIFIED, TOO_MANY_ATTEMPTS } from '@/lib/authErrors'
-import { MIN_PASSWORD_LENGTH } from '@/application/SignUp'
+import { MIN_PASSWORD_LENGTH } from '@/modules/identity/application/SignUp'
 import { signUp } from '@/composition/identity'
 
 export interface AuthFormState {

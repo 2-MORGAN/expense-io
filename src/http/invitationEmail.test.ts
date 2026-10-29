@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeInvitationEmail } from '@/domain/identity/identity'
+import { normalizeInvitationEmail } from '@/modules/identity/domain/identity'
 import { compileContractSchema } from './validation'
 
 // Point 1 de l'audit API : une adresse acceptée par la règle du domaine doit

@@ -4,7 +4,7 @@ import { GET as ownReceipt } from '@/app/api/expense-notes/[id]/receipt-url/rout
 import { GET as ownNotes, POST as submit } from '@/app/api/expense-notes/route'
 import { GET as hrReceipt } from '@/app/api/hr/expense-notes/[id]/receipt-url/route'
 import { GET as managerReceipt } from '@/app/api/manager/expense-notes/[id]/receipt-url/route'
-import { EXPENSE_NOTE_SUBMITTED } from '@/domain/Notification'
+import { EXPENSE_NOTE_SUBMITTED } from '@/modules/expenses/domain/Notification'
 import type { ExpenseNote } from '@/http/dto'
 import { pdfReceipt, pngReceipt, textFile } from '../e2e/support/files'
 import { call, noteForm } from './support/api'

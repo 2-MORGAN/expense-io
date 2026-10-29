@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { OcrError } from '@/domain/receipt/OcrError'
+import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
 import { ocrProblem } from './ocrProblem'
 
 it.each(['OCR_UNAVAILABLE', 'OCR_TIMEOUT', 'OCR_OVERLOADED'] as const)('returns a safe 503 for %s', async (code) => {

@@ -42,7 +42,11 @@ export function appUrlFromEnv(env: Env): string {
   if (!/^https?:\/\/[^/\s]+/.test(url)) {
     throw new Error('APP_URL is invalid')
   }
-  return url.replace(/\/+$/, '')
+  // Barres finales retirées sans expression régulière : temps linéaire
+  // (constat SonarJS super-linear-regex).
+  let end = url.length
+  while (end > 0 && url[end - 1] === '/') end--
+  return url.slice(0, end)
 }
 
 export function createEmailSender(env: Env): EmailPort {

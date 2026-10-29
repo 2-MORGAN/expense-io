@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readReceipt } from './readReceipt'
-import { MAX_RECEIPT_BYTES } from '@/domain/receipt/limits'
+import { MAX_RECEIPT_BYTES } from '@/modules/receipt-analysis/domain/limits'
 import { pngReceipt } from '../../e2e/support/files'
 
 function upload(data: Buffer) {
