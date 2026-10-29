@@ -13,18 +13,27 @@ export const EMAIL_VERIFICATION_REQUESTED = 'email.verification.requested'
 export const INVITATION_TTL_DAYS = 7
 export const VERIFICATION_TTL_HOURS = 24
 
-const EMAIL_PATTERN = /^[^\s@]+@([^\s@]+\.[^\s@]+)$/
+const WHITESPACE = /\s/
 
 export interface ParsedEmail {
   email: string
   domain: string
 }
 
-/** Adresse au format attendu par l'inscription, sinon `null`. Le domaine est rendu en minuscules. */
+/**
+ * Adresse au format attendu par l'inscription, sinon `null`. Le domaine est
+ * rendu en minuscules. Même règle que l'ancienne `^[^\s@]+@([^\s@]+\.[^\s@]+)$` :
+ * un seul @, aucun blanc, une partie locale non vide, un point dans le
+ * domaine ni au début ni à la fin. Vérifiée sans retour arrière : l'email
+ * vient du formulaire public d'inscription, et l'expression mettait plusieurs
+ * secondes sur une adresse piégée (ReDoS, constat SonarJS super-linear-regex).
+ */
 export function parseEmail(value: unknown): ParsedEmail | null {
-  if (typeof value !== 'string') return null
-  const match = EMAIL_PATTERN.exec(value)
-  return match ? { email: value, domain: match[1].toLowerCase() } : null
+  if (typeof value !== 'string' || WHITESPACE.test(value)) return null
+  const at = value.indexOf('@')
+  if (at < 1 || at !== value.lastIndexOf('@')) return null
+  const domain = value.slice(at + 1)
+  return domain.slice(1, -1).includes('.') ? { email: value, domain: domain.toLowerCase() } : null
 }
 
 // Syntaxe d'adresse du contrat (`format: email` d'OpenAPI, ajv-formats en mode
@@ -86,12 +95,19 @@ export function userIdOf(event: OutboxEventRecord): string {
   return payloadId(event, 'userId')
 }
 
+/** L'adresse sans ses barres finales, en temps linéaire (constat SonarJS super-linear-regex). */
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length
+  while (end > 0 && url[end - 1] === '/') end--
+  return url.slice(0, end)
+}
+
 export function invitationUrl(appUrl: string, token: string): string {
-  return `${appUrl.replace(/\/+$/, '')}/signup?invitation=${encodeURIComponent(token)}`
+  return `${withoutTrailingSlashes(appUrl)}/signup?invitation=${encodeURIComponent(token)}`
 }
 
 export function verificationUrl(appUrl: string, token: string): string {
-  return `${appUrl.replace(/\/+$/, '')}/verify-email?token=${encodeURIComponent(token)}`
+  return `${withoutTrailingSlashes(appUrl)}/verify-email?token=${encodeURIComponent(token)}`
 }
 
 export function invitationEmail(input: {

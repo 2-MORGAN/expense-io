@@ -67,6 +67,20 @@ function toTitleCase(name: string): string {
     .join(' ')
 }
 
+const SEPARATOR = /[\s\-–:|,.]/
+
+/**
+ * Le texte sans ses séparateurs finaux (blancs, tirets, deux-points, barres,
+ * virgules, points), comme l'ancienne `replace(/[\s\-–:|,.]+$/, '')`, mais en
+ * temps linéaire : le texte vient de l'OCR d'un reçu envoyé par l'utilisateur
+ * (constat SonarJS super-linear-regex).
+ */
+export function trimTrailingSeparators(text: string): string {
+  let end = text.length
+  while (end > 0 && SEPARATOR.test(text[end - 1])) end--
+  return text.slice(0, end)
+}
+
 /**
  * Suggère une description : le nom du commerçant, lu sur l'une des premières
  * lignes. Une ligne avec des chiffres (adresse, numéro) ou une mention légale
@@ -82,8 +96,7 @@ export function parseDescription(text: string): string | undefined {
 
   for (const line of lines) {
     const documentWord = line.search(DOCUMENT_WORD_PATTERN)
-    const candidate = (documentWord === -1 ? line : line.slice(0, documentWord))
-      .replace(/[\s\-–:|,.]+$/, '')
+    const candidate = trimTrailingSeparators(documentWord === -1 ? line : line.slice(0, documentWord))
       .replace(/\s+/g, ' ')
       .trim()
     if (/\d/.test(candidate) || NON_MERCHANT_PATTERN.test(candidate)) continue

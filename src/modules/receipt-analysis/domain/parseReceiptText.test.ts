@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseAmount, parseDescription, parseExpenseDate } from './parseReceiptText'
+import { parseAmount, parseDescription, parseExpenseDate, trimTrailingSeparators } from './parseReceiptText'
 
 // Textes réellement rendus par le moteur OCR (Tesseract, `fra`) : les deux reçus
 // de `e2e/fixtures/` et une facture de restaurant réaliste rendue en image.
@@ -87,6 +87,28 @@ describe('receipt description suggestion (merchant name)', () => {
     ['name beyond the first lines', 'Date : 11/10/2026\n1\n2\n3\n4\n5\nRESTAURANT TARDIF'],
   ])('nothing suggested: %s', (_case, text) => {
     expect(parseDescription(text)).toBeUndefined()
+  })
+
+  // ReDoS (SonarJS super-linear-regex): the OCR text comes from an uploaded
+  // receipt. The former regex took seconds on a long line of separators.
+  it('stays linear on a long line of separators', () => {
+    const started = performance.now()
+    expect(parseDescription(`${' -'.repeat(50_000)}x`)).toBeUndefined()
+    expect(performance.now() - started).toBeLessThan(250)
+  })
+
+  it('trims trailing separators exactly like the former regex', () => {
+    const alphabet = [' ', '-', '–', ':', '|', ',', '.', 'a', 'é', '\t', '\u00a0', '_', '\n']
+    let seed = 20261029
+    const next = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648
+      return seed / 2147483648
+    }
+    for (let i = 0; i < 20_000; i++) {
+      const text = Array.from({ length: Math.floor(next() * 11) }, () => alphabet[Math.floor(next() * alphabet.length)]).join('')
+      // eslint-disable-next-line sonarjs/super-linear-regex -- the former regex, kept as the oracle: applied here to strings of 10 characters at most
+      expect(trimTrailingSeparators(text), JSON.stringify(text)).toBe(text.replace(/[\s\-–:|,.]+$/, ''))
+    }
   })
 })
 

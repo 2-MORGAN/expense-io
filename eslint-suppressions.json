@@ -53,24 +53,6 @@
       "count": 1
     }
   },
-  "src/modules/identity/domain/identity.ts": {
-    "sonarjs/super-linear-regex": {
-      "count": 3
-    }
-  },
-  "src/modules/receipt-analysis/domain/Receipt.ts": {
-    "sonarjs/cognitive-complexity": {
-      "count": 1
-    },
-    "sonarjs/no-nested-conditional": {
-      "count": 3
-    }
-  },
-  "src/modules/receipt-analysis/domain/parseReceiptText.ts": {
-    "sonarjs/super-linear-regex": {
-      "count": 1
-    }
-  },
   "src/http/contractResponses.ts": {
     "sonarjs/cognitive-complexity": {
       "count": 1
@@ -97,9 +79,12 @@
       "count": 4
     }
   },
-  "src/lib/email.ts": {
-    "sonarjs/super-linear-regex": {
+  "src/modules/receipt-analysis/domain/Receipt.ts": {
+    "sonarjs/cognitive-complexity": {
       "count": 1
+    },
+    "sonarjs/no-nested-conditional": {
+      "count": 3
     }
   },
   "src/utils/validators.ts": {
