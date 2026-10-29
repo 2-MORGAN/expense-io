@@ -53,8 +53,7 @@ export const LAYERS_WITHOUT_AGENTS: readonly string[] = [
   // Générés depuis openapi.yaml (`npm run generate:api`), sauf next-auth.d.ts.
   'src/generated',
   'src/types',
-  // Code mort (CLAUDE.md, « Dette connue »), sauf uuid.ts partagé par les
-  // domaines : rien d'autre ne s'y ajoute.
+  // Noyau partagé réduit à uuid.ts, décrit dans CLAUDE.md.
   'src/utils',
   // Un fichier chacun, décrit dans CLAUDE.md.
   'src/proxy',

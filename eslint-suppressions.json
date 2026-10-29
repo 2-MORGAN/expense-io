@@ -86,10 +86,5 @@
     "sonarjs/no-nested-conditional": {
       "count": 3
     }
-  },
-  "src/utils/validators.ts": {
-    "sonarjs/super-linear-regex": {
-      "count": 1
-    }
   }
 }
