@@ -158,7 +158,7 @@ const eslintConfig = defineConfig([
   {
     // Comptes de démonstration publics (CLAUDE.md, README) et données de test.
     name: 'expense-io/sonarjs-test-data',
-    files: ['e2e/**', 'scripts/seed.mjs', 'src/**/*.test.ts'],
+    files: ['e2e/**', 'integration/**', 'scripts/seed.mjs', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
     rules: { 'sonarjs/no-hardcoded-passwords': 'off' },
   },
   {
@@ -208,7 +208,7 @@ const eslintConfig = defineConfig([
   },
   {
     name: 'expense-io/tests',
-    files: ['e2e/**', 'src/**/*.test.ts', 'scripts/**/*.test.ts'],
+    files: ['e2e/**', 'integration/**', 'src/**/*.test.ts', 'src/**/*.test.tsx', 'scripts/**/*.test.ts'],
     rules: {
       'no-restricted-properties': [
         'error',

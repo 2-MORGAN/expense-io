@@ -442,7 +442,8 @@ npm run dev                   <span class="c"># next dev et le worker, ensemble 
       </div>
 
       <h3>Premières vérifications</h3>
-<pre class="cmd"><code>npm run check                     <span class="c"># lint, types, tests unitaires, contrat, graphes et doc : sans Docker</span>
+<pre class="cmd"><code>npm run check                     <span class="c"># lint, types, tests unitaires et de composants, contrat, graphes et doc : sans Docker</span>
+make test-integration             <span class="c"># tests d'intégration : base sous la RLS, S3, SMTP (Docker requis, ≈ 15 s)</span>
 npx playwright test -g "NDF-06"   <span class="c"># un scénario E2E par son ID, sur le serveur de make dev</span>
 make test-e2e                     <span class="c"># toute la suite E2E (Docker requis)</span>
 npm run test:coverage             <span class="c"># couverture des tests unitaires → coverage/index.html</span>
@@ -664,7 +665,7 @@ flowchart TB
           <tbody>
             <tr><td><strong>Web</strong> (Next.js)</td><td>pages, server actions, route handlers <code>/api/**</code>, Auth.js, garde de navigation</td><td><code>npm run dev</code>, port 3000</td><td><code>npm run build</code> puis <code>npm run start</code></td><td><code>src/app</code>, <code>src/proxy.ts</code></td></tr>
             <tr><td><strong>Worker</strong></td><td>consomme l'outbox : emails d'identité, notifications, analyse des reçus ; nettoie les analyses terminées</td><td>lancé par <code>npm run dev</code> ; seul : <code>npm run worker</code></td><td>second processus supervisé, <code>npm run worker</code></td><td><code>src/worker</code></td></tr>
-            <tr><td><strong>Moteur OCR</strong></td><td>processus enfant jetable par analyse : sharp réduit l'image, Tesseract lit le texte ; tué à l'échéance</td><td>lancé par le web (route synchrone) et par le worker</td><td>idem ; exige <code>tessdata/</code> et les processus enfants</td><td><code>scripts/ocr-engine.mjs</code>, <code>src/adapters/TesseractOcrAdapter.ts</code></td></tr>
+            <tr><td><strong>Moteur OCR</strong></td><td>processus enfant jetable par analyse : sharp réduit l'image, Tesseract lit le texte ; tué à l'échéance</td><td>lancé par le web (route synchrone) et par le worker</td><td>idem ; exige <code>tessdata/</code> et les processus enfants</td><td><code>scripts/ocr-engine.mjs</code>, <code>src/modules/receipt-analysis/adapters/TesseractOcrAdapter.ts</code></td></tr>
             <tr><td><strong>PostgreSQL 16</strong></td><td>données, RLS, outbox, verrous des moteurs OCR</td><td>Docker, port 5433 ; web sous <code>expense_app</code>, worker sous <code>expense_worker</code>, migrations sous <code>expense</code></td><td>base gérée, mêmes rôles ; un processus refuse de démarrer sous un rôle qui contourne la RLS</td><td><code>migrations/</code>, <code>src/lib/db.ts</code>, <code>src/lib/dbRole.ts</code></td></tr>
             <tr><td><strong>S3</strong></td><td>reçus des notes et des analyses, sous <code>receipts/{companyId}/…</code></td><td>LocalStack 3.8.1, port 4567</td><td>tout stockage compatible S3</td><td><code>src/lib/storage.ts</code>, <code>src/adapters/S3ReceiptAdapter.ts</code></td></tr>
             <tr><td><strong>SMTP</strong></td><td>invitations, vérifications d'email, notifications</td><td>Mailpit : SMTP 1025, interface 8025, aucun email ne sort</td><td>fournisseur transactionnel (port 465, <code>SMTP_SECURE</code>)</td><td><code>src/lib/email.ts</code>, <code>src/adapters/SmtpEmailAdapter.ts</code></td></tr>
@@ -2014,6 +2015,7 @@ flowchart TB
   adr6["ADR-006 · Stratégie de migration&lt;br/&gt;Strangler Fig, Branch by Abstraction"]
   adr7["ADR-007 · Observabilité&lt;br/&gt;OpenTelemetry, Grafana, optionnelle"]
   adr8["ADR-008 · Mesure d'usage&lt;br/&gt;Umami, optionnelle"]
+  adr9["ADR-009 · Couche d'intégration&lt;br/&gt;Vitest sur PostgreSQL, S3, SMTP ; composants"]
 
   adr2 --&gt;|"module de permissions"| adr1
   adr2 --&gt;|"ports, worker = adaptateur entrant"| adr3
@@ -2025,6 +2027,8 @@ flowchart TB
   adr7 --&gt;|"mesure l'outbox et l'OCR"| adr3
   adr8 --&gt;|"complète : l'usage, côté navigateur"| adr7
   adr8 --&gt;|"applique §5 : rien de sensible ne sort"| adr5
+  adr9 --&gt;|"amende §1 : intégration en Vitest"| adr5
+  adr9 -.-&gt;|"confronte le WHERE des listes à la règle du domaine"| adr1
   adr5 -.-&gt;|"vérifie : E2E, lint, contrat"| adr1 &amp; adr2 &amp; adr3 &amp; adr4 &amp; adr6
 
   classDef securite fill:#fee2e2,stroke:#dc2626,color:#111827
@@ -2036,7 +2040,7 @@ flowchart TB
   class adr2,adr6 archi
   class adr3 asynchrone
   class adr4 api
-  class adr5,adr7,adr8 qualite
+  class adr5,adr7,adr8,adr9 qualite
 </pre>
 <!-- fin : vues/adr.mmd -->
         </div>
@@ -2193,6 +2197,20 @@ flowchart TB
           </ul>
         </article>
 
+        <article class="card adr violet" id="adr-009">
+          <header><span class="num">ADR-009</span><span class="tag tag-ok">Acceptée</span></header>
+          <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-009-couche-integration.md">Couche d'intégration : Vitest contre PostgreSQL, S3 et SMTP, et tests de composants</a></h3>
+          <p class="meta">Stanislas Beguin (WS5, qualité) · acceptée le 29/10/2026 par le PO</p>
+          <h4>Décide</h4>
+          <ul>
+            <li>Deux configurations Vitest : <code>unit</code> et <code>components</code> (jsdom) dans <code>npm run check</code>, sans Docker ; <code>*.integration.test.ts</code> contre l'infrastructure de <code>docker-compose.yml</code>, job <code>integration</code> attendu par <code>e2e</code>.</li>
+            <li>Le code testé sous <code>expense_app</code> (RLS active), le worker sous <code>expense_worker</code> ; une entreprise par test, créée sous le propriétaire.</li>
+            <li>La matrice « qui voit quoi » confronte le domaine au WHERE des listes, sous la RLS et sans. Playwright reste la référence de non-régression ; ses tests existants ne changent pas.</li>
+          </ul>
+          <h4>Amende</h4>
+          <ul class="pills"><li><a href="#adr-005">ADR-005</a> §1 : les tests au niveau base s'écrivent désormais en Vitest</li></ul>
+        </article>
+
         <article class="card">
           <h3>Écrire une ADR</h3>
           <ol class="steps">
@@ -2242,10 +2260,11 @@ flowchart TB
   push["git push&lt;br/&gt;pre-push : npm run check"]
   pr["Pull request vers main&lt;br/&gt;modèle rempli, relue par un pair"]
   ci{"CI GitHub Actions"}
-  checkJob["check&lt;br/&gt;lint, SonarJS, types, Vitest,&lt;br/&gt;contrat, graphes, doc, consignes,&lt;br/&gt;oasdiff (sans rupture),&lt;br/&gt;migrations et E2E de main inchangés, build"]
+  checkJob["check&lt;br/&gt;lint, SonarJS, types,&lt;br/&gt;Vitest unitaires et composants,&lt;br/&gt;contrat, graphes, doc, consignes,&lt;br/&gt;oasdiff (sans rupture),&lt;br/&gt;migrations et E2E de main inchangés, build"]
+  integrationJob["integration&lt;br/&gt;Vitest *.integration.test.ts&lt;br/&gt;Postgres sous la RLS, LocalStack, Mailpit"]
   e2eJob["e2e&lt;br/&gt;Playwright en 2 shards&lt;br/&gt;Postgres, LocalStack, Mailpit"]
   mainBranch[("main&lt;br/&gt;squash, historique linéaire")]
-  coverage["Couverture à la demande&lt;br/&gt;test:coverage (Vitest v8)&lt;br/&gt;test:e2e:coverage (c8)"]
+  coverage["Couverture à la demande&lt;br/&gt;test:coverage (Vitest v8)&lt;br/&gt;test:integration -- --coverage&lt;br/&gt;test:e2e:coverage (c8)"]
 
   subgraph claude["Claude Code : .claude/settings.json"]
     direction TB
@@ -2257,7 +2276,8 @@ flowchart TB
   guide -.-&gt;|"guide"| change
   change --&gt; commit --&gt; push --&gt; pr --&gt; ci
   change -.-&gt;|"où sont les trous ?"| coverage
-  ci --&gt; checkJob &amp; e2eJob
+  ci --&gt; checkJob &amp; integrationJob &amp; e2eJob
+  integrationJob --&gt;|"attendu par e2e"| e2eJob
   checkJob &amp; e2eJob --&gt;|"obligatoires"| mainBranch
   guardHook -.-&gt; commit
   frozenHook -.-&gt; change
@@ -2267,10 +2287,76 @@ flowchart TB
   classDef ciJob fill:#dcfce7,stroke:#16a34a,color:#111827
   classDef hook fill:#ede9fe,stroke:#7c3aed,color:#111827
   class guide,commit,push,pr,coverage local
-  class checkJob,e2eJob ciJob
+  class checkJob,integrationJob,e2eJob ciJob
   class guardHook,frozenHook,stopHook hook
 </pre>
 <!-- fin : vues/harnais.mmd -->
+        </div>
+        <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
+      </figure>
+
+      <p>Le trophée des tests (<a href="#adr-009">ADR-009</a>) : la couche d'intégration, la plus large, donne le plus de confiance pour son coût ; le statique et les tests unitaires attrapent tôt ce qui coûte peu, les tests système gardent les parcours que verront les correcteurs. Le tableau « Où mettre un test » de <code>integration/AGENTS.md</code> dit où écrire le suivant.</p>
+
+      <figure class="diagram" id="fig-tests">
+        <figcaption>
+          <span class="fig-title">Le trophée des tests : où vit chaque test, ce qui le lance</span>
+          <span class="tag tag-hand">vue écrite à la main</span>
+          <a class="fig-src" href="architecture/vues/tests.mmd">vues/tests.mmd</a>
+        </figcaption>
+        <div class="diagram-canvas">
+<!-- début : vues/tests.mmd -->
+<pre class="mermaid">
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% Le trophée des tests (ADR-009) : chaque couche dit ce qu'elle exerce, où
+  %% vivent ses tests et ce qui les lance. L'intégration, la plus large, donne
+  %% le plus de confiance pour son coût.
+
+  subgraph systeme["Système : l'application lancée, vue de l'extérieur · Playwright, e2e/ · make test-e2e, job e2e"]
+    direction LR
+    ui["Parcours UI&lt;br/&gt;Chromium, textes et rôles"]
+    api["API HTTP&lt;br/&gt;codes, JSON, contrat"]
+  end
+
+  subgraph integration["Intégration : plusieurs unités réelles ensemble · make test-integration, job integration"]
+    direction LR
+    adapters["Adaptateurs&lt;br/&gt;PostgreSQL sous la RLS,&lt;br/&gt;S3, SMTP"]
+    usecases["Cas d'usage&lt;br/&gt;avec leurs vrais adaptateurs"]
+    routes["Routes appelées&lt;br/&gt;dans le processus&lt;br/&gt;garde, validation, contrat"]
+    matrix["Qui voit quoi&lt;br/&gt;domaine ⟺ requêtes,&lt;br/&gt;sous la RLS et sans"]
+    worker["Handlers du worker&lt;br/&gt;sous expense_worker"]
+    components["Composants React&lt;br/&gt;jsdom, réseau simulé&lt;br/&gt;(npm run check)"]
+    playwrightDb["Playwright sans navigateur&lt;br/&gt;RLS, outbox, scripts&lt;br/&gt;(job e2e)"]
+  end
+
+  subgraph unitaire["Unitaire : une règle pure, sans entrée-sortie · Vitest, à côté du code · npm run check"]
+    direction LR
+    domain["Domaine&lt;br/&gt;règles métier"]
+    application["Cas d'usage&lt;br/&gt;ports doublés"]
+    http["Frontière HTTP&lt;br/&gt;validation, erreurs"]
+  end
+
+  subgraph statique["Statique : rien n'est exécuté · pre-commit, npm run check, job check"]
+    direction LR
+    types["TypeScript strict"]
+    lint["ESLint, SonarJS,&lt;br/&gt;règles d'architecture"]
+    contract["Contrat OpenAPI&lt;br/&gt;valide, sans rupture"]
+    drift["Graphes, doc et&lt;br/&gt;consignes à jour"]
+  end
+
+  systeme ~~~ integration ~~~ unitaire ~~~ statique
+
+  classDef sys fill:#fef9c3,stroke:#a16207,color:#111827
+  classDef int fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef unit fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef stat fill:#f3f4f6,stroke:#6b7280,color:#111827
+  class ui,api sys
+  class adapters,usecases,routes,matrix,worker,components,playwrightDb int
+  class domain,application,http unit
+  class types,lint,contract,drift stat
+</pre>
+<!-- fin : vues/tests.mmd -->
         </div>
         <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
       </figure>
@@ -2280,10 +2366,12 @@ flowchart TB
           <thead><tr><th>Niveau</th><th>Outil</th><th>Ce qu'il protège</th><th>Où</th></tr></thead>
           <tbody>
             <tr><td>Statique</td><td>ESLint, SonarJS, <code>tsc</code> strict (scripts <code>.mjs</code> en <code>// @ts-check</code> compris), règles typées sur les promesses</td><td>erreurs de code et de types, règles d'architecture de CLAUDE.md, promesse oubliée hors de sa transaction</td><td><code>eslint.config.mjs</code>, <code>eslint.promises.config.mjs</code> (<code>npm run lint:promises</code>, dans <code>npm run check</code>)</td></tr>
-            <tr><td>Unitaire</td><td>Vitest</td><td>règles métier pures, en millisecondes, sans infrastructure</td><td><code>*.test.ts</code> à côté du code</td></tr>
+            <tr><td>Unitaire</td><td>Vitest, projet <code>unit</code></td><td>règles métier pures, en millisecondes, sans infrastructure</td><td><code>*.test.ts</code> à côté du code</td></tr>
+            <tr><td>Composants</td><td>Vitest, projet <code>components</code> (jsdom, Testing Library)</td><td>écrans rendus avec leurs enfants, interactions, erreurs traduites, panne serveur comprise ; réseau simulé</td><td><code>*.test.tsx</code> à côté du composant</td></tr>
             <tr><td>Architecture et doc</td><td>Vitest</td><td>matrice des couches, garde de chaque route, graphes et cette page à jour, consignes par dossier sans chemin ni commande périmés, registre des E2E (<code>docs/tests/E2E.md</code>) avec une ligne par ID de test</td><td><code>scripts/architecture</code></td></tr>
             <tr><td>Contrat</td><td>Redocly, openapi-typescript, Ajv, oasdiff</td><td>contrat valide, artefacts à jour, chaque route dans le contrat, chaque réponse E2E conforme, aucune rupture par rapport à <code>main</code></td><td><code>npm run check:api</code>, <code>e2e/support/api.ts</code>, <code>scripts/check-api-breaking.sh</code></td></tr>
-            <tr><td>Intégration base</td><td>Playwright sans navigateur</td><td>ce que le HTTP ne voit pas : policies RLS, concurrence, pannes injectées, worker</td><td><code>e2e/</code> (ISO-07, OUTBOX…)</td></tr>
+            <tr><td>Intégration</td><td>Vitest (<code>vitest.integration.config.mts</code>, <a href="#adr-009">ADR-009</a>)</td><td>chaque adaptateur sous la RLS, cas d'usage avec leurs vrais adaptateurs (compensation S3), routes appelées dans le processus, handlers du worker sous <code>expense_worker</code>, matrice « qui voit quoi » domaine ⟺ requêtes</td><td><code>*.integration.test.ts</code> à côté du code, <code>integration/</code></td></tr>
+            <tr><td>Intégration base</td><td>Playwright sans navigateur</td><td>policies RLS, concurrence, pannes injectées, worker : les scénarios existants, figés</td><td><code>e2e/</code> (ISO-07, OUTBOX…)</td></tr>
             <tr><td>E2E</td><td>Playwright</td><td>comportement observable : parcours, codes HTTP, JSON, droits, isolation</td><td><code>e2e/</code>, IDs dans <code>docs/tests/E2E.md</code></td></tr>
           </tbody>
         </table>
@@ -2295,9 +2383,9 @@ flowchart TB
           <tbody>
             <tr><td><code>git commit</code></td><td>hook pre-commit : ESLint avec cache</td><td>≈ 3 s</td></tr>
             <tr><td><code>git push</code></td><td>hook pre-push : <code>npm run check</code></td><td>≈ 50 s</td></tr>
-            <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI), <code>make frozen</code> (migrations et tests E2E de <code>main</code> inchangés)</td><td>≈ 3 min pour la suite</td></tr>
-            <tr><td>Couverture, à la demande</td><td><code>npm run test:coverage</code> (unitaires, Vitest v8) ; <code>npm run test:e2e:coverage</code> (E2E : serveur Next.js, worker et scripts, c8). Aucun seuil bloquant (<a href="#adr-005">ADR-005</a>) ; citer les branches, les lignes E2E sont gonflées</td><td>≈ 20 s ; suite E2E + rapport</td></tr>
-            <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, build ; sur les PR : oasdiff, migrations et tests E2E existants inchangés) et <code>e2e</code> (2 shards), obligatoires, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte</td><td>≈ 1 min et 3 min 30</td></tr>
+            <tr><td>À la demande</td><td><code>make test-integration</code> (≈ 15 s), <code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI), <code>make frozen</code> (migrations et tests E2E de <code>main</code> inchangés)</td><td>≈ 3 min pour la suite</td></tr>
+            <tr><td>Couverture, à la demande</td><td><code>npm run test:coverage</code> (unitaires et composants, Vitest v8, tout <code>src/</code>) ; <code>npm run test:integration -- --coverage</code> (intégration) ; <code>npm run test:e2e:coverage</code> (E2E : serveur Next.js, worker et scripts, c8). Aucun seuil bloquant (<a href="#adr-005">ADR-005</a>) ; citer les branches, les lignes E2E sont gonflées</td><td>≈ 20 s ; suite E2E + rapport</td></tr>
+            <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires et composants, contrat, build ; sur les PR : oasdiff, migrations et tests E2E existants inchangés), <code>integration</code> et <code>e2e</code> (2 shards, attend aussi <code>integration</code>) ; <code>check</code> et <code>e2e</code> obligatoires, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte</td><td>≈ 1 min et 3 min 30</td></tr>
             <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements (<code>guard-git.mjs</code>) et l’écriture d’une migration ou d’un test E2E déjà dans <code>main</code> (<code>guard-frozen.mjs</code>) ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
           </tbody>
         </table>
@@ -2310,7 +2398,7 @@ flowchart TB
           <thead><tr><th>Quoi</th><th>Où</th><th>Tenu à jour par</th></tr></thead>
           <tbody>
             <tr><td>Règles communes</td><td><code>CLAUDE.md</code> et <code>AGENTS.md</code> à la racine</td><td>la main ; chemins, scripts npm et cibles <code>make</code> cités vérifiés</td></tr>
-            <tr><td>Consignes d'un dossier</td><td><code>AGENTS.md</code> de <code>src/modules</code>, <code>src/ports</code>, <code>src/adapters</code>, <code>src/composition</code>, <code>src/http</code>, <code>src/app/api</code>, <code>src/app</code>, <code>src/components</code>, <code>src/lib</code>, <code>src/worker</code>, <code>migrations</code>, <code>e2e</code>, <code>scripts</code>, <code>docs</code></td><td>la main, sauf le bloc « Peut importer », recopié de <code>layers.ts</code> par <code>npm run generate:architecture</code></td></tr>
+            <tr><td>Consignes d'un dossier</td><td><code>AGENTS.md</code> de <code>src/modules</code>, <code>src/ports</code>, <code>src/adapters</code>, <code>src/composition</code>, <code>src/http</code>, <code>src/app/api</code>, <code>src/app</code>, <code>src/components</code>, <code>src/lib</code>, <code>src/worker</code>, <code>migrations</code>, <code>e2e</code>, <code>scripts</code>, <code>docs</code>, <code>integration</code></td><td>la main, sauf le bloc « Peut importer », recopié de <code>layers.ts</code> par <code>npm run generate:architecture</code></td></tr>
             <tr><td>Recette d'une fonctionnalité</td><td><code>.claude/skills/nouvelle-fonctionnalite/SKILL.md</code> (skill <code>/nouvelle-fonctionnalite</code>)</td><td>la main : plan validé, contrat, domaine, migration, port et adaptateur, cas d'usage, entrée, E2E, doc, vérifications, PR, définition de terminé</td></tr>
           </tbody>
         </table>

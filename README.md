@@ -105,11 +105,12 @@ les mots de passe lus dans `.env` : rien à échanger entre postes.
 
 | Commande | Ce qu'elle vérifie | Docker |
 |---|---|---|
-| `npm run check` | lint (règles d'architecture et de SonarQube comprises, promesses oubliées par `npm run lint:promises`), types (scripts `.mjs` en `// @ts-check` compris), tests unitaires, contrat API valide et types générés à jour, graphes des couches et des routes à jour ([`docs/architecture/`](docs/architecture/README.md)), doc des développeurs à jour de ses schémas ([`docs/index.html`](docs/index.html)) | non |
+| `npm run check` | lint (règles d'architecture et de SonarQube comprises, promesses oubliées par `npm run lint:promises`), types (scripts `.mjs` en `// @ts-check` compris), tests unitaires et de composants, contrat API valide et types générés à jour, graphes des couches et des routes à jour ([`docs/architecture/`](docs/architecture/README.md)), doc des développeurs à jour de ses schémas ([`docs/index.html`](docs/index.html)) | non |
 | `npx playwright test -g "<ID>"` | un scénario E2E désigné par son ID ([`docs/tests/E2E.md`](docs/tests/E2E.md)), sur le serveur de `make dev` s'il tourne | oui |
+| `make test-integration` | tests d'intégration Vitest ([ADR-009](docs/adr/ADR-009-couche-integration.md)) : adaptateurs, cas d'usage, routes et worker contre PostgreSQL sous la RLS, S3 et SMTP réels, une quinzaine de secondes ([`integration/AGENTS.md`](integration/AGENTS.md)) | oui |
 | `make test-e2e` | toute la suite E2E de non-régression, environ 3 min | oui |
-| `make verify` | tout ce que vérifie la CI : `npm run check`, build de production, puis la suite E2E | oui |
-| `npm run test:coverage` | couverture des tests unitaires (domaine, cas d'usage, `src/http`, `src/lib`), rapport dans `coverage/index.html` ; `npm run test:coverage:ui` pour l'interface Vitest | non |
+| `make verify` | tout ce que vérifie la CI : `npm run check`, build de production, tests d'intégration, puis la suite E2E | oui |
+| `npm run test:coverage` | couverture des tests unitaires et de composants sur tout `src/`, rapport dans `coverage/index.html` ; `npm run test:coverage:ui` pour l'interface Vitest ; `npm run test:integration -- --coverage` pour la couche d'intégration (Docker) | non |
 | `npm run test:e2e:coverage` | couverture de la suite E2E : serveur Next.js, worker et scripts, rapport dans `coverage-e2e-report/index.html`. Démarre son propre serveur : arrêter `make dev` avant. Arguments passés à Playwright : `npm run test:e2e:coverage -- -g "NDF-"` | oui |
 
 Avant le premier test E2E, installer le navigateur : `npx playwright install chromium`
@@ -122,7 +123,7 @@ Ce qui tourne sans qu'on le demande ([ADR-005](docs/adr/ADR-005-harnais-de-valid
 |---|---|
 | `git commit` | ESLint (hook pre-commit) |
 | `git push` | `npm run check` (hook pre-push) |
-| PR vers `main`, push sur `main` | CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) : `check` (lint, types, tests unitaires, contrat d'API sans rupture avec oasdiff sur les PR, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner |
+| PR vers `main`, push sur `main` | CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) : `check` (lint, types, tests unitaires et de composants, contrat d'API sans rupture avec oasdiff sur les PR, build), `integration` (`make test-integration`) et `e2e` (`make test-e2e`, qui attend `integration`) ; `check` et `e2e` obligatoires pour fusionner |
 | Avec Claude Code | les hooks de [`.claude/settings.json`](.claude/settings.json) refusent `--no-verify`, le push sur `main`, le force-push et `eslint --suppress-all`, et lancent `npm run check` en fin de tour si du code a changé |
 
 Les hooks git s'installent avec `npm install`.

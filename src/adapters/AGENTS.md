@@ -41,9 +41,10 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 ## Tests
 
-Un adaptateur se teste par les E2E, contre la vraie base et la RLS (`e2e/`). Seule sa logique pure se teste en Vitest (`src/adapters/SmtpEmailAdapter.test.ts`). Adaptateur nouveau ou modifié : lancer les E2E qui le traversent.
+Un adaptateur se teste en intégration, à côté de lui : `src/modules/<module>/adapters/<Adaptateur>.integration.test.ts` (ou `src/adapters/` pour le noyau partagé), contre la vraie base sous `expense_app` (la RLS s'applique), le S3 ou le SMTP de `docker-compose.yml` (`integration/AGENTS.md`, ADR-009). Modèle : `src/modules/validation/adapters/PostgresExpenseNoteDecisionRepository.integration.test.ts`. Lancer : `npm run test:integration` (Docker). Sa logique pure se teste en Vitest unitaire (`src/adapters/SmtpEmailAdapter.test.ts`). Adaptateur nouveau ou modifié : lancer aussi les E2E qui le traversent.
 
 ## Vérifié par
 
 - ESLint : `getPool`, `withSystemTransaction`, SQL interpolé ou concaténé.
 - `scripts/architecture/architecture.test.ts` : la matrice ci-dessus.
+- Job `integration` de la CI : un test d'intégration par adaptateur ; la matrice « qui voit quoi » confronte le WHERE des listes au domaine (`integration/visibility.integration.test.ts`).

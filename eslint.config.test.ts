@@ -163,6 +163,17 @@ describe('règles d’architecture', () => {
       )
       expect(messages.join('\n')).toMatch(/'only' is restricted/)
     })
+
+    it.each(['integration/new.integration.test.ts', 'src/adapters/New.integration.test.ts', 'src/components/New.test.tsx'])(
+      'refusent aussi .skip dans %s (tests d’intégration et de composants, ADR-009)',
+      async (filePath) => {
+        const messages = await messagesFor(
+          `declare const it: Record<string, (...a: unknown[]) => void>\nit.skip('a', () => {})`,
+          filePath
+        )
+        expect(messages.join('\n')).toMatch(/'skip' is restricted/)
+      }
+    )
   })
 })
 

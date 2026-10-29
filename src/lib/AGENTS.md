@@ -55,7 +55,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 ## Tests
 
-`*.test.ts` à côté pour la logique pure (`src/lib/authSecret.test.ts`, `src/lib/log.test.ts`) ; le reste par les E2E.
+`*.test.ts` à côté pour la logique pure (`src/lib/authSecret.test.ts`, `src/lib/log.test.ts`). `db.ts`, `outbox.ts` et `storage.ts` sont traversés par les tests d'intégration (`integration/AGENTS.md`), sous les rôles de production, et par les E2E.
 
 ## Vérifié par
 

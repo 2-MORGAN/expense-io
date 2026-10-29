@@ -45,4 +45,5 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 - ESLint (`expense-io/routes-and-ui`) : ni `pg`, ni `src/lib/db`, ni texte SQL.
 - `scripts/architecture/architecture.test.ts` : la matrice ci-dessus, aucun `'use client'` qui importe la composition, garde de la route `verify-email` (publique, déclarée dans `PUBLIC_ROUTES`).
+- Une page client se teste aussi comme un composant, en `page.test.tsx` à côté, réseau simulé (`src/app/expenses/page.test.tsx`, `src/components/AGENTS.md`).
 - E2E des parcours (`e2e/`).

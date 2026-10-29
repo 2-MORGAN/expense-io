@@ -1,15 +1,19 @@
 # Intégration continue d'Expense.io. Décision et justification :
 # docs/adr/ADR-005-harnais-de-validation.md (§3).
 #
-# - check : lint, types, tests unitaires, absence de rupture du contrat
-#           d'API (oasdiff, sur les PR) et build de production, sans
-#           infrastructure ;
-# - e2e   : suite Playwright de docs/tests/E2E.md, contre `next dev` comme
-#           `make test-e2e`, avec Postgres, LocalStack et Mailpit lancés depuis
-#           docker-compose.yml (qui fait foi pour les images et les ports :
-#           rien n'est recopié ici). La suite est découpée en 2 shards, chacun
-#           sur sa machine avec sa propre base et son propre serveur ; le job
-#           `e2e` fusionne leurs rapports et porte le résultat.
+# - check       : lint, types, tests unitaires et de composants, absence de
+#                 rupture du contrat d'API (oasdiff, sur les PR) et build de
+#                 production, sans infrastructure ;
+# - integration : tests Vitest `*.integration.test.ts` (ADR-009) contre
+#                 Postgres, LocalStack et Mailpit lancés depuis
+#                 docker-compose.yml, comme `make test-integration` ;
+# - e2e         : suite Playwright de docs/tests/E2E.md, contre `next dev`
+#                 comme `make test-e2e`, avec Postgres, LocalStack et Mailpit
+#                 lancés depuis docker-compose.yml (qui fait foi pour les images
+#                 et les ports : rien n'est recopié ici). La suite est découpée
+#                 en 2 shards, chacun sur sa machine avec sa propre base et son
+#                 propre serveur ; le job `e2e` fusionne leurs rapports et porte
+#                 le résultat, celui du job `integration` compris.
 #
 # Tous les jobs restent sur les runners hébergés par GitHub : le dépôt est
 # public, et une PR venant d'un fork peut réécrire `runs-on` ; un runner
@@ -135,11 +139,38 @@ jobs:
         if: failure()
         run: docker compose logs --no-color --tail=200
 
+  # Couche d'intégration (ADR-009) : adaptateurs, cas d'usage, routes appelées
+  # dans le processus et handlers du worker, contre la vraie base sous la RLS,
+  # le S3 et le SMTP de docker-compose.yml. Sans navigateur ni serveur.
+  integration:
+    name: integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Mêmes prérequis que `make test-integration` : .env depuis .env.example,
+      # Docker, migrations, bucket.
+      - name: Postgres, LocalStack, Mailpit et migrations
+        run: make up migrate ensure-bucket
+      - name: Tests d'intégration
+        run: npm run test:integration
+      - name: Journaux de Postgres, LocalStack et Mailpit
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+
   # Check unique à rendre obligatoire : fusionne les rapports des shards et
-  # échoue si l'un d'eux a échoué ou n'a pas tourné.
+  # échoue si l'un d'eux, ou le job `integration`, a échoué ou n'a pas tourné
+  # (ADR-009 : le ruleset ne change pas).
   e2e:
     name: e2e
-    needs: e2e-shard
+    needs: [e2e-shard, integration]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -165,8 +196,8 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
-      - name: Résultat des shards
-        if: ${{ needs.e2e-shard.result != 'success' }}
+      - name: Résultat des shards et de l'intégration
+        if: ${{ needs.e2e-shard.result != 'success' || needs.integration.result != 'success' }}
         run: |
-          echo "Shards E2E : ${{ needs.e2e-shard.result }}"
+          echo "Shards E2E : ${{ needs.e2e-shard.result }} ; intégration : ${{ needs.integration.result }}"
           exit 1
