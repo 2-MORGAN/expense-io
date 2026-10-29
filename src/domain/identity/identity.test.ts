@@ -29,7 +29,43 @@ describe('parseEmail', () => {
     expect(parseEmail('pas une adresse')).toBeNull()
     expect(parseEmail(null)).toBeNull()
   })
+
+  // ReDoS (constat SonarJS super-linear-regex) : l'email vient du formulaire
+  // public d'inscription, sans borne de longueur. L'ancienne regex mettait
+  // 16 s sur 100 000 caractères, en bloquant le serveur.
+  it.each([
+    ['des points sans fin, puis une espace', `a@${'.'.repeat(100_000)} `],
+    ['un domaine sans point, puis une espace', `a@${'b'.repeat(100_000)} `],
+    ['des arobases', '@'.repeat(100_000)],
+  ])('reste en temps linéaire sur une entrée piégée : %s', (_label, input) => {
+    const started = performance.now()
+    expect(parseEmail(input)).toBeNull()
+    expect(performance.now() - started).toBeLessThan(250)
+  })
+
+  it('accepte et refuse exactement ce qu’acceptait l’ancienne expression régulière', () => {
+    const oracle = (value: string) => {
+      // eslint-disable-next-line sonarjs/super-linear-regex -- l'ancienne règle, gardée comme oracle : appliquée ici à des chaînes de 10 caractères au plus
+      const match = /^[^\s@]+@([^\s@]+\.[^\s@]+)$/.exec(value)
+      return match ? { email: value, domain: match[1].toLowerCase() } : null
+    }
+    for (const value of randomStrings(['a', 'B', '.', '@', ' ', '\t', '\n', '\u00a0', '\u2028', 'é', '-'], 20_000, 10)) {
+      expect(parseEmail(value), JSON.stringify(value)).toEqual(oracle(value))
+    }
+  })
 })
+
+/** Chaînes pseudo-aléatoires reproductibles (graine fixe) sur un petit alphabet. */
+function randomStrings(alphabet: readonly string[], count: number, maxLength: number): string[] {
+  let seed = 20261029
+  const next = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648
+    return seed / 2147483648
+  }
+  return Array.from({ length: count }, () =>
+    Array.from({ length: Math.floor(next() * (maxLength + 1)) }, () => alphabet[Math.floor(next() * alphabet.length)]).join('')
+  )
+}
 
 describe('normalizeInvitationEmail', () => {
   it('retire les espaces et passe en minuscules', () => {
@@ -79,6 +115,12 @@ describe('emails', () => {
   it('les liens portent le jeton, encodé, sur l’adresse publique', () => {
     expect(invitationUrl('https://app.example/', 'a+b')).toBe('https://app.example/signup?invitation=a%2Bb')
     expect(verificationUrl('https://app.example', 'tok')).toBe('https://app.example/verify-email?token=tok')
+  })
+  it('retirent toutes les barres finales de l’adresse, en temps linéaire', () => {
+    expect(invitationUrl('https://app.example///', 't')).toBe('https://app.example/signup?invitation=t')
+    const started = performance.now()
+    verificationUrl(`${'/'.repeat(100_000)}x`, 't')
+    expect(performance.now() - started).toBeLessThan(250)
   })
   it('l’invitation nomme l’entreprise, le lien et sa date de fin', () => {
     const message = invitationEmail({

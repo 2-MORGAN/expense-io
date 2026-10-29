@@ -53,22 +53,12 @@
       "count": 1
     }
   },
-  "src/domain/identity/identity.ts": {
-    "sonarjs/super-linear-regex": {
-      "count": 3
-    }
-  },
   "src/domain/receipt/Receipt.ts": {
     "sonarjs/cognitive-complexity": {
       "count": 1
     },
     "sonarjs/no-nested-conditional": {
       "count": 3
-    }
-  },
-  "src/domain/receipt/parseReceiptText.ts": {
-    "sonarjs/super-linear-regex": {
-      "count": 1
     }
   },
   "src/http/contractResponses.ts": {
@@ -95,11 +85,6 @@
     },
     "sonarjs/no-nested-conditional": {
       "count": 4
-    }
-  },
-  "src/lib/email.ts": {
-    "sonarjs/super-linear-regex": {
-      "count": 1
     }
   },
   "src/utils/validators.ts": {
