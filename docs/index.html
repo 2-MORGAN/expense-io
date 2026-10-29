@@ -299,6 +299,7 @@ footer.page-end { margin-top: 72px; padding-top: 20px; border-top: 1px solid var
         <li><a href="#choix">Choix d'architecture</a></li>
         <li><a href="#adr">Les ADR</a></li>
         <li><a href="#qualite">Harnais de validation</a></li>
+        <li><a href="#deploiement">Déploiement et exploitation</a></li>
         <li><a href="#dette">Dette connue</a></li>
         <li><a href="#contribuer">Contribuer</a></li>
         <li><a href="#maintenir">Maintenir cette page</a></li>
@@ -392,6 +393,7 @@ npm run dev                   <span class="c"># next dev et le worker, ensemble 
                 <tr><td>Mailpit (tous les emails)</td><td><a href="http://localhost:8025">http://localhost:8025</a>, SMTP sur 1025</td></tr>
                 <tr><td>PostgreSQL</td><td><code>localhost:5433</code>, base <code>expense_io</code></td></tr>
                 <tr><td>S3 (LocalStack)</td><td><code>http://localhost:4567</code>, bucket <code>receipts</code></td></tr>
+                <tr><td>Umami, en option (<code>make analytics</code>)</td><td><a href="http://localhost:3002">http://localhost:3002</a>, compte <code>admin</code> / <code>umami</code> ; données de démonstration : <code>npm run analytics:demo -- --execute</code></td></tr>
               </tbody>
             </table>
           </div>
@@ -428,6 +430,8 @@ npm run dev                   <span class="c"># next dev et le worker, ensemble 
             <tr><td><code>APP_URL</code></td><td>adresse publique, pour les liens d'invitation et de vérification</td></tr>
             <tr><td><code>WORKER_POLL_INTERVAL_MS</code></td><td>intervalle d'interrogation de l'outbox (2000 par défaut)</td></tr>
             <tr><td><code>OUTBOX_STATS_INTERVAL_MS</code></td><td>intervalle de la ligne de métriques <code>outbox.stats</code> du worker (60000 par défaut)</td></tr>
+            <tr><td><code>UMAMI_SCRIPT_URL</code>, <code>UMAMI_WEBSITE_ID</code></td><td>mesure d'usage optionnelle (ADR-008, <code>docs/analytics.md</code>) : sans elles, aucune page ne charge Umami ; <code>make analytics</code> les affiche</td></tr>
+            <tr><td><code>UMAMI_HEATMAP</code></td><td><code>true</code> : heatmap (clics et défilement) et replays sans texte de <code>/expenses</code>, <code>/manager</code> et <code>/hr</code> seulement, en plus des deux variables d'Umami (ADR-008, amendement du 29/10)</td></tr>
           </tbody>
         </table>
       </div>
@@ -607,6 +611,7 @@ flowchart TB
   mailbox(["Boîte mail&lt;br/&gt;liens d'invitation&lt;br/&gt;et de vérification"])
   ops["Scripts npm&lt;br/&gt;migrate:up · seed&lt;br/&gt;ensure-bucket&lt;br/&gt;réconciliation, nettoyage"]
   cron["Tâche planifiée quotidienne&lt;br/&gt;ops/cron : réconciliation&lt;br/&gt;des reçus orphelins"]
+  umami[("Umami, en option&lt;br/&gt;port 3002 · sa propre base&lt;br/&gt;mesure d'usage, ADR-008")]
 
   user --&gt;|"pages, formulaires"| pages
   user --&gt;|"fetch JSON, multipart"| api
@@ -626,6 +631,7 @@ flowchart TB
   cleanup --&gt;|"reçus analysés"| s3
   smtp --&gt; mailbox
   user -.-&gt;|"reçu par URL pré-signée"| s3
+  user -.-&gt;|"pages vues, 3 événements, si UMAMI_WEBSITE_ID est défini ;&lt;br/&gt;heatmap et replays sans texte de 3 pages si UMAMI_HEATMAP=true"| umami
   user ~~~ ops
   ops --&gt; pg
   ops --&gt; s3
@@ -637,7 +643,7 @@ flowchart TB
   classDef externe fill:#f3f4f6,stroke:#6b7280,color:#111827
   class pages,api,loops,handlers,cleanup,stats entree
   class core coeur
-  class pg,s3,ocr,smtp infra
+  class pg,s3,ocr,smtp,umami infra
   class user,mailbox,ops,cron externe
 </pre>
 <!-- fin : vues/systeme.mmd -->
@@ -663,6 +669,7 @@ flowchart TB
             <tr><td><strong>S3</strong></td><td>reçus des notes et des analyses, sous <code>receipts/{companyId}/…</code></td><td>LocalStack 3.8.1, port 4567</td><td>tout stockage compatible S3</td><td><code>src/lib/storage.ts</code>, <code>src/adapters/S3ReceiptAdapter.ts</code></td></tr>
             <tr><td><strong>SMTP</strong></td><td>invitations, vérifications d'email, notifications</td><td>Mailpit : SMTP 1025, interface 8025, aucun email ne sort</td><td>fournisseur transactionnel (port 465, <code>SMTP_SECURE</code>)</td><td><code>src/lib/email.ts</code>, <code>src/adapters/SmtpEmailAdapter.ts</code></td></tr>
             <tr><td><strong>Scripts</strong></td><td>migrations, seed, bucket, réconciliation des reçus orphelins, nettoyage des notes sans reçu</td><td><code>npm run …</code> (dry-run par défaut pour les deux derniers)</td><td>réconciliation planifiée une fois par jour</td><td><code>scripts/</code></td></tr>
+            <tr><td><strong>Umami</strong>, en option</td><td>mesure d'usage : pages vues et trois événements envoyés par le navigateur, sans cookie ni identifiant, et en option la heatmap et les replays sans texte de trois pages (ADR-008)</td><td><code>make analytics</code>, port 3002, sa propre base ; actif si <code>UMAMI_WEBSITE_ID</code> est défini</td><td>instance auto-hébergée ou Umami Cloud</td><td><code>src/components/analytics.ts</code>, <code>docker-compose.analytics.yml</code></td></tr>
           </tbody>
         </table>
       </div>
@@ -997,7 +1004,7 @@ flowchart LR
 </pre>
 <!-- fin : vues/ou-placer.mmd -->
         </div>
-        <p class="fig-note">Pour une fonctionnalité : le domaine d'abord (règle et test), puis le port et l'adaptateur si une dépendance externe entre en jeu, puis la route fine, puis l'interface. Réutiliser avant de créer.</p>
+        <p class="fig-note">Pour une fonctionnalité : le domaine d'abord (règle et test), puis le port et l'adaptateur si une dépendance externe entre en jeu, puis la route fine, puis l'interface. Réutiliser avant de créer. Chaque dossier a ses consignes dans son <code>AGENTS.md</code>, et la recette complète est la skill <code>/nouvelle-fonctionnalite</code> (<a href="#consignes">voir plus bas</a>).</p>
         <div class="fig-actions"><button class="btn" type="button" data-zoom>Agrandir</button><button class="btn" type="button" data-copy>Copier la source Mermaid</button></div>
       </figure>
 
@@ -1005,7 +1012,7 @@ flowchart LR
         <span class="callout-title">Ce que les outils font respecter</span>
         <ul>
           <li><strong>ESLint</strong> (<code>eslint.config.mjs</code>) : domaine pur ; ni SQL ni accès base dans <code>src/app</code> et <code>src/components</code> ; <code>getPool()</code> réservé à <code>src/lib/db.ts</code> ; <code>withSystemTransaction()</code> réservée au worker, à l'outbox et aux lectures d'avant session ; pas de SQL interpolé ; pas de <code>.only</code>, <code>.skip</code>, <code>.fixme</code>. Plus les règles de SonarQube (<code>eslint-plugin-sonarjs</code>) : bugs, ReDoS, secrets en dur.</li>
-          <li><strong>Test d'architecture</strong> (<code>scripts/architecture</code>) : la matrice entière des couches, la garde de chaque méthode de route, et cette page.</li>
+          <li><strong>Test d'architecture</strong> (<code>scripts/architecture</code>) : la matrice entière des couches, la garde de chaque méthode de route, cette page, et les consignes par dossier (<code>AGENTS.md</code>).</li>
           <li>Les exceptions du code existant (<code>LEGACY_*</code>, <code>LEGACY_EDGES</code>, <code>PUBLIC_ROUTES</code>, <code>eslint-suppressions.json</code>) <strong>ne font que raccourcir</strong> : jamais d'ajout pour faire passer un contrôle.</li>
         </ul>
       </div>
@@ -1822,6 +1829,7 @@ flowchart TB
   adr4["ADR-004 · Contrat d'API&lt;br/&gt;OpenAPI, RFC 9457, codes stables"]
   adr6["ADR-006 · Stratégie de migration&lt;br/&gt;Strangler Fig, Branch by Abstraction"]
   adr7["ADR-007 · Observabilité&lt;br/&gt;OpenTelemetry, Grafana, optionnelle"]
+  adr8["ADR-008 · Mesure d'usage&lt;br/&gt;Umami, optionnelle"]
 
   adr2 --&gt;|"module de permissions"| adr1
   adr2 --&gt;|"ports, worker = adaptateur entrant"| adr3
@@ -1831,6 +1839,8 @@ flowchart TB
   adr6 --&gt;|"façade : contrat inchangé"| adr4
   adr7 --&gt;|"amende §5 : traces et métriques en option"| adr5
   adr7 --&gt;|"mesure l'outbox et l'OCR"| adr3
+  adr8 --&gt;|"complète : l'usage, côté navigateur"| adr7
+  adr8 --&gt;|"applique §5 : rien de sensible ne sort"| adr5
   adr5 -.-&gt;|"vérifie : E2E, lint, contrat"| adr1 &amp; adr2 &amp; adr3 &amp; adr4 &amp; adr6
 
   classDef securite fill:#fee2e2,stroke:#dc2626,color:#111827
@@ -1842,7 +1852,7 @@ flowchart TB
   class adr2,adr6 archi
   class adr3 asynchrone
   class adr4 api
-  class adr5,adr7 qualite
+  class adr5,adr7,adr8 qualite
 </pre>
 <!-- fin : vues/adr.mmd -->
         </div>
@@ -1938,7 +1948,7 @@ flowchart TB
             <li>Journal JSON des erreurs serveur, sans donnée sensible ; métriques dérivées des logs (amendement du 27/10), sans traces distribuées.</li>
           </ul>
           <h4>Livré</h4>
-          <ul class="pills"><li>E2E (PR #4)</li><li>CI (PR #5)</li><li>Vitest et lint d'architecture (PR #10)</li><li>garde-fous (PR #11)</li><li>journal et hooks Claude (PR #23)</li><li>graphes (PR #31)</li><li>SonarJS (PR #32)</li><li>oasdiff, métriques (PR #39)</li><li>cette page (PR #38)</li></ul>
+          <ul class="pills"><li>E2E (PR #4)</li><li>CI (PR #5)</li><li>Vitest et lint d'architecture (PR #10)</li><li>garde-fous (PR #11)</li><li>journal et hooks Claude (PR #23)</li><li>graphes (PR #31)</li><li>SonarJS (PR #32)</li><li>oasdiff, métriques (PR #39)</li><li>cette page (PR #38)</li><li>migrations et E2E figés (28/10)</li></ul>
           <h4>Reste à faire</h4>
           <ul>
             <li><code>CODEOWNERS</code> pour les fichiers du harnais ; points ouverts de l'ADR.</li>
@@ -1946,9 +1956,9 @@ flowchart TB
         </article>
 
         <article class="card adr blue" id="adr-006">
-          <header><span class="num">ADR-006</span><span class="tag tag-todo">Proposée</span></header>
+          <header><span class="num">ADR-006</span><span class="tag tag-ok">Acceptée</span></header>
           <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-006-strategie-de-migration.md">Stratégie de migration du code legacy</a></h3>
-          <p class="meta">Amalraj Soupramanien (WS1) · proposée le 27/10/2026, à faire accepter par le PO</p>
+          <p class="meta">Amalraj Soupramanien (WS1) · acceptée le 28/10/2026</p>
           <h4>Décide</h4>
           <ul>
             <li>Code des routes : esprit Strangler Fig, une famille de routes par étape, derrière un contrat HTTP inchangé (chemins et <code>openapi.yaml</code>).</li>
@@ -1959,7 +1969,7 @@ flowchart TB
           <ul class="pills"><li>2-536 · URL de reçu et listes par cas d'usage, exceptions legacy vidées (PR #40)</li></ul>
           <h4>Reste à faire</h4>
           <ul>
-            <li>Acceptation par le PO.</li>
+            <li>Rien pour les routes : la migration est terminée. L'interrupteur viendra avec le second adaptateur d'une dépendance externe.</li>
           </ul>
         </article>
 
@@ -1977,6 +1987,25 @@ flowchart TB
           <h4>Reste à faire</h4>
           <ul>
             <li>Propagation d'une trace à travers l'outbox.</li>
+          </ul>
+        </article>
+
+        <article class="card adr violet" id="adr-008">
+          <header><span class="num">ADR-008</span><span class="tag tag-ok">Acceptée</span></header>
+          <h3><a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/adr/ADR-008-mesure-usage-umami.md">Mesure d'usage du produit : Umami</a></h3>
+          <p class="meta">Stanislas Beguin (WS5, qualité) · acceptée le 28/10/2026 par le PO</p>
+          <h4>Décide</h4>
+          <ul>
+            <li>Quatre questions, chacune liée à une décision : suggestion OCR gardée ou corrigée, notes commencées sans envoi, entreprises qui vont jusqu'à inviter un salarié, dépôt des reçus depuis un téléphone.</li>
+            <li>Umami auto-hébergé, chargé seulement si <code>UMAMI_SCRIPT_URL</code> et <code>UMAMI_WEBSITE_ID</code> sont définis, relues à chaque requête : rien ne change par défaut, en CI ni dans les E2E (USAGE-01).</li>
+            <li>Tout envoi passe par <code>beforeSend</code> : sans cookie ni identification, URL sans chaîne de requête ni fragment (jetons d'invitation), seuls les événements et valeurs de <code>ANALYTICS_EVENTS</code>.</li>
+            <li>Amendement du 29/10, accepté : heatmap avec <code>UMAMI_HEATMAP=true</code>. Son script, <code>recorder.js</code>, envoie l'URL complète sans <code>beforeSend</code> : il n'est chargé que sur <code>/expenses</code>, <code>/manager</code> et <code>/hr</code>, les quitter recharge la page (USAGE-02). Replays sans aucun texte : classe <code>rr-mask</code> sur le <code>&lt;body&gt;</code> (USAGE-03) et masquage strict.</li>
+          </ul>
+          <h4>Livré</h4>
+          <ul class="pills"><li>T1 à T5 avec l'ADR : pile locale (make analytics), script, trois événements, docs/analytics.md</li><li>Heatmap, replays sans texte, entonnoirs et objectifs créés par npm run analytics:setup (amendement du 29/10)</li><li>Parcours de démonstration : npm run analytics:demo</li></ul>
+          <h4>Reste à faire</h4>
+          <ul>
+            <li>Avant la production : hébergement, durée de conservation, information des utilisateurs (replays compris), échantillon de la heatmap et des replays.</li>
           </ul>
         </article>
 
@@ -2023,12 +2052,13 @@ flowchart TB
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
   %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
 
+  guide["Consignes avant d'écrire&lt;br/&gt;AGENTS.md par dossier (+ CLAUDE.md)&lt;br/&gt;recette /nouvelle-fonctionnalite"]
   change(["Modification"])
   commit["git commit&lt;br/&gt;pre-commit : ESLint"]
   push["git push&lt;br/&gt;pre-push : npm run check"]
   pr["Pull request vers main&lt;br/&gt;modèle rempli, relue par un pair"]
   ci{"CI GitHub Actions"}
-  checkJob["check&lt;br/&gt;lint, SonarJS, types, Vitest,&lt;br/&gt;contrat, graphes, doc,&lt;br/&gt;oasdiff (sans rupture), build"]
+  checkJob["check&lt;br/&gt;lint, SonarJS, types, Vitest,&lt;br/&gt;contrat, graphes, doc, consignes,&lt;br/&gt;oasdiff (sans rupture),&lt;br/&gt;migrations et E2E de main inchangés, build"]
   e2eJob["e2e&lt;br/&gt;Playwright en 2 shards&lt;br/&gt;Postgres, LocalStack, Mailpit"]
   mainBranch[("main&lt;br/&gt;squash, historique linéaire")]
   coverage["Couverture à la demande&lt;br/&gt;test:coverage (Vitest v8)&lt;br/&gt;test:e2e:coverage (c8)"]
@@ -2036,22 +2066,25 @@ flowchart TB
   subgraph claude["Claude Code : .claude/settings.json"]
     direction TB
     guardHook["PreToolUse : guard-git.mjs&lt;br/&gt;refuse les contournements"]
+    frozenHook["PreToolUse : guard-frozen.mjs&lt;br/&gt;migrations et tests E2E de main figés"]
     stopHook["Stop : check-on-stop.mjs&lt;br/&gt;npm run check si le code a changé"]
   end
 
+  guide -.-&gt;|"guide"| change
   change --&gt; commit --&gt; push --&gt; pr --&gt; ci
   change -.-&gt;|"où sont les trous ?"| coverage
   ci --&gt; checkJob &amp; e2eJob
   checkJob &amp; e2eJob --&gt;|"obligatoires"| mainBranch
   guardHook -.-&gt; commit
+  frozenHook -.-&gt; change
   stopHook -.-&gt; push
 
   classDef local fill:#dbeafe,stroke:#2563eb,color:#111827
   classDef ciJob fill:#dcfce7,stroke:#16a34a,color:#111827
   classDef hook fill:#ede9fe,stroke:#7c3aed,color:#111827
-  class commit,push,pr,coverage local
+  class guide,commit,push,pr,coverage local
   class checkJob,e2eJob ciJob
-  class guardHook,stopHook hook
+  class guardHook,frozenHook,stopHook hook
 </pre>
 <!-- fin : vues/harnais.mmd -->
         </div>
@@ -2064,7 +2097,7 @@ flowchart TB
           <tbody>
             <tr><td>Statique</td><td>ESLint, SonarJS, <code>tsc</code> strict</td><td>erreurs de code et de types, règles d'architecture de CLAUDE.md</td><td><code>eslint.config.mjs</code></td></tr>
             <tr><td>Unitaire</td><td>Vitest</td><td>règles métier pures, en millisecondes, sans infrastructure</td><td><code>*.test.ts</code> à côté du code</td></tr>
-            <tr><td>Architecture et doc</td><td>Vitest</td><td>matrice des couches, garde de chaque route, graphes et cette page à jour</td><td><code>scripts/architecture</code></td></tr>
+            <tr><td>Architecture et doc</td><td>Vitest</td><td>matrice des couches, garde de chaque route, graphes et cette page à jour, consignes par dossier sans chemin ni commande périmés</td><td><code>scripts/architecture</code></td></tr>
             <tr><td>Contrat</td><td>Redocly, openapi-typescript, Ajv, oasdiff</td><td>contrat valide, artefacts à jour, chaque route dans le contrat, chaque réponse E2E conforme, aucune rupture par rapport à <code>main</code></td><td><code>npm run check:api</code>, <code>e2e/support/api.ts</code>, <code>scripts/check-api-breaking.sh</code></td></tr>
             <tr><td>Intégration base</td><td>Playwright sans navigateur</td><td>ce que le HTTP ne voit pas : policies RLS, concurrence, pannes injectées, worker</td><td><code>e2e/</code> (ISO-07, OUTBOX…)</td></tr>
             <tr><td>E2E</td><td>Playwright</td><td>comportement observable : parcours, codes HTTP, JSON, droits, isolation</td><td><code>e2e/</code>, IDs dans <code>docs/tests/E2E.md</code></td></tr>
@@ -2078,13 +2111,27 @@ flowchart TB
           <tbody>
             <tr><td><code>git commit</code></td><td>hook pre-commit : ESLint avec cache</td><td>≈ 3 s</td></tr>
             <tr><td><code>git push</code></td><td>hook pre-push : <code>npm run check</code></td><td>≈ 35 s</td></tr>
-            <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI)</td><td>≈ 3 min pour la suite</td></tr>
+            <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI), <code>make frozen</code> (migrations et tests E2E de <code>main</code> inchangés)</td><td>≈ 3 min pour la suite</td></tr>
             <tr><td>Couverture, à la demande</td><td><code>npm run test:coverage</code> (unitaires, Vitest v8) ; <code>npm run test:e2e:coverage</code> (E2E : serveur Next.js, worker et scripts, c8). Aucun seuil bloquant (<a href="#adr-005">ADR-005</a>) ; citer les branches, les lignes E2E sont gonflées</td><td>≈ 20 s ; suite E2E + rapport</td></tr>
-            <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, oasdiff sur les PR, build) et <code>e2e</code> (2 shards), obligatoires</td><td>≈ 1 min et 3 min 30</td></tr>
-            <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
+            <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, build ; sur les PR : oasdiff, migrations et tests E2E existants inchangés) et <code>e2e</code> (2 shards), obligatoires, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte</td><td>≈ 1 min et 3 min 30</td></tr>
+            <tr><td>Claude Code</td><td><code>PreToolUse</code> refuse les contournements (<code>guard-git.mjs</code>) et l’écriture d’une migration ou d’un test E2E déjà dans <code>main</code> (<code>guard-frozen.mjs</code>) ; <code>Stop</code> lance <code>npm run check</code> si le code a changé</td><td>≈ 35 s</td></tr>
           </tbody>
         </table>
       </div>
+
+      <h3 id="consignes">Consignes par dossier et recette d'une fonctionnalité<a class="anchor" href="#consignes" aria-label="Lien vers cette section">#</a></h3>
+      <p>Le harnais vérifie ; les consignes guident avant d'écrire, pour un développeur comme pour un agent IA. Chaque dossier de code a son <code>AGENTS.md</code> : ce qu'il contient, ce qu'il peut importer, la recette pas à pas, les fichiers modèles, les tests attendus, les pièges, ce qui le vérifie. Codex, Cursor et Copilot le lisent ; le <code>CLAUDE.md</code> voisin l'importe (<code>@AGENTS.md</code>) et Claude Code le charge dès qu'il travaille dans le dossier.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Quoi</th><th>Où</th><th>Tenu à jour par</th></tr></thead>
+          <tbody>
+            <tr><td>Règles communes</td><td><code>CLAUDE.md</code> et <code>AGENTS.md</code> à la racine</td><td>la main ; chemins, scripts npm et cibles <code>make</code> cités vérifiés</td></tr>
+            <tr><td>Consignes d'un dossier</td><td><code>AGENTS.md</code> de <code>src/domain</code>, <code>src/application</code>, <code>src/ports</code>, <code>src/adapters</code>, <code>src/composition</code>, <code>src/http</code>, <code>src/app/api</code>, <code>src/app</code>, <code>src/components</code>, <code>src/lib</code>, <code>src/worker</code>, <code>migrations</code>, <code>e2e</code>, <code>scripts</code>, <code>docs</code></td><td>la main, sauf le bloc « Peut importer », recopié de <code>layers.ts</code> par <code>npm run generate:architecture</code></td></tr>
+            <tr><td>Recette d'une fonctionnalité</td><td><code>.claude/skills/nouvelle-fonctionnalite/SKILL.md</code> (skill <code>/nouvelle-fonctionnalite</code>)</td><td>la main : plan validé, contrat, domaine, migration, port et adaptateur, cas d'usage, entrée, E2E, doc, vérifications, PR, définition de terminé</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><code>npm run check</code> échoue si un dossier de la liste (<code>scripts/architecture/agents.ts</code>) perd une de ses consignes, si un <code>CLAUDE.md</code> de dossier fait autre chose qu'importer <code>AGENTS.md</code>, si une couche de <code>layers.ts</code> n'a ni consignes ni exclusion motivée, si le bloc « Peut importer » a dérivé, ou si une consigne cite un chemin, un script npm ou une cible <code>make</code> qui n'existe pas. Parce que <code>migrations/</code> a ses consignes, <code>migrate:up</code> et <code>migrate:down</code> n'y lisent que les fichiers horodatés (<code>--ignore-pattern</code>, vérifié par <code>scripts/migrations.test.ts</code>).</p>
 
       <h3 id="journal">Journal et métriques<a class="anchor" href="#journal" aria-label="Lien vers cette section">#</a></h3>
       <p>Serveur et worker écrivent une ligne JSON par événement, sans email, jeton ni URL pré-signée (<a href="#adr-005">ADR-005 §5</a>). Une réponse d'erreur porte son <code>requestId</code> (corps et <code>X-Request-Id</code>), repris dans la ligne <code>http.error</code>. Deux lignes servent de métriques à un collecteur de logs (<a href="#adr-003">ADR-003</a>, mise à jour du 27/10) :</p>
@@ -2103,6 +2150,68 @@ flowchart TB
       </div>
     </section>
 
+    <!-- ===================================================== Déploiement -->
+    <section id="deploiement" aria-labelledby="deploiement-titre">
+      <span class="kicker">En production</span>
+      <h2 id="deploiement-titre">Déploiement et exploitation<a class="anchor" href="#deploiement" aria-label="Lien vers cette section">#</a></h2>
+      <p class="section-lead">Ce que la production exige, l'ordre d'une mise en production et ce qu'on surveille ensuite. Les processus sont décrits dans la <a href="#vue-ensemble">vue d'ensemble</a>, les variables dans <a href="#demarrer">Démarrer</a> : cette section n'y revient pas.</p>
+
+      <div class="callout warn">
+        <span class="callout-title">Aucun hébergement n'est choisi</span>
+        Le dépôt ne contient pas d'image de conteneur de l'application et ne vise aucune plateforme. Le tableau ci-dessous décrit des exigences, pas une infrastructure existante.
+      </div>
+
+      <h3 id="deployer">Ce qui se déploie<a class="anchor" href="#deployer" aria-label="Lien vers cette section">#</a></h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Brique</th><th>En local</th><th>En production</th></tr></thead>
+          <tbody>
+            <tr><td>Base</td><td>conteneur PostgreSQL 16 (port 5433)</td><td>PostgreSQL 16, managé ou non ; le propriétaire sert aux migrations, l'application et le worker se connectent sous <code>expense_app</code> et <code>expense_worker</code>, soumis à la RLS (<a href="#adr-001">ADR-001</a>)</td></tr>
+            <tr><td>Reçus</td><td>LocalStack (port 4567)</td><td>un bucket S3 privé : aucun accès public, lecture par URL pré-signée de courte durée seulement</td></tr>
+            <tr><td>Emails</td><td>Mailpit : rien ne sort</td><td>un serveur SMTP réel (<code>SMTP_SECURE</code>, <code>SMTP_USER</code>, <code>SMTP_PASSWORD</code>)</td></tr>
+            <tr><td>Web</td><td><code>npm run dev</code></td><td><code>npm run build</code>, puis <code>npm run start</code>, supervisé et redémarré en cas d'arrêt</td></tr>
+            <tr><td>Worker</td><td>lancé par <code>npm run dev</code></td><td><code>npm run worker</code>, second processus supervisé ; sans lui, les emails et les analyses OCR restent <code>pending</code></td></tr>
+            <tr><td>Moteur OCR</td><td>processus enfant</td><td>idem : exige <code>tessdata/</code> et le droit de lancer des processus enfants</td></tr>
+            <tr><td>Tâche planifiée</td><td>à la main : <code>npm run reconcile:orphan-receipts</code></td><td><code>ops/cron/expense-io.crontab</code>, ou le planificateur de l'hébergeur, avec le même <code>.env</code> que le worker</td></tr>
+            <tr><td>Observabilité (optionnelle)</td><td><code>make observability</code> (<code>grafana/otel-lgtm</code>, http://localhost:3001), puis <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> dans <code>.env</code> ; sans cette variable, rien ne démarre</td><td>un collecteur OpenTelemetry ou un service managé, désigné par <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> et <code>OTEL_EXPORTER_OTLP_HEADERS</code>, sans changement de code ; <code>otel-lgtm</code> ne sert qu'au développement, postgres-exporter s'y connecte sous un rôle <code>pg_monitor</code> (<a href="#adr-007">ADR-007</a>, <a href="observability.md">observability.md</a>, « En production »)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="mise-en-production">Mettre une version en production<a class="anchor" href="#mise-en-production" aria-label="Lien vers cette section">#</a></h3>
+      <ol>
+        <li>Le commit est sur <code>main</code>, donc sa CI est verte : <code>check</code> et <code>e2e</code> sont requis pour fusionner (<a href="#qualite">harnais</a>).</li>
+        <li><code>npm run migrate:up</code> sous le propriétaire (<code>MIGRATION_DATABASE_URL</code>) : applique les migrations, puis pose les mots de passe des rôles restreints (<code>scripts/provision-db-roles.mjs</code>).</li>
+        <li><code>npm run ensure-bucket</code> si le bucket est nouveau.</li>
+        <li>Démarrer le web, puis le worker. En production, chacun <strong>refuse de démarrer</strong> sous un rôle superuser ou <code>BYPASSRLS</code> ; le web refuse aussi un <code>AUTH_SECRET</code> absent, court ou d'exemple, et le worker une configuration sans <code>SMTP_HOST</code> ni <code>APP_URL</code> (<a href="#demarrer">variables</a>).</li>
+        <li>Une seule fois : installer la tâche de <code>ops/cron/</code>, après un premier passage à blanc dont le rapport a été relu.</li>
+      </ol>
+      <p><strong>Retour arrière</strong> : revert du commit et redéploiement (<a href="#adr-006">ADR-006</a>). Une migration ne s'annule que par son <code>down</code> (<code>npm run migrate:down</code>) ; une migration déjà appliquée ne s'édite jamais.</p>
+
+      <h3 id="exploiter">Exploiter<a class="anchor" href="#exploiter" aria-label="Lien vers cette section">#</a></h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Sujet</th><th>Ce qu'on fait</th></tr></thead>
+          <tbody>
+            <tr><td>Journal</td><td>une ligne JSON par événement sur la sortie standard, du web comme du worker, à collecter par l'hébergeur (<a href="#journal">journal et métriques</a>) ; quand l'export OpenTelemetry est activé, le journal part aussi au collecteur, avec les traces et les métriques</td></tr>
+            <tr><td>À surveiller</td><td>dans <code>outbox.stats</code> : le nombre d'événements <code>pending</code> et l'âge du plus ancien (un âge qui grandit signale un worker arrêté), le nombre de <code>dead</code> ; dans <code>ocr.request</code> : la part de <code>failed</code>, <code>timeout</code> et <code>overloaded</code>. Avec la pile d'observabilité, six alertes les suivent : erreurs 5xx, latence p95 des routes, OCR lent, nouveaux <code>dead</code>, outbox en retard, worker muet (<a href="observability.md">observability.md</a>, « Alertes »)</td></tr>
+            <tr><td>Événement <code>dead</code> (DLQ)</td><td>gardé en base avec sa dernière erreur, jamais retraité automatiquement ; aucun outil de relance : le diagnostic et la relance se font à la main en base, sous le propriétaire</td></tr>
+            <tr><td>Réconciliation des reçus</td><td>chaque jour (<code>ops/cron/</code>) : supprime les objets de <code>receipts/</code> sans note ni analyse et vieux de plus de 24 h ; un échec se lit dans le journal, la passe suivante rattrape</td></tr>
+            <tr><td>Rotation d'<code>AUTH_SECRET</code></td><td>remplacer la valeur et redémarrer le web : toutes les sessions sont invalidées (<a href="#demarrer">variables</a>)</td></tr>
+            <tr><td>Notes sans reçu</td><td>nettoyage unique : <code>npm run clean:notes-without-receipt</code> à blanc, puis <code>-- --execute --out &lt;dossier&gt;</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="regions">Plusieurs régions<a class="anchor" href="#regions" aria-label="Lien vers cette section">#</a></h3>
+      <p>Une instance complète par région (web, worker, base, bucket), une entreprise rattachée à une seule région, sans réplication entre régions (<a href="#adr-001">ADR-001</a>, <a href="#adr-002">ADR-002</a>). Le sujet se rouvre si un manager doit valider des notes stockées dans plusieurs régions : c'est le cas où le théorème CAP impose de choisir entre cohérence et disponibilité.</p>
+
+      <div class="callout">
+        <span class="callout-title">Non décidé</span>
+        L'hébergeur, l'image de conteneur, la sauvegarde et la restauration de la base, un outil de relance de la DLQ, où envoyer les alertes en production (Mailpit en local), la propagation d'une trace à travers l'outbox et l'échantillonnage des traces. Repris dans la <a href="#dette">dette connue</a>.
+      </div>
+    </section>
+
     <!-- ===================================================== Dette -->
     <section id="dette" aria-labelledby="dette-titre">
       <span class="kicker">Lucidité</span>
@@ -2115,7 +2224,7 @@ flowchart TB
         </div>
         <div class="card yellow">
           <h4><span class="tag tag-todo">exploitation</span> Tâches et observabilité</h4>
-          <p>Nettoyage unique des notes sans reçu à exécuter puis valider (<code>npm run clean:notes-without-receipt</code>) ; tâche quotidienne de <code>ops/cron/</code> à installer une fois un environnement déployé. Les métriques sont des lignes de journal (<code>ocr.request</code>, <code>outbox.stats</code>) : sans collecteur de logs, ni tableau de bord ni alerte ; pas de traces distribuées (<a href="#adr-005">ADR-005 §5</a>).</p>
+          <p>Nettoyage unique des notes sans reçu à exécuter puis valider (<code>npm run clean:notes-without-receipt</code>) ; tâche quotidienne de <code>ops/cron/</code> à installer une fois un environnement déployé. L'observabilité est optionnelle (<a href="#adr-007">ADR-007</a>) : tableau de bord et alertes en local, destinataires de production à définir ; une requête et l'événement de l'outbox qu'elle crée donnent encore deux traces distinctes. Hébergeur, image de conteneur, sauvegardes de la base et relance de la DLQ ne sont pas décidés (<a href="#deploiement">déploiement</a>).</p>
         </div>
         <div class="card">
           <h4><span class="tag tag-todo">qualité</span> Constats figés</h4>
@@ -2135,8 +2244,8 @@ flowchart TB
           <ol class="steps">
             <li><strong>Partir de main à jour</strong><code>git pull</code>, puis <code>npm install</code> si <code>package.json</code> a changé.</li>
             <li><strong>Une branche par changement</strong>Nommée avec le ticket Linear : <code>fix/2-471-correctifs-securite</code>.</li>
-            <li><strong>Lire avant d'écrire</strong>CLAUDE.md, les ADR acceptées concernées, le contrat si l'API change, les fichiers voisins.</li>
-            <li><strong>Domaine d'abord</strong>Règle et test, puis port et adaptateur, route fine, interface.</li>
+            <li><strong>Lire avant d'écrire</strong>CLAUDE.md, l'<code>AGENTS.md</code> de chaque dossier touché, les ADR acceptées concernées, le contrat si l'API change, les fichiers voisins.</li>
+            <li><strong>Domaine d'abord</strong>Règle et test, puis port et adaptateur, route fine, interface : la recette <code>/nouvelle-fonctionnalite</code> (<a href="#consignes">consignes</a>).</li>
             <li><strong>Mettre à jour cette page</strong>Dans la même PR (<a href="#maintenir">comment</a>).</li>
             <li><strong>Vérifier</strong><code>npm run check</code>, puis les E2E concernés.</li>
             <li><strong>Ouvrir la PR</strong><code>gh pr create --repo 2-MORGAN/expense-io --base main</code>, en remplissant le modèle ; commits conventionnels (<code>feat(ocr): …</code>, <code>fix(api): …</code>).</li>
@@ -2147,10 +2256,10 @@ flowchart TB
           <h4>Jamais</h4>
           <ul>
             <li><code>--no-verify</code>, un push sur <code>main</code>, un force-push.</li>
-            <li>Modifier, désactiver ou supprimer un test E2E pour faire passer la CI.</li>
+            <li>Modifier, désactiver ou supprimer un test E2E pour faire passer la CI : refusé par le hook <code>guard-frozen.mjs</code> et par la CI, sauf label <code>changement-e2e</code> posé après une ADR acceptée.</li>
             <li>Ajouter une entrée aux listes <code>LEGACY_*</code>, à <code>LEGACY_EDGES</code>, à <code>PUBLIC_ROUTES</code> ; <code>eslint --suppress-all</code>.</li>
             <li>Un <code>eslint-disable</code> sans commentaire qui le justifie.</li>
-            <li>Éditer une migration existante, concaténer du SQL, faire confiance à un id venu du client.</li>
+            <li>Éditer une migration déjà dans <code>main</code> (refusé par le hook et la CI), concaténer du SQL, faire confiance à un id venu du client.</li>
             <li>Un secret dans le code, un message interne ou une pile dans une réponse.</li>
             <li>Une dépendance npm sans justification dans la PR.</li>
           </ul>
@@ -2163,6 +2272,20 @@ flowchart TB
       <span class="kicker">Cette page</span>
       <h2 id="maintenir-titre">Maintenir cette page<a class="anchor" href="#maintenir" aria-label="Lien vers cette section">#</a></h2>
       <p class="section-lead">La doc fait partie du changement : elle se met à jour dans la même PR que le code, sans attendre qu'on le demande. Les règles sont dans CLAUDE.md, « Documentation développeur ».</p>
+
+      <h3 id="livrables">Cette page tient lieu de DAT<a class="anchor" href="#livrables" aria-label="Lien vers cette section">#</a></h3>
+      <p>Les livrables d'architecture du cours ne sont pas des documents séparés : leur contenu vit ici et dans les fichiers qu'elle cite, tenus à jour avec le code plutôt que rédigés à part.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Livrable</th><th>Question</th><th>Où il se trouve</th></tr></thead>
+          <tbody>
+            <tr><td>ADR</td><td>Pourquoi ce choix ?</td><td><a href="#adr">Les ADR</a>, <code>docs/adr/</code></td></tr>
+            <tr><td>HLD</td><td>Quelle architecture ?</td><td><a href="#vue-ensemble">Vue d'ensemble</a>, <a href="#code">Architecture du code</a>, <a href="#adr-002">ADR-002</a> ; l'existant dans les audits de <code>docs/audit/</code></td></tr>
+            <tr><td>LLD</td><td>Comment la construire ?</td><td><a href="#parcours">Parcours clés</a>, <a href="#donnees">Données et isolation</a>, <a href="#ou-placer">Où placer le code</a>, <code>openapi.yaml</code></td></tr>
+            <tr><td>DAT</td><td>Quelle architecture technique globale ?</td><td>cette page, avec <a href="#deploiement">Déploiement et exploitation</a></td></tr>
+          </tbody>
+        </table>
+      </div>
 
       <div class="grid">
         <div class="card green">
@@ -2186,13 +2309,13 @@ flowchart TB
           <thead><tr><th>Si le changement…</th><th>Mettre à jour</th></tr></thead>
           <tbody>
             <tr><td>change un import entre couches, une couche, une route ou sa garde</td><td><code>npm run generate:architecture</code>, relire le diff ; la section concernée si le sens change</td></tr>
-            <tr><td>ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement</td><td><code>vues/systeme.mmd</code>, <code>vues/hexagone.mmd</code> ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs »</td></tr>
+            <tr><td>ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement</td><td><code>vues/systeme.mmd</code>, <code>vues/hexagone.mmd</code> ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs », « Déploiement et exploitation »</td></tr>
             <tr><td>modifie un parcours : soumission, décision, outbox, OCR, inscription, invitation, session</td><td>la vue de séquence correspondante et le texte de « Parcours clés »</td></tr>
             <tr><td>ajoute une migration : table, colonne, policy, rôle, fonction <code>SECURITY DEFINER</code></td><td><code>vues/schema.mmd</code> et « Données et isolation »</td></tr>
             <tr><td>ajoute un type d'événement de l'outbox</td><td>le tableau des événements et <code>vues/outbox.mmd</code></td></tr>
             <tr><td>change une opération HTTP, un code d'erreur</td><td>« API et contrat », après <code>openapi.yaml</code></td></tr>
             <tr><td>ajoute une ADR ou change son statut</td><td>sa fiche dans « Les ADR », <code>vues/adr.mmd</code>, et « Choix d'architecture » si un choix change</td></tr>
-            <tr><td>change une commande, un script npm, un hook, la CI</td><td>« Démarrer », « Harnais de validation », <code>vues/harnais.mmd</code></td></tr>
+            <tr><td>change une commande, un script npm, un hook, la CI, une tâche planifiée</td><td>« Démarrer », « Harnais de validation », « Déploiement et exploitation », <code>vues/harnais.mmd</code></td></tr>
             <tr><td>solde ou crée une dette</td><td>« Dette connue » et la fiche de l'ADR concernée</td></tr>
           </tbody>
         </table>

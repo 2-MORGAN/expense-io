@@ -25,7 +25,8 @@ ouvrir dans un navigateur.
 
 Ports utilisés : 3000 (application), 5433 (PostgreSQL), 4567 (S3), 1025 et 8025
 (Mailpit) ; en option, 3001 (Grafana) et 4318 (OpenTelemetry) avec
-[l'observabilité](#observabilité--grafana). Si l'un est déjà pris, voir [Dépannage](#dépannage).
+[l'observabilité](#observabilité--grafana), 3002 (Umami) avec
+[la mesure d'usage](#mesure-dusage--umami). Si l'un est déjà pris, voir [Dépannage](#dépannage).
 
 ### Lancer
 
@@ -150,7 +151,7 @@ repris dans la ligne `http.error` du journal.
 
 En option, le serveur et le worker envoient leurs traces, métriques et journaux
 (OpenTelemetry) à Grafana, avec un tableau de bord et des alertes prêts
-([ADR-007](docs/adr/ADR-007-observabilite.md), proposée) :
+([ADR-007](docs/adr/ADR-007-observabilite.md), acceptée) :
 
 ```bash
 make observability   # sans make : docker compose -f docker-compose.observability.yml up -d --wait
@@ -162,6 +163,29 @@ collecteur pour les lignes ci-dessus (`ocr.request`, `outbox.stats`), et les
 alertes arrivent dans Mailpit. Sans cette variable, rien n'est envoyé : c'est le
 cas par défaut, en CI et pendant les E2E. Mesures, alertes et ajout d'une
 métrique : [`docs/observability.md`](docs/observability.md).
+
+### Mesure d'usage : Umami
+
+En option, le navigateur envoie à Umami les pages vues et trois événements
+(note commencée, note envoyée avec le sort de la suggestion OCR, invitation
+envoyée), pour savoir comment le produit est utilisé
+([ADR-008](docs/adr/ADR-008-mesure-usage-umami.md), acceptée) :
+
+```bash
+make analytics   # sans make : docker compose -f docker-compose.analytics.yml up -d --wait, puis npm run analytics:setup
+```
+
+Puis copier dans `.env` les deux lignes affichées (`UMAMI_SCRIPT_URL`,
+`UMAMI_WEBSITE_ID`) et relancer `make dev`. Umami : http://localhost:3002,
+compte `admin` / `umami`. Sans ces variables, aucune page ne charge le script :
+c'est le cas par défaut, en CI et pendant les E2E. Sans cookie ni identifiant,
+et sans chaîne de requête dans les URL envoyées. En option, `UMAMI_HEATMAP=true`
+ajoute la heatmap (clics et défilement) et les replays, tout texte masqué, de
+`/expenses`, `/manager` et `/hr`.
+Entonnoirs et objectifs sont créés par `npm run analytics:setup`, et
+`npm run analytics:demo -- --execute` les remplit avec des parcours de
+démonstration, joués dans l'application lancée par `make dev`. Questions,
+rapports et ajout d'un événement : [`docs/analytics.md`](docs/analytics.md).
 
 ### Tâches planifiées
 
@@ -203,6 +227,7 @@ Validation des entrées, outils, compatibilité et transition des erreurs :
 | [`openapi.yaml`](openapi.yaml), [`docs/api/`](docs/api/README.md) | contrat de l'API (16 opérations) et ses règles d'évolution |
 | [`docs/ocr.md`](docs/ocr.md) | OCR : protections et file asynchrone |
 | [`docs/observability.md`](docs/observability.md), [`observability/`](observability/) | observabilité optionnelle : guide, puis tableau de bord, alertes et configuration de la pile Grafana (`docker-compose.observability.yml`) |
+| [`docs/analytics.md`](docs/analytics.md) | mesure d'usage optionnelle : questions, événements, rapports d'Umami (`docker-compose.analytics.yml`) |
 | [`docs/architecture/`](docs/architecture/README.md) | graphes Mermaid des couches et des routes, générés depuis le code (`npm run generate:architecture`) et vérifiés par `npm run check` ; vues écrites à la main (`vues/`) de la doc des développeurs |
 | `src/` | le code ; où placer quoi : « Où placer le code » dans `CLAUDE.md` |
 | `migrations/` | schéma SQL versionné, seule source de vérité |
@@ -219,12 +244,16 @@ make build     # build de production
 make start     # build puis démarre en production
 make worker    # le worker seul (make dev le lance déjà)
 make api-breaking  # contrat d'API sans rupture par rapport à main (oasdiff)
+make frozen    # migrations et tests E2E déjà dans main inchangés (comme la CI)
 make reconcile # reçus orphelins sur S3, rapport seul (dry-run)
 make logs      # journaux des conteneurs
 make down      # arrête les conteneurs, garde les données
 make clean     # arrête les conteneurs et supprime les données locales
 make observability       # Grafana : traces, métriques et journaux (http://localhost:3001)
 make observability-down  # arrête Grafana, garde ses données
+make analytics           # Umami : mesure d'usage (http://localhost:3002), affiche les variables de .env
+make analytics-down      # arrête Umami, garde ses données
+npm run analytics:demo -- --execute  # parcours de démonstration qui remplissent les rapports d'Umami
 ```
 
 ## Dépannage

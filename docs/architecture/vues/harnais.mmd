@@ -2,12 +2,13 @@ flowchart TB
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
   %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
 
+  guide["Consignes avant d'écrire<br/>AGENTS.md par dossier (+ CLAUDE.md)<br/>recette /nouvelle-fonctionnalite"]
   change(["Modification"])
   commit["git commit<br/>pre-commit : ESLint"]
   push["git push<br/>pre-push : npm run check"]
   pr["Pull request vers main<br/>modèle rempli, relue par un pair"]
   ci{"CI GitHub Actions"}
-  checkJob["check<br/>lint, SonarJS, types, Vitest,<br/>contrat, graphes, doc,<br/>oasdiff (sans rupture), build"]
+  checkJob["check<br/>lint, SonarJS, types, Vitest,<br/>contrat, graphes, doc, consignes,<br/>oasdiff (sans rupture),<br/>migrations et E2E de main inchangés, build"]
   e2eJob["e2e<br/>Playwright en 2 shards<br/>Postgres, LocalStack, Mailpit"]
   mainBranch[("main<br/>squash, historique linéaire")]
   coverage["Couverture à la demande<br/>test:coverage (Vitest v8)<br/>test:e2e:coverage (c8)"]
@@ -15,19 +16,22 @@ flowchart TB
   subgraph claude["Claude Code : .claude/settings.json"]
     direction TB
     guardHook["PreToolUse : guard-git.mjs<br/>refuse les contournements"]
+    frozenHook["PreToolUse : guard-frozen.mjs<br/>migrations et tests E2E de main figés"]
     stopHook["Stop : check-on-stop.mjs<br/>npm run check si le code a changé"]
   end
 
+  guide -.->|"guide"| change
   change --> commit --> push --> pr --> ci
   change -.->|"où sont les trous ?"| coverage
   ci --> checkJob & e2eJob
   checkJob & e2eJob -->|"obligatoires"| mainBranch
   guardHook -.-> commit
+  frozenHook -.-> change
   stopHook -.-> push
 
   classDef local fill:#dbeafe,stroke:#2563eb,color:#111827
   classDef ciJob fill:#dcfce7,stroke:#16a34a,color:#111827
   classDef hook fill:#ede9fe,stroke:#7c3aed,color:#111827
-  class commit,push,pr,coverage local
+  class guide,commit,push,pr,coverage local
   class checkJob,e2eJob ciJob
-  class guardHook,stopHook hook
+  class guardHook,frozenHook,stopHook hook

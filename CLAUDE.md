@@ -40,6 +40,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 | Build prod | `npm run build` |
 | Reset des données locales | `make clean` |
 | Observabilité, optionnelle (Grafana : traces, métriques, journaux) | `make observability` → http://localhost:3001, puis `OTEL_EXPORTER_OTLP_ENDPOINT` dans `.env` ; voir `docs/observability.md` |
+| Mesure d'usage, optionnelle (Umami : pages vues, événements, heatmap, replays) | `make analytics` → http://localhost:3002, puis `UMAMI_SCRIPT_URL` et `UMAMI_WEBSITE_ID` dans `.env`, et `UMAMI_HEATMAP=true` pour la heatmap et les replays ; données de démonstration : `npm run analytics:demo -- --execute` ; voir `docs/analytics.md` |
 
 Postgres : port **5433**. LocalStack : port **4567**. Mailpit : SMTP **1025**, interface **http://localhost:8025** (tous les emails de dev y arrivent, aucun ne sort). Comptes de démo (seed) : `hr@expense.io` / `hr1234`, `manager@expense.io` / `manager1234`, `demo@expense.io` / `demo1234`.
 
@@ -51,9 +52,10 @@ Décidé par l'ADR-005. Ce qui vérifie le code, et quand :
 |---|---|---|
 | `git commit` | hook pre-commit : ESLint avec cache | ≈ 3 s, 5 s à froid |
 | `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 35 s |
-| À la demande | E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` | ≈ 3 min pour la suite, Docker requis |
-| PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build) et `e2e` (`make test-e2e`), obligatoires pour fusionner | ≈ 1 min et 3 min 30 |
+| À la demande | E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` · migrations et tests E2E existants inchangés : `make frozen` | ≈ 3 min pour la suite, Docker requis |
+| PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build ; sur les PR, contrat sans rupture et migrations et tests E2E existants inchangés) et `e2e` (`make test-e2e`), obligatoires pour fusionner, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte | ≈ 1 min et 3 min 30 |
 | Claude Code : avant une commande shell | hook `PreToolUse` (`.claude/hooks/guard-git.mjs`) : refuse `--no-verify`, `git commit -n`, `HUSKY=0`, la modification de `core.hooksPath`, le push sur `main`, le force-push, `gh pr create` sans `--repo` explicite ou vers le dépôt du cours, et `eslint --suppress-all` ou `--suppress-rule` | instantané |
+| Claude Code : avant une écriture de fichier | hook `PreToolUse` (`.claude/hooks/guard-frozen.mjs`) : refuse d'écrire dans une migration déjà dans `main`, ou de modifier, désactiver ou retirer un test E2E qui y est déjà ; ajouter une migration ou un test reste libre | ≈ 2 s sur un `.spec.ts`, instantané ailleurs |
 | Claude Code : fin de tour | hook `Stop` (`.claude/hooks/check-on-stop.mjs`) : `npm run check` si le code a changé depuis le dernier check vert ; rouge, le tour continue une fois avec l'erreur, puis l'utilisateur est averti | ≈ 35 s |
 
 Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils donnent un retour rapide ; la garantie, c'est la CI. Les hooks Claude Code sont déclarés dans `.claude/settings.json`, versionné : ne pas les désactiver pour avancer, un refus signale un contournement du harnais.
@@ -62,7 +64,7 @@ Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils do
 
 1. **Avant de déclarer une tâche terminée**, `npm run check` doit passer. Si le changement touche `src/app`, `src/lib`, `migrations/` ou `scripts/`, lancer aussi les E2E concernés (IDs dans `docs/tests/E2E.md`) ou toute la suite. Dire explicitement ce qui n'a pas été lancé.
 2. **Un bug corrigé = un test** vu en échec avant la correction, en succès après : test Vitest à côté du code pour une règle métier, scénario Playwright avec un ID dans `e2e/` pour un comportement HTTP, UI ou en base.
-3. **Un test E2E rouge est une régression** : corriger le code, pas le test. Ne jamais modifier, désactiver ni supprimer un test existant pour faire passer la CI. Si un test doit changer, s'arrêter et demander : il faut une ADR acceptée (ADR-005 §2).
+3. **Un test E2E rouge est une régression** : corriger le code, pas le test. Ne jamais modifier, désactiver ni supprimer un test existant pour faire passer la CI. Si un test doit changer, s'arrêter et demander : il faut une ADR acceptée (ADR-005 §2), puis le label `changement-e2e` sur la PR. Le hook `guard-frozen.mjs` et la CI le font respecter, comme pour les migrations déjà dans `main`.
 4. **Ne rien contourner** : jamais de `--no-verify`, jamais de push sur `main`, jamais de `eslint-disable` sans commentaire qui le justifie, jamais de `eslint --suppress-all` ni `--suppress-rule` pour faire taire un nouveau constat.
 5. **PR** : `gh pr create --repo 2-MORGAN/expense-io --base main`, en remplissant le modèle (`.github/pull_request_template.md`). Sans `--repo`, `gh` peut viser le dépôt parent du fork.
 
@@ -76,7 +78,7 @@ src/
 │   ├── api/**/route.ts      # route handlers (HTTP) : auth/, expense-notes/, manager/, hr/
 │   ├── actions/auth.ts      # server actions signup/login/logout
 │   └── {expenses,manager,hr,login,signup}/page.tsx
-├── components/              # composants React (AdminConsole, PendingApprovalsPanel, NavItem)
+├── components/              # composants React (AdminConsole, PendingApprovalsPanel, NavItem, UmamiScript) ; analytics.ts : événements d'usage (ADR-008)
 ├── application/             # cas d'usage : soumission, décision, listes, URL de reçu, identité, OCR
 ├── composition/             # branchement des cas d'usage sur leurs adaptateurs
 ├── http/                    # transport et problèmes HTTP du module OCR
@@ -104,6 +106,7 @@ Règles de placement pour tout **nouveau** code :
 - **Schéma** → nouvelle migration dans `migrations/` (horodatée, jamais d'édition d'une migration existante), avec `down`.
 - **UI** → `src/components/` ; les pages restent minces.
 - **Métrique, trace** → `src/lib/telemetry/`, avec l'API `@opentelemetry/api` seule (sans effet tant que la télémétrie est désactivée). Étiquettes à peu de valeurs, jamais d'identifiant d'entreprise ou d'utilisateur, ni d'URL réelle (`docs/observability.md`).
+- **Événement d'usage** (ce que fait l'utilisateur dans le navigateur) → déclaré dans `ANALYTICS_EVENTS` (`src/components/analytics.ts`), envoyé par `trackEvent()` après la réponse réussie ; propriétés à valeurs fixes, jamais d'email, d'identifiant ni de montant. Chaque événement répond à une question de l'ADR-008 (`docs/analytics.md`). Une page n'entre dans `HEATMAP_PATHS` (heatmap, replays) que si son adresse ne porte jamais de jeton : `recorder.js` envoie l'URL complète. Ne pas retirer `rr-mask` du `<body>` (`src/app/layout.tsx`) : c'est ce qui garde les replays sans texte (USAGE-03). Ce qui se lit côté serveur relève de la télémétrie, pas d'Umami.
 - Réutiliser avant de créer : chaque route passe déjà par un cas d'usage de `src/application/`, branché dans `src/composition/` (ADR-006). Les utilitaires de `src/utils/` restent inutilisés (voir dette).
 
 `npm run lint` fait respecter une partie de ces règles (`eslint.config.mjs`, ADR-005 T6) : domaine sans infrastructure ; ni SQL ni accès base dans `src/app/` et `src/components/` ; `getPool()` réservé à `src/lib/db.ts` ; pas de SQL interpolé ; pas de test `.only`, `.skip`, `.fixme` ou `.fail`. Le code existant qui enfreint une règle est listé en exception (listes `LEGACY_*`). Ces listes ne font que raccourcir : retirer un fichier dès qu'il est conforme, **ne jamais en ajouter un** pour faire passer le lint.
@@ -111,6 +114,16 @@ Règles de placement pour tout **nouveau** code :
 Le lint applique aussi les règles de SonarQube (`eslint-plugin-sonarjs`) : bugs, failles (regex au temps super-linéaire, donc ReDoS ; secrets en dur ; cookies ; cryptographie…) et code fragile. Leurs constats dans le code existant sont figés dans `eslint-suppressions.json`, par fichier et par règle. Un nouveau constat fait échouer le lint : corriger le code. Après une correction, la suppression devenue inutile fait aussi échouer le lint : `npx eslint --prune-suppressions` la retire, et le fichier se commite avec la correction. Ce fichier ne fait que raccourcir.
 
 Les graphes de [`docs/architecture/`](docs/architecture/README.md) complètent le lint. Le test `scripts/architecture/architecture.test.ts` (dans `npm run check`) vérifie la matrice entière des couches (`scripts/architecture/layers.ts`, ADR-002 §3.3) et la garde de chaque méthode de route, puis compare les graphes Mermaid versionnés au code. Un graphe qui a dérivé se régénère avec `npm run generate:architecture` et se commite avec le code. Une flèche interdite ou une route sans garde se corrigent dans le code, jamais en régénérant ni en ajoutant une exception (`LEGACY_EDGES` et `PUBLIC_ROUTES` ne font que raccourcir). Une nouvelle couche ou un nouveau droit se justifient dans la PR.
+
+## Consignes par dossier et recette d'une fonctionnalité
+
+Chaque dossier où l'on écrit du code a son `AGENTS.md` : ce que le dossier contient, ce qu'il peut importer, la recette pas à pas, les fichiers modèles, les tests attendus, les pièges et ce qui le vérifie. Codex, Cursor et Copilot le lisent ; le `CLAUDE.md` voisin l'importe (`@AGENTS.md`), et Claude Code le charge dès qu'il travaille dans le dossier. Ces consignes complètent ce fichier sans le remplacer ; on les modifie dans l'`AGENTS.md`, jamais dans le `CLAUDE.md` voisin.
+
+Dossiers : [`src/domain`](src/domain/AGENTS.md), [`src/application`](src/application/AGENTS.md), [`src/ports`](src/ports/AGENTS.md), [`src/adapters`](src/adapters/AGENTS.md), [`src/composition`](src/composition/AGENTS.md), [`src/http`](src/http/AGENTS.md), [`src/app/api`](src/app/api/AGENTS.md), [`src/app`](src/app/AGENTS.md), [`src/components`](src/components/AGENTS.md), [`src/lib`](src/lib/AGENTS.md), [`src/worker`](src/worker/AGENTS.md), [`migrations`](migrations/AGENTS.md), [`e2e`](e2e/AGENTS.md), [`scripts`](scripts/AGENTS.md), [`docs`](docs/AGENTS.md).
+
+**Pour une fonctionnalité nouvelle ou qui évolue, suivre la recette** [`.claude/skills/nouvelle-fonctionnalite/SKILL.md`](.claude/skills/nouvelle-fonctionnalite/SKILL.md) (skill `/nouvelle-fonctionnalite` de Claude Code) : cadrer et faire valider un plan, puis contrat, domaine, migration, port et adaptateur, cas d'usage, entrée, E2E, doc, vérifications et PR, jusqu'à sa « Définition de terminé ».
+
+Les consignes se mettent à jour avec le code, dans la même PR. `npm run check` (`scripts/architecture/architecture.test.ts`) échoue si un dossier listé dans `scripts/architecture/agents.ts` perd son `AGENTS.md` ou son `CLAUDE.md`, si un `CLAUDE.md` de dossier fait autre chose qu'importer `AGENTS.md`, si une couche de `scripts/architecture/layers.ts` n'a ni consignes ni exclusion motivée, si le bloc « Peut importer » a dérivé de la matrice (`npm run generate:architecture` le recopie), ou si une consigne (ce fichier compris) cite un chemin, un script npm ou une cible `make` qui n'existe pas. Le reste du texte se relit.
 
 ## Documentation développeur
 
@@ -121,16 +134,17 @@ Les graphes de [`docs/architecture/`](docs/architecture/README.md) complètent l
 | Si le changement… | Mettre à jour |
 |---|---|
 | change un import entre couches, une couche, une route ou sa garde | `npm run generate:architecture`, relire le diff ; le texte de la section si le sens change |
-| ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement | `vues/systeme.mmd`, `vues/hexagone.mmd` ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs » |
+| ajoute ou retire un service, un processus, un port, un adaptateur, un script, une variable d'environnement | `vues/systeme.mmd`, `vues/hexagone.mmd` ; sections « Démarrer », « Vue d'ensemble », « Ports et adaptateurs », « Déploiement et exploitation » |
 | modifie un parcours : soumission, décision, outbox, OCR, inscription, invitation, session | la vue de séquence correspondante et le texte de « Parcours clés » |
 | ajoute une migration : table, colonne, policy, rôle, fonction `SECURITY DEFINER` | `vues/schema.mmd` et « Données et isolation » |
 | ajoute un type d'événement de l'outbox | le tableau des événements et `vues/outbox.mmd` |
 | change une opération HTTP ou un code d'erreur | « API et contrat », après `openapi.yaml` |
 | ajoute une ADR ou change son statut | sa fiche (`id="adr-NNN"`) dans « Les ADR », `vues/adr.mmd`, et « Choix d'architecture » si un choix change |
-| change une commande, un script npm, un hook ou la CI | « Démarrer », « Harnais de validation », `vues/harnais.mmd` |
+| change une commande, un script npm, un hook, la CI ou une tâche planifiée | « Démarrer », « Harnais de validation », « Déploiement et exploitation », `vues/harnais.mmd` |
+| change une règle de placement, une convention ou un fichier modèle d'un dossier ; ajoute un dossier de code | l'`AGENTS.md` du dossier ; un dossier nouveau s'ajoute à `AGENT_DIRS` (`scripts/architecture/agents.ts`) avec ses deux fichiers |
 | solde ou crée une dette | « Dette connue » et la fiche de l'ADR concernée |
 
-- Une vue se modifie dans son `.mmd`, jamais entre ses marqueurs dans la page : la recopie l'écraserait. Le texte de la page se modifie directement. Nouvelle vue : créer `docs/architecture/vues/nom.mmd`, placer ses marqueurs dans une figure de la page, puis `npm run generate:architecture`.
+- Une vue se modifie dans son `.mmd`, jamais entre ses marqueurs dans la page : la recopie l'écraserait. Le texte de la page se modifie directement. Nouvelle vue : créer `docs/architecture/vues/<nom>.mmd`, placer ses marqueurs dans une figure de la page, puis `npm run generate:architecture`.
 - `npm run check` échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou un marqueur plus de schéma, si une ADR de `docs/adr/` n'a pas sa fiche, si `vues/schema.mmd` n'a pas exactement les tables des migrations, si un type d'événement de l'outbox n'est pas cité, ou si un script externe est chargé sans empreinte SRI (`integrity`, `crossorigin`). Le reste du texte ne se vérifie pas : le tableau ci-dessus fait foi.
 - Rien dans le tableau ne change (correctif local, test, refacto sans effet visible) : le dire dans la rubrique « Documentation » de la PR. Ce qui n'est plus vrai se corrige ou se retire : une doc fausse est pire qu'une doc absente.
 
@@ -175,8 +189,8 @@ Ne pas « corriger au passage » un de ces points dans une PR sans rapport : ouv
 
 ## Façon de travailler (pour l'IA)
 
-1. Lire les fichiers concernés **et leurs voisins** avant de modifier ; imiter les conventions locales.
-2. Pour une nouvelle fonctionnalité : domaine d'abord (règle + test), puis port/adapter si dépendance externe, puis route fine, puis UI.
+1. Lire les fichiers concernés **et leurs voisins** avant de modifier, ainsi que l'`AGENTS.md` du dossier ; imiter les conventions locales.
+2. Pour une nouvelle fonctionnalité : suivre la recette `.claude/skills/nouvelle-fonctionnalite/SKILL.md` ; domaine d'abord (règle + test), puis port/adapter si dépendance externe, puis route fine, puis UI.
 3. Préserver le comportement observable existant (codes de réponse, formats JSON, parcours UI) sauf demande explicite ; sinon l'écrire dans la PR.
 4. Écrire ou mettre à jour les tests avec le code. Un bug corrigé = un test qui échoue avant, passe après.
 5. Rester dans le périmètre demandé : pas de refacto opportuniste, pas de fichiers superflus.

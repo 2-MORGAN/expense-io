@@ -66,6 +66,16 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
           bash scripts/check-api-breaking.sh "origin/${{ github.base_ref }}"
+      # Migrations et tests E2E déjà dans la branche visée : inchangés
+      # (ADR-005 §2, scripts/frozen.mjs). Un test qui doit changer : ADR
+      # acceptée, label `changement-e2e` sur la PR, puis un nouveau push (le
+      # label est lu dans l'événement qui lance la CI). Rien ne lève la règle
+      # pour une migration.
+      - name: Migrations et tests E2E existants inchangés
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          node scripts/check-frozen.mjs "origin/${{ github.base_ref }}" ${{ contains(github.event.pull_request.labels.*.name, 'changement-e2e') && '--e2e-change-approved' || '' }}
       # Même configuration qu'un poste de dev : .env créé depuis .env.example.
       - run: make env
       - name: Build de production
