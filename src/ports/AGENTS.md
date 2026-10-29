@@ -2,7 +2,7 @@
 
 Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
-Un port est une interface TypeScript que le cœur (`src/application`, `src/domain`) appelle et qu'un adaptateur de `src/adapters` implémente : base, S3, OCR, email, outbox. Rien d'exécutable ici : des types, et quelques erreurs partagées (`NonRetryableError`).
+Un port est une interface TypeScript que le cœur (cas d'usage et domaine de `src/modules`) appelle et qu'un adaptateur de `src/adapters` implémente : base, S3, OCR, email, outbox. Rien d'exécutable ici : des types, et quelques erreurs partagées (`NonRetryableError`).
 
 ## Peut importer
 
@@ -12,7 +12,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/ports` | `src/domain` |
+| `src/ports` | rien |
 
 <!-- fin : imports permis -->
 
@@ -26,8 +26,8 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 ## Exemples à copier
 
-- `src/ports/ReceiptAccessRepository.ts` : lecture seule, `null` si pas visible.
-- `src/ports/ExpenseNoteListRepository.ts` : une méthode par intention, commentée.
+- `src/modules/expenses/ports/ReceiptAccessRepository.ts` : lecture seule, `null` si pas visible.
+- `src/modules/expenses/ports/ExpenseNoteListRepository.ts` : une méthode par intention, commentée.
 - `src/ports/EventOutbox.ts` : port de l'outbox et erreur définitive.
 
 ## Pièges

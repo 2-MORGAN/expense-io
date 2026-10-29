@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { OcrError } from '@/domain/receipt/OcrError'
+import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
 import { ocrErrorOutcome, ocrSuccessOutcome } from './ocrMetrics'
 import { InputError } from './validation'
 

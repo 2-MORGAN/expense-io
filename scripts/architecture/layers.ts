@@ -32,13 +32,44 @@ export interface LegacyEdge {
   why: string
 }
 
+// Modules du monolithe modulaire (ADR-002 §3.2) : trois cœurs (identity,
+// expenses, validation) et un support (receipt-analysis), un hexagone chacun.
+// Chaque module possède son domaine, ses cas d'usage, ses ports et ses
+// adaptateurs. Noyau partagé : mécanismes transverses (outbox, envoi d'email,
+// stockage blob) dans src/ports et src/adapters, préfixe src/utils.
+const MODULE_DOMAINS = [
+  'src/modules/expenses/domain',
+  'src/modules/identity/domain',
+  'src/modules/receipt-analysis/domain',
+  'src/modules/validation/domain',
+]
+const MODULE_APPS = [
+  'src/modules/expenses/application',
+  'src/modules/identity/application',
+  'src/modules/receipt-analysis/application',
+  'src/modules/validation/application',
+]
+const MODULE_PORTS = [
+  'src/modules/expenses/ports',
+  'src/modules/identity/ports',
+  'src/modules/receipt-analysis/ports',
+  'src/modules/validation/ports',
+]
+const MODULE_ADAPTERS = [
+  'src/modules/expenses/adapters',
+  'src/modules/identity/adapters',
+  'src/modules/receipt-analysis/adapters',
+  'src/modules/validation/adapters',
+]
+
 // Ce qu'une entrée HTTP (route, server action, helper de src/http) peut
 // appeler : cas d'usage, domaine, composition, et les briques transverses
 // d'authentification, d'erreur et de journal. Ni SQL ni stockage direct.
 const HTTP_ENTRY = [
-  'src/application',
+  ...MODULE_APPS,
   'src/composition',
-  'src/domain',
+  ...MODULE_DOMAINS,
+  ...MODULE_PORTS,
   'src/generated',
   'src/http',
   'src/lib/auth',
@@ -53,7 +84,7 @@ const HTTP_ENTRY = [
 ]
 
 // L'interface lit les types du contrat HTTP (src/http, src/types, src/generated).
-const UI = ['src/app/actions', 'src/domain', 'src/generated', 'src/http', 'src/types', 'src/utils', 'next', 'react']
+const UI = [...MODULE_DOMAINS, 'src/app/actions', 'src/generated', 'src/http', 'src/types', 'src/utils', 'next', 'react']
 
 export const LAYERS: readonly Layer[] = [
   // Entrées : HTTP, UI, worker. Elles appellent un cas d'usage (ADR-002 §3.3).
@@ -89,9 +120,11 @@ export const LAYERS: readonly Layer[] = [
     group: 'entrees',
     may: [
       'src/adapters',
-      'src/application',
+      ...MODULE_ADAPTERS,
+      ...MODULE_APPS,
       'src/composition',
-      'src/domain',
+      ...MODULE_DOMAINS,
+      ...MODULE_PORTS,
       'src/lib/db',
       'src/lib/dbRole',
       'src/lib/email',
@@ -105,14 +138,35 @@ export const LAYERS: readonly Layer[] = [
     ],
   },
 
-  // Cœur : règles pures et cas d'usage, sans infrastructure. Tout paquet
-  // qu'il importe est jugé, déclaré dans PACKAGES ou non (`node:fs`, `zod`…).
+  // Cœur : règles pures et cas d'usage, sans infrastructure. Chaque module ne
+  // voit que son domaine, ses ports et le noyau partagé : un import vers un
+  // autre module est une flèche interdite. Tout paquet qu'il importe est jugé,
+  // déclaré dans PACKAGES ou non (`node:fs`, `zod`…).
   // Les cas d'usage tirent leurs identifiants de node:crypto (ReceiptAnalyses).
-  { path: 'src/application', group: 'coeur', may: ['src/domain', 'src/ports', 'src/utils', 'node:crypto'] },
-  { path: 'src/domain', group: 'coeur', may: ['src/generated', 'src/ports', 'src/utils'] },
+  { path: 'src/modules/expenses/application', group: 'coeur', may: ['src/modules/expenses/domain', 'src/modules/expenses/ports', 'src/ports', 'src/utils', 'node:crypto'] },
+  { path: 'src/modules/identity/application', group: 'coeur', may: ['src/modules/identity/domain', 'src/modules/identity/ports', 'src/ports', 'src/utils', 'node:crypto'] },
+  { path: 'src/modules/receipt-analysis/application', group: 'coeur', may: ['src/modules/receipt-analysis/domain', 'src/modules/receipt-analysis/ports', 'src/ports', 'src/utils', 'node:crypto'] },
+  { path: 'src/modules/validation/application', group: 'coeur', may: ['src/modules/validation/domain', 'src/modules/validation/ports', 'src/ports', 'src/utils', 'node:crypto'] },
+  { path: 'src/modules/expenses/domain', group: 'coeur', may: ['src/generated', 'src/modules/expenses/ports', 'src/modules/identity/domain', 'src/ports', 'src/utils'] },
+  { path: 'src/modules/identity/domain', group: 'coeur', may: ['src/generated', 'src/modules/identity/ports', 'src/ports', 'src/utils'] },
+  { path: 'src/modules/receipt-analysis/domain', group: 'coeur', may: ['src/generated', 'src/modules/receipt-analysis/ports', 'src/ports', 'src/utils'] },
+  // Liens entre domaines (ADR-002 §3.2) : la validation tranche une note de
+  // frais et lit les rôles de l'identité ; jamais l'inverse.
+  {
+    path: 'src/modules/validation/domain',
+    group: 'coeur',
+    may: ['src/generated', 'src/modules/expenses/domain', 'src/modules/identity/domain', 'src/modules/validation/ports', 'src/ports', 'src/utils'],
+  },
+  { path: 'src/modules/expenses/ports', group: 'coeur', may: ['src/modules/expenses/domain', 'src/modules/identity/domain', 'src/modules/receipt-analysis/domain', 'src/utils'] },
+  { path: 'src/modules/identity/ports', group: 'coeur', may: ['src/modules/identity/domain', 'src/utils'] },
+  { path: 'src/modules/validation/ports', group: 'coeur', may: ['src/modules/validation/domain', 'src/utils'] },
+  // Le port d'analyse voyage dans l'enveloppe du noyau partagé (outbox).
+  { path: 'src/modules/receipt-analysis/ports', group: 'coeur', may: ['src/modules/receipt-analysis/domain', 'src/ports', 'src/utils'] },
   // Données générées depuis le contrat OpenAPI (2-486) : sans dépendance.
   { path: 'src/generated', group: 'coeur', may: [] },
-  { path: 'src/ports', group: 'coeur', may: ['src/domain'] },
+  // Noyau partagé : mécanismes transverses sans langage métier (file d'outbox,
+  // envoi d'email, stockage blob). Aucune dépendance vers les modules.
+  { path: 'src/ports', group: 'coeur', may: [] },
   { path: 'src/utils', group: 'coeur', may: [] },
 
   // Infrastructure : implémentations des ports et leur branchement.
@@ -121,8 +175,9 @@ export const LAYERS: readonly Layer[] = [
     group: 'infra',
     may: [
       'src/adapters',
-      'src/application',
-      'src/domain',
+      ...MODULE_ADAPTERS,
+      ...MODULE_APPS,
+      ...MODULE_PORTS,
       'src/lib/auth',
       'src/lib/db',
       'src/lib/email',
@@ -134,19 +189,86 @@ export const LAYERS: readonly Layer[] = [
       'src/utils',
     ],
   },
+  // Noyau partagé : PgEventOutbox (mécanisme), S3 (blob), SMTP (envoi).
+  // Les adaptateurs des modules l'utilisent ; l'inverse est interdit.
   {
     path: 'src/adapters',
     group: 'infra',
     may: [
-      'src/domain',
       'src/lib/db',
       'src/lib/log',
-      'src/lib/outbox',
       'src/lib/storage',
       'src/ports',
       'src/utils',
       '@aws-sdk',
       'nodemailer',
+      'pg',
+    ],
+  },
+  {
+    path: 'src/modules/expenses/adapters',
+    group: 'infra',
+    may: [
+      'src/adapters',
+      'src/lib/db',
+      'src/lib/log',
+      'src/lib/outbox',
+      'src/modules/expenses/domain',
+      'src/modules/expenses/ports',
+      'src/modules/identity/domain',
+      // Le support expose le concept de Reçu (fichier + validation) :
+      // expenses le consomme, jamais l'inverse.
+      'src/modules/receipt-analysis/domain',
+      'src/ports',
+      'src/utils',
+      'pg',
+      'sharp',
+    ],
+  },
+  {
+    path: 'src/modules/validation/adapters',
+    group: 'infra',
+    may: [
+      'src/adapters',
+      'src/lib/db',
+      'src/lib/log',
+      'src/lib/outbox',
+      'src/modules/expenses/domain',
+      'src/modules/identity/domain',
+      'src/modules/validation/domain',
+      'src/modules/validation/ports',
+      'src/ports',
+      'src/utils',
+      'pg',
+    ],
+  },
+  {
+    path: 'src/modules/identity/adapters',
+    group: 'infra',
+    may: [
+      'src/adapters',
+      'src/lib/db',
+      'src/lib/log',
+      'src/lib/outbox',
+      'src/modules/identity/domain',
+      'src/modules/identity/ports',
+      'src/ports',
+      'src/utils',
+      'pg',
+    ],
+  },
+  {
+    path: 'src/modules/receipt-analysis/adapters',
+    group: 'infra',
+    may: [
+      'src/adapters',
+      'src/lib/db',
+      'src/lib/log',
+      'src/lib/outbox',
+      'src/modules/receipt-analysis/domain',
+      'src/modules/receipt-analysis/ports',
+      'src/ports',
+      'src/utils',
       'pg',
       'sharp',
       'tesseract.js',
@@ -156,7 +278,7 @@ export const LAYERS: readonly Layer[] = [
     path: 'src/lib/auth',
     group: 'infra',
     may: [
-      'src/domain',
+      ...MODULE_DOMAINS,
       'src/lib/authErrors',
       'src/lib/db',
       'src/lib/log',
@@ -181,10 +303,10 @@ export const LAYERS: readonly Layer[] = [
   { path: 'src/lib/log', group: 'infra', may: ['@opentelemetry'] },
   // Limite de tentatives de connexion, compteurs en base (AUTH-11, ADR-001 §4 point 3).
   { path: 'src/lib/loginThrottle', group: 'infra', may: ['src/lib/db'] },
-  { path: 'src/lib/outbox', group: 'infra', may: ['src/domain', 'src/lib/db', 'src/lib/log', 'src/ports', 'pg'] },
+  { path: 'src/lib/outbox', group: 'infra', may: [...MODULE_DOMAINS, 'src/lib/db', 'src/lib/log', 'src/ports', 'pg'] },
   // Rôle de la session relu en base à chaque auth() (2-496, S9).
-  { path: 'src/lib/sessionUser', group: 'infra', may: ['src/domain', 'src/lib/db', 'react'] },
-  { path: 'src/lib/storage', group: 'infra', may: ['src/domain', 'src/lib/log', '@aws-sdk'] },
+  { path: 'src/lib/sessionUser', group: 'infra', may: [...MODULE_DOMAINS, 'src/lib/db', 'react'] },
+  { path: 'src/lib/storage', group: 'infra', may: [...MODULE_DOMAINS, 'src/lib/log', '@aws-sdk'] },
   // Observabilité (ADR-007) : SDK OpenTelemetry, mesures HTTP et de l'outbox.
   { path: 'src/lib/telemetry', group: 'infra', may: ['src/lib/log', 'src/lib/outbox', '@opentelemetry'] },
   // Jetons des liens d'invitation et de vérification (node:crypto).

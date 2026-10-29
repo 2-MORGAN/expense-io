@@ -1,3 +1,4 @@
+// @ts-check
 import { spawn } from 'node:child_process'
 
 // Même cycle de vie en développement et en E2E : le bouton utilise le vrai worker.

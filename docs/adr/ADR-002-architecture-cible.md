@@ -85,6 +85,8 @@ Pas de nouvelle fonctionnalité dans ce refacto : on nomme où ira quoi. Les cha
 
 Fusion Expense + Validation écartée : elle recréerait le module fourre-tout des routes actuelles.
 
+> **Note du 29/10/2026** (PR #55, sans changement de décision) : chaque domaine est devenu un module, `src/modules/<module>/domain` et `src/modules/<module>/application` (`identity`, `expenses`, `validation`, et `receipt-analysis` pour l'OCR en support). Les chemins `src/domain/*` et `src/application/` de cette ADR désignent ces dossiers ; un cas d'usage ne voit que le domaine de son module (`scripts/architecture/layers.ts`).
+
 ### 3.3 Où va quoi
 
 | Couche | Rôle | Interdit |

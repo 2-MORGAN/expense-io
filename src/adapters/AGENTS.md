@@ -12,7 +12,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/adapters` | `src/domain`, `src/lib/db`, `src/lib/log`, `src/lib/outbox`, `src/lib/storage`, `src/ports`, `src/utils`, `@aws-sdk`, `nodemailer`, `pg`, `sharp`, `tesseract.js` |
+| `src/adapters` | `src/lib/db`, `src/lib/log`, `src/lib/storage`, `src/ports`, `src/utils`, `@aws-sdk`, `nodemailer`, `pg` |
 
 <!-- fin : imports permis -->
 
@@ -20,16 +20,16 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 1. `export class PostgresXxxRepository implements XxxRepository` ; le préfixe dit la technologie (`Postgres`, `Pg`, `S3`, `Smtp`).
 2. Toute lecture ou écriture faite pour un utilisateur passe par `withUserScope(userId, async (client) => …)` de `src/lib/db.ts` : il pose le contexte que lisent les policies RLS. Une transaction = un `withUserScope`.
-3. Requêtes paramétrées (`$1`, `$2`…). Un tri ou une colonne variable : une table de requêtes fixes indexée par une clé fermée du domaine (`OWN_NOTES` dans `src/adapters/PostgresExpenseNoteListRepository.ts`). Chaque tri se termine par `id` pour un ordre stable.
+3. Requêtes paramétrées (`$1`, `$2`…). Un tri ou une colonne variable : une table de requêtes fixes indexée par une clé fermée du domaine (`OWN_NOTES` dans `src/modules/expenses/adapters/PostgresExpenseNoteListRepository.ts`). Chaque tri se termine par `id` pour un ordre stable.
 4. Concurrence (décision, rattachement) : `SELECT … FOR UPDATE` dans la transaction.
-5. Un événement de l'outbox s'écrit dans la même transaction que la donnée : `new PgEventOutbox(client).enqueue(…)`, ou les helpers de `src/adapters/PgNotificationEvents.ts`.
+5. Un événement de l'outbox s'écrit dans la même transaction que la donnée : `new PgEventOutbox(client).enqueue(…)`, ou les helpers de `src/modules/expenses/adapters/PgNotificationEvents.ts`.
 6. L'application se connecte sous `expense_app`, qui n'a que les droits accordés par les migrations : une table ou une colonne nouvelle demande son `GRANT` (`migrations/AGENTS.md`). `RETURNING` exige le droit `SELECT` sur les colonnes renvoyées.
 
 ## Exemples à copier
 
-- `src/adapters/PostgresReceiptAccessRepository.ts` : lecture simple sous `withUserScope`.
-- `src/adapters/PostgresExpenseNoteListRepository.ts` : liste blanche de tris, ordre stable.
-- `src/adapters/PostgresExpenseNoteDecisionRepository.ts` : verrou, écriture et événement dans une seule transaction.
+- `src/modules/expenses/adapters/PostgresReceiptAccessRepository.ts` : lecture simple sous `withUserScope`.
+- `src/modules/expenses/adapters/PostgresExpenseNoteListRepository.ts` : liste blanche de tris, ordre stable.
+- `src/modules/validation/adapters/PostgresExpenseNoteDecisionRepository.ts` : verrou, écriture et événement dans une seule transaction.
 
 ## Pièges
 
@@ -41,9 +41,10 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 ## Tests
 
-Un adaptateur se teste par les E2E, contre la vraie base et la RLS (`e2e/`). Seule sa logique pure se teste en Vitest (`src/adapters/SmtpEmailAdapter.test.ts`). Adaptateur nouveau ou modifié : lancer les E2E qui le traversent.
+Un adaptateur se teste en intégration, à côté de lui : `src/modules/<module>/adapters/<Adaptateur>.integration.test.ts` (ou `src/adapters/` pour le noyau partagé), contre la vraie base sous `expense_app` (la RLS s'applique), le S3 ou le SMTP de `docker-compose.yml` (`integration/AGENTS.md`, ADR-009). Modèle : `src/modules/validation/adapters/PostgresExpenseNoteDecisionRepository.integration.test.ts`. Lancer : `npm run test:integration` (Docker). Sa logique pure se teste en Vitest unitaire (`src/adapters/SmtpEmailAdapter.test.ts`). Adaptateur nouveau ou modifié : lancer aussi les E2E qui le traversent.
 
 ## Vérifié par
 
 - ESLint : `getPool`, `withSystemTransaction`, SQL interpolé ou concaténé.
 - `scripts/architecture/architecture.test.ts` : la matrice ci-dessus.
+- Job `integration` de la CI : un test d'intégration par adaptateur ; la matrice « qui voit quoi » confronte le WHERE des listes au domaine (`integration/visibility.integration.test.ts`).

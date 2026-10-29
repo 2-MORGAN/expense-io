@@ -12,7 +12,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/http` | `src/application`, `src/composition`, `src/domain`, `src/generated`, `src/http`, `src/lib/auth`, `src/lib/authErrors`, `src/lib/errors`, `src/lib/log`, `src/ports`, `src/types`, `src/utils`, `next`, `next-auth` |
+| `src/http` | `src/modules/expenses/application`, `src/modules/identity/application`, `src/modules/receipt-analysis/application`, `src/modules/validation/application`, `src/composition`, `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/modules/expenses/ports`, `src/modules/identity/ports`, `src/modules/receipt-analysis/ports`, `src/modules/validation/ports`, `src/generated`, `src/http`, `src/lib/auth`, `src/lib/authErrors`, `src/lib/errors`, `src/lib/log`, `src/ports`, `src/types`, `src/utils`, `next`, `next-auth` |
 
 <!-- fin : imports permis -->
 
@@ -45,7 +45,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 ## Tests
 
-`*.test.ts` à côté, couverture mesurée : `src/http/requireRole.test.ts`, `src/http/withApiErrors.test.ts`.
+`*.test.ts` à côté, couverture mesurée : `src/http/requireRole.test.ts`, `src/http/withApiErrors.test.ts`. Une route entière (garde, validation, cas d'usage, base) s'appelle dans le processus dans un test d'intégration : `integration/api-access.integration.test.ts` (la garde de chaque opération), `integration/api-expense-notes.integration.test.ts`.
 
 ## Vérifié par
 

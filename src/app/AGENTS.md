@@ -12,9 +12,9 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/app` | `src/app/actions`, `src/domain`, `src/generated`, `src/http`, `src/types`, `src/utils`, `next`, `react`, `src/components`, `src/composition`, `src/lib/auth`, `next-auth` |
-| `src/app/actions` | `src/application`, `src/composition`, `src/domain`, `src/generated`, `src/http`, `src/lib/auth`, `src/lib/authErrors`, `src/lib/errors`, `src/lib/log`, `src/ports`, `src/types`, `src/utils`, `next`, `next-auth` |
-| `src/app/verify-email` | `src/application`, `src/composition`, `src/domain`, `src/generated`, `src/http`, `src/lib/auth`, `src/lib/authErrors`, `src/lib/errors`, `src/lib/log`, `src/ports`, `src/types`, `src/utils`, `next`, `next-auth` |
+| `src/app` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/app/actions`, `src/generated`, `src/http`, `src/types`, `src/utils`, `next`, `react`, `src/components`, `src/composition`, `src/lib/auth`, `next-auth` |
+| `src/app/actions` | `src/modules/expenses/application`, `src/modules/identity/application`, `src/modules/receipt-analysis/application`, `src/modules/validation/application`, `src/composition`, `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/modules/expenses/ports`, `src/modules/identity/ports`, `src/modules/receipt-analysis/ports`, `src/modules/validation/ports`, `src/generated`, `src/http`, `src/lib/auth`, `src/lib/authErrors`, `src/lib/errors`, `src/lib/log`, `src/ports`, `src/types`, `src/utils`, `next`, `next-auth` |
+| `src/app/verify-email` | `src/modules/expenses/application`, `src/modules/identity/application`, `src/modules/receipt-analysis/application`, `src/modules/validation/application`, `src/composition`, `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/modules/expenses/ports`, `src/modules/identity/ports`, `src/modules/receipt-analysis/ports`, `src/modules/validation/ports`, `src/generated`, `src/http`, `src/lib/auth`, `src/lib/authErrors`, `src/lib/errors`, `src/lib/log`, `src/ports`, `src/types`, `src/utils`, `next`, `next-auth` |
 
 <!-- fin : imports permis -->
 
@@ -45,4 +45,5 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 - ESLint (`expense-io/routes-and-ui`) : ni `pg`, ni `src/lib/db`, ni texte SQL.
 - `scripts/architecture/architecture.test.ts` : la matrice ci-dessus, aucun `'use client'` qui importe la composition, garde de la route `verify-email` (publique, déclarée dans `PUBLIC_ROUTES`).
+- Une page client se teste aussi comme un composant, en `page.test.tsx` à côté, réseau simulé (`src/app/expenses/page.test.tsx`, `src/components/AGENTS.md`).
 - E2E des parcours (`e2e/`).

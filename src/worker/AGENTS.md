@@ -12,13 +12,13 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/worker` | `src/adapters`, `src/application`, `src/composition`, `src/domain`, `src/lib/db`, `src/lib/dbRole`, `src/lib/email`, `src/lib/log`, `src/lib/outbox`, `src/lib/telemetry`, `src/lib/tokens`, `src/ports`, `src/utils`, `pg` |
+| `src/worker` | `src/adapters`, `src/modules/expenses/adapters`, `src/modules/identity/adapters`, `src/modules/receipt-analysis/adapters`, `src/modules/validation/adapters`, `src/modules/expenses/application`, `src/modules/identity/application`, `src/modules/receipt-analysis/application`, `src/modules/validation/application`, `src/composition`, `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/modules/expenses/ports`, `src/modules/identity/ports`, `src/modules/receipt-analysis/ports`, `src/modules/validation/ports`, `src/lib/db`, `src/lib/dbRole`, `src/lib/email`, `src/lib/log`, `src/lib/outbox`, `src/lib/telemetry`, `src/lib/tokens`, `src/ports`, `src/utils`, `pg` |
 
 <!-- fin : imports permis -->
 
 ## Ajouter un traitement asynchrone
 
-1. **Domaine** : le type `export const X = 'contexte.action'` et son payload (construction et garde `isXPayload`) dans `src/domain`, comme `src/domain/Notification.ts`. Le payload ne transporte que des ids et des données non sensibles : jamais de jeton ni d'URL pré-signée.
+1. **Domaine** : le type `export const X = 'contexte.action'` et son payload (construction et garde `isXPayload`) dans le domaine de son module, comme `src/modules/expenses/domain/Notification.ts`. Le payload ne transporte que des ids et des données non sensibles : jamais de jeton ni d'URL pré-signée.
 2. **Émission** : dans l'adaptateur, dans la même transaction que la donnée : `new PgEventOutbox(client).enqueue({ type, payload })`. L'événement n'existe que si la transaction est validée.
 3. **Handler** : un fichier `src/worker/<contexte>Handlers.ts` qui exporte une fonction renvoyant des `OutboxHandlers`, ajoutée à `buildHandlers` dans `src/worker/handlers.ts`. Un type sans handler reste `pending` pour toujours.
    - court (email, écriture) : `handle(event, client)`, dans la transaction de l'événement ;
@@ -26,7 +26,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
    - `maxRetries` (et `backoffSeconds`) ; un échec définitif lève `NonRetryableError` (`src/ports/EventOutbox.ts`).
 4. **Droits** : le worker n'a que ceux des migrations (`GRANT … TO expense_worker`, policies) : les ajouter par une migration nouvelle.
 5. **Doc** : le type dans le tableau des événements de `docs/index.html` (vérifié par `npm run check`) et `docs/architecture/vues/outbox.mmd`.
-6. **Tests** : la logique dans un cas d'usage, en Vitest ; le parcours en E2E avec `e2e/support/outbox.ts` (IDs `OUTBOX-*`, `NOTIF-*`).
+6. **Tests** : la logique dans un cas d'usage, en Vitest ; le handler sous `expense_worker`, branché sur un type d'événement unique, en intégration (`src/worker/identityEmails.integration.test.ts`, `integration/AGENTS.md`) ; le parcours en E2E avec `e2e/support/outbox.ts` (IDs `OUTBOX-*`, `NOTIF-*`).
 
 ## Exemples à copier
 
@@ -42,4 +42,4 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 ## Vérifié par
 
 - `scripts/architecture/architecture.test.ts` : la matrice ci-dessus, chaque type d'événement cité dans la doc.
-- `src/worker/handlers.test.ts`, et les E2E `OUTBOX-*` et `NOTIF-*`.
+- `src/worker/handlers.test.ts`, les tests d'intégration des handlers (job `integration`), et les E2E `OUTBOX-*` et `NOTIF-*`.

@@ -36,11 +36,12 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 | But | Commande |
 |---|---|
 | Tout lancer (install, docker, migrations, bucket, seed, dev) | `make dev` → http://localhost:3000 |
-| Lint / types | `npm run lint` · `npm run typecheck` |
-| Tests unitaires (Vitest) | `npm run test:unit` · `npx vitest` (relance à chaque modification) — fichier `*.test.ts` à côté du code testé, exemple : `src/domain/expense/ReceiptAccess.test.ts` |
+| Lint / types | `npm run lint` · `npm run lint:promises` (promesses oubliées, règles typées, hors pre-commit) · `npm run typecheck` (TypeScript, et les scripts `.mjs` marqués `// @ts-check`) |
+| Tests unitaires et de composants (Vitest, sans Docker) | `npm run test:unit` · `npx vitest` (relance à chaque modification) — fichier `*.test.ts` à côté du code testé, exemple : `src/modules/expenses/domain/ReceiptAccess.test.ts` ; composant React : `*.test.tsx` à côté (jsdom, Testing Library), exemple : `src/components/PendingApprovalsPanel.test.tsx` |
+| Tests d'intégration (Vitest, ADR-009) : adaptateurs, cas d'usage, routes et worker contre PostgreSQL sous la RLS, S3 et SMTP réels | `make test-integration` · `npm run test:integration` (Docker requis) — fichier `*.integration.test.ts` à côté du code, ou dans `integration/` s'il traverse plusieurs couches ; voir `integration/AGENTS.md` |
 | Lint, types et tests unitaires d'un coup (ce que lance la CI avant le build) | `npm run check` |
 | Tests E2E de non-régression (Playwright) | `make test-e2e` · `npm run test:e2e` — voir `docs/tests/E2E.md` |
-| Couverture de code (à la demande, sans seuil bloquant : ADR-005) | unitaires : `npm run test:coverage` → `coverage/index.html` (interface : `npm run test:coverage:ui`) · E2E, serveur et worker compris : `npm run test:e2e:coverage` → `coverage-e2e-report/index.html` (Docker requis, ne réutilise pas le serveur de `make dev`, à arrêter avant) ; citer les **branches**, les lignes E2E sont gonflées |
+| Couverture de code (à la demande, sans seuil bloquant : ADR-005) | unitaires et composants, sur tout `src/` : `npm run test:coverage` → `coverage/index.html` (interface : `npm run test:coverage:ui`) · intégration : `npm run test:integration -- --coverage` · E2E, serveur et worker compris : `npm run test:e2e:coverage` → `coverage-e2e-report/index.html` (Docker requis, ne réutilise pas le serveur de `make dev`, à arrêter avant) ; citer les **branches**, les lignes E2E sont gonflées |
 | Migrations | `npm run migrate:up` · `npm run migrate:down` |
 | Seed (idempotent) / bucket | `npm run seed` · `npm run ensure-bucket` |
 | Reçus orphelins sur S3 (2-476) | `npm run reconcile:orphan-receipts` (dry-run) · `npm run reconcile:orphan-receipts -- --execute` |
@@ -61,9 +62,9 @@ Décidé par l'ADR-005. Ce qui vérifie le code, et quand :
 | Moment | Ce qui tourne | Durée |
 |---|---|---|
 | `git commit` | hook pre-commit : ESLint avec cache | ≈ 3 s, 5 s à froid |
-| `git push` | hook pre-push : `npm run check` (lint, types, tests unitaires) | ≈ 35 s |
-| À la demande | E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` · migrations et tests E2E existants inchangés : `make frozen` | ≈ 3 min pour la suite, Docker requis |
-| PR et push sur `main` | CI : `check` (lint, types, tests unitaires, build ; sur les PR, contrat sans rupture et migrations et tests E2E existants inchangés) et `e2e` (`make test-e2e`), obligatoires pour fusionner, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte | ≈ 1 min et 3 min 30 |
+| `git push` | hook pre-push : `npm run check` (lint, promesses, types, tests unitaires) | ≈ 50 s |
+| À la demande | intégration : `make test-integration` (≈ 15 s) · E2E ciblés : `npx playwright test -g "<ID>"` (réutilise le serveur de `make dev`) · toute la suite : `make test-e2e` · tout ce que fait la CI : `make verify` · migrations et tests E2E existants inchangés : `make frozen` | ≈ 3 min pour la suite, Docker requis |
+| PR et push sur `main` | CI : `check` (lint, types, tests unitaires et de composants, build ; sur les PR, contrat sans rupture et migrations et tests E2E existants inchangés), `integration` (`make test-integration`) et `e2e` (`make test-e2e`, attend aussi `integration`) ; `check` et `e2e` obligatoires pour fusionner, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte | ≈ 1 min et 3 min 30 |
 | Claude Code : avant une commande shell | hook `PreToolUse` (`.claude/hooks/guard-git.mjs`) : refuse `--no-verify`, `git commit -n`, `HUSKY=0`, la modification de `core.hooksPath`, le push sur `main`, le force-push, `gh pr create` sans `--repo` explicite ou vers le dépôt du cours, et `eslint --suppress-all` ou `--suppress-rule` | instantané |
 | Claude Code : avant une écriture de fichier | hook `PreToolUse` (`.claude/hooks/guard-frozen.mjs`) : refuse d'écrire dans une migration déjà dans `main`, ou de modifier, désactiver ou retirer un test E2E qui y est déjà ; ajouter une migration ou un test reste libre | ≈ 2 s sur un `.spec.ts`, instantané ailleurs |
 | Claude Code : avant d'écrire du code sans la recette | hook `PreToolUse` (`.claude/hooks/guard-recipe.mjs`) : à la première écriture dans `src/`, `migrations/`, `e2e/` ou `openapi.yaml` d'une session où `/nouvelle-fonctionnalite` n'a pas été lancée, demande à l'humain s'il faut la suivre (une fois par session) | instantané |
@@ -74,7 +75,7 @@ Les hooks git (husky) s'installent avec `npm install` (script `prepare`). Ils do
 **Après un pull ou un changement de branche, lancer `npm install`** si `package.json` ou `package-lock.json` a changé : sinon une dépendance manque (Vitest, `@playwright/test`, husky…) et `npm run check` échoue, à la main comme dans le hook.
 
 1. **Avant de déclarer une tâche terminée**, `npm run check` doit passer. Si le changement touche `src/app`, `src/lib`, `migrations/` ou `scripts/`, lancer aussi les E2E concernés (IDs dans `docs/tests/E2E.md`) ou toute la suite. Dire explicitement ce qui n'a pas été lancé.
-2. **Un bug corrigé = un test** vu en échec avant la correction, en succès après : test Vitest à côté du code pour une règle métier, scénario Playwright avec un ID dans `e2e/` pour un comportement HTTP, UI ou en base.
+2. **Un bug corrigé = un test** vu en échec avant la correction, en succès après : test Vitest à côté du code pour une règle métier (`*.test.ts`) ou un composant (`*.test.tsx`), test d'intégration pour une requête, une policy, un adaptateur, une route ou un handler du worker (`*.integration.test.ts`, `integration/AGENTS.md`), scénario Playwright avec un ID dans `e2e/` pour un parcours UI ou un comportement HTTP de bout en bout.
 3. **Un test E2E rouge est une régression** : corriger le code, pas le test. Ne jamais modifier, désactiver ni supprimer un test existant pour faire passer la CI. Si un test doit changer, s'arrêter et demander : il faut une ADR acceptée (ADR-005 §2), puis le label `changement-e2e` sur la PR. Le hook `guard-frozen.mjs` et la CI le font respecter, comme pour les migrations déjà dans `main`.
 4. **Ne rien contourner** : jamais de `--no-verify`, jamais de push sur `main`, jamais de `eslint-disable` sans commentaire qui le justifie, jamais de `eslint --suppress-all` ni `--suppress-rule` pour faire taire un nouveau constat.
 5. **PR** : `gh pr create --repo 2-MORGAN/expense-io --base main`, en remplissant le modèle (`.github/pull_request_template.md`). Sans `--repo`, `gh` peut viser le dépôt parent du fork.
@@ -90,18 +91,22 @@ src/
 │   ├── actions/auth.ts      # server actions signup/login/logout
 │   └── {expenses,manager,hr,login,signup}/page.tsx
 ├── components/              # composants React ; analytics.ts : événements d'usage (ADR-008)
-├── application/             # cas d'usage : soumission, décision, listes, URL de reçu, identité, OCR
+├── modules/                 # monolithe modulaire (ADR-002 §3.2) : un hexagone par contexte
+│   ├── expenses/{domain,application,ports,adapters}/  # note, listes, reçu, notifications
+│   ├── identity/{domain,application,ports,adapters}/  # compte, invitation, annuaire
+│   ├── validation/{domain,application,ports,adapters}/  # décision : qui tranche quoi, une seule fois
+│   └── receipt-analysis/{domain,application,ports,adapters}/  # support OCR
 ├── composition/             # branchement des cas d'usage sur leurs adaptateurs
 ├── http/                    # briques HTTP communes : garde de rôle, erreurs RFC 9457, validation par le contrat, DTO
 ├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts, log.ts (journal JSON), telemetry/ (OpenTelemetry, ADR-007)
-├── domain/                  # règles pures : expense/ (tri, accès au reçu), validation/ (décision), identity/, receipt/ (OCR)
-├── ports/                   # stockage, OCR, analyses, exécution et outbox
-├── adapters/                # S3, Tesseract isolé, SMTP, notifications et persistance PostgreSQL
-├── utils/                   # validators.ts, format.ts
+├── ports/                   # noyau partagé : EventOutbox, EmailPort, ReceiptStoragePort (mécanismes, pas de métier)
+├── adapters/                # noyau partagé : PgEventOutbox, SmtpEmailAdapter, S3ReceiptAdapter
+├── utils/                   # uuid.ts (noyau partagé : UUID)
 ├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), processNextEvent.ts, outboxStats.ts (métriques)
 ├── instrumentation.ts       # au démarrage : observabilité si activée, contrôles du secret et du rôle de base ; erreurs captées par Next.js (onRequestError)
 └── proxy.ts                 # garde de navigation (ne couvre PAS /api)
 migrations/                  # SQL versionné — seule source de vérité du schéma
+integration/                 # couche d'intégration Vitest (ADR-009) : support commun, tests transverses (routes dans le processus, matrice « qui voit quoi »)
 observability/               # pile Grafana optionnelle (docker-compose.observability.yml) : tableau de bord, alertes
 scripts/                     # seed.mjs, ensure-bucket.mjs, architecture/ (graphes de docs/architecture, page docs/index.html), check-api-breaking.sh (oasdiff)
 ops/cron/                    # tâches planifiées à installer sur l'hôte (réconciliation des reçus)
@@ -109,16 +114,17 @@ ops/cron/                    # tâches planifiées à installer sur l'hôte (ré
 
 Règles de placement pour tout **nouveau** code :
 
-- **Règle métier** (statuts, qui peut valider quoi, calculs) → `src/domain/`. Pas d'import de `pg`, `next`, `aws-sdk`, `auth`. Testable sans infrastructure.
-- **Dépendance externe** (S3, notifications, OCR, queue) → interface dans `src/ports/`, implémentation dans `src/adapters/`. Le domaine et les cas d'usage ne dépendent que du port.
+- **Règle métier** (statuts, qui peut valider quoi, calculs) → `src/modules/<contexte>/domain/` (`expenses`, `identity`, `validation`, et `receipt-analysis` en support, ADR-002 §3.2). Pas d'import de `pg`, `next`, `aws-sdk`, `auth`. Testable sans infrastructure. Dépendances déclarées seules : `expenses` et `validation` → rôles d'`identity`, `validation` → note d'`expenses`, `expenses` → Reçu du support. Un cas d'usage ne voit que le domaine et les ports de son module.
+- **Dépendance externe** → un port dans `src/modules/<contexte>/ports/`, dans le langage du module, implémenté dans `src/modules/<contexte>/adapters/`. Le domaine et les cas d'usage ne dépendent que du port. Noyau partagé sans langage métier : `src/ports/` (`EventOutbox`, `EmailPort`, `ReceiptStoragePort`), `src/adapters/` (`PgEventOutbox`, `SmtpEmailAdapter`, `S3ReceiptAdapter`), `src/utils/uuid.ts`.
 - **Route handler** (`route.ts`) → fine couche HTTP : authentifier, valider l'entrée, appeler le domaine/cas d'usage, formater la réponse. **Pas de SQL ni de règle métier dans un route handler.**
 - **Traitement asynchrone** (email, OCR…) → un type d'événement dans l'outbox et un handler déclaré dans `src/worker/handlers.ts` ; le worker (`npm run worker`) ne traite que les types déclarés. Traitement court : `handle(event, client)`, dans la transaction de l'événement ; traitement long (OCR, IA) : `run(event, signal)`, hors transaction, idempotent (exemple : `src/worker/receiptAnalysis.ts`).
 - **Accès base** → via `withUserScope()` de `src/lib/db.ts`, jamais `getPool().query` direct pour des données tenant.
 - **Schéma** → nouvelle migration dans `migrations/` (horodatée, jamais d'édition d'une migration existante), avec `down`.
 - **UI** → `src/components/` ; les pages restent minces.
+- **Test** → règle pure : `*.test.ts` à côté ; composant : `*.test.tsx` à côté ; base, S3, SMTP : `*.integration.test.ts` (tableau « Où mettre un test » de `integration/AGENTS.md`) ; parcours utilisateur : `e2e/`.
 - **Métrique, trace** → `src/lib/telemetry/`, avec l'API `@opentelemetry/api` seule (sans effet tant que la télémétrie est désactivée). Étiquettes à peu de valeurs, jamais d'identifiant d'entreprise ou d'utilisateur, ni d'URL réelle (`docs/observability.md`).
 - **Événement d'usage** (ce que fait l'utilisateur dans le navigateur) → déclaré dans `ANALYTICS_EVENTS` (`src/components/analytics.ts`), envoyé par `trackEvent()` après la réponse réussie ; propriétés à valeurs fixes, jamais d'email, d'identifiant ni de montant. Chaque événement répond à une question de l'ADR-008 (`docs/analytics.md`). Une page n'entre dans `HEATMAP_PATHS` (heatmap, replays) que si son adresse ne porte jamais de jeton : `recorder.js` envoie l'URL complète. Ne pas retirer `rr-mask` du `<body>` (`src/app/layout.tsx`) : c'est ce qui garde les replays sans texte (USAGE-03). Ce qui se lit côté serveur relève de la télémétrie, pas d'Umami.
-- Réutiliser avant de créer : chaque route passe déjà par un cas d'usage de `src/application/`, branché dans `src/composition/` (ADR-006). Les utilitaires de `src/utils/` restent inutilisés (voir dette).
+- Réutiliser avant de créer : chaque route passe déjà par un cas d'usage de `src/modules/*/application/`, branché dans `src/composition/` (ADR-006).
 
 `npm run lint` fait respecter une partie de ces règles (`eslint.config.mjs`, ADR-005 T6) : domaine sans infrastructure ; ni SQL ni accès base dans `src/app/` et `src/components/` ; `getPool()` réservé à `src/lib/db.ts` ; pas de SQL interpolé ; pas de test `.only`, `.skip`, `.fixme` ou `.fail`. Le code existant qui enfreint une règle est listé en exception (listes `LEGACY_*`). Ces listes ne font que raccourcir : retirer un fichier dès qu'il est conforme, **ne jamais en ajouter un** pour faire passer le lint.
 
@@ -130,7 +136,7 @@ Les graphes de [`docs/architecture/`](docs/architecture/README.md) complètent l
 
 Comme ce fichier, chaque dossier où l'on écrit du code a son `AGENTS.md` : ce que le dossier contient, ce qu'il peut importer, la recette pas à pas, les fichiers modèles, les tests attendus, les pièges et ce qui le vérifie. Codex, Cursor et Copilot le lisent ; le `CLAUDE.md` voisin l'importe (`@AGENTS.md`), et Claude Code le charge dès qu'il travaille dans le dossier. Ces consignes complètent ce fichier sans le remplacer ; on les modifie dans l'`AGENTS.md`, jamais dans le `CLAUDE.md` voisin. Il en va de même à la racine : ce fichier, et un `CLAUDE.md` qui ne fait que l'importer.
 
-Dossiers : [`src/domain`](src/domain/AGENTS.md), [`src/application`](src/application/AGENTS.md), [`src/ports`](src/ports/AGENTS.md), [`src/adapters`](src/adapters/AGENTS.md), [`src/composition`](src/composition/AGENTS.md), [`src/http`](src/http/AGENTS.md), [`src/app/api`](src/app/api/AGENTS.md), [`src/app`](src/app/AGENTS.md), [`src/components`](src/components/AGENTS.md), [`src/lib`](src/lib/AGENTS.md), [`src/worker`](src/worker/AGENTS.md), [`migrations`](migrations/AGENTS.md), [`e2e`](e2e/AGENTS.md), [`scripts`](scripts/AGENTS.md), [`docs`](docs/AGENTS.md).
+Dossiers : [`src/modules`](src/modules/AGENTS.md) (domaine et cas d'usage de chaque module), [`src/ports`](src/ports/AGENTS.md), [`src/adapters`](src/adapters/AGENTS.md), [`src/composition`](src/composition/AGENTS.md), [`src/http`](src/http/AGENTS.md), [`src/app/api`](src/app/api/AGENTS.md), [`src/app`](src/app/AGENTS.md), [`src/components`](src/components/AGENTS.md), [`src/lib`](src/lib/AGENTS.md), [`src/worker`](src/worker/AGENTS.md), [`migrations`](migrations/AGENTS.md), [`e2e`](e2e/AGENTS.md), [`scripts`](scripts/AGENTS.md), [`docs`](docs/AGENTS.md), [`integration`](integration/AGENTS.md).
 
 **Pour une fonctionnalité nouvelle ou qui évolue, suivre la recette** [`.claude/skills/nouvelle-fonctionnalite/SKILL.md`](.claude/skills/nouvelle-fonctionnalite/SKILL.md) (skill `/nouvelle-fonctionnalite` de Claude Code) : cadrer et faire valider un plan, puis contrat, domaine, migration, port et adaptateur, cas d'usage, entrée, E2E, doc, vérifications et PR, jusqu'à sa « Définition de terminé ». Une demande de fonctionnalité passe par la recette, même formulée simplement : si l'humain ne l'a pas lancée, lui demander s'il faut la suivre avant d'écrire du code. Sous Claude Code, le hook `guard-recipe.mjs` pose la question si on l'oublie ; pour les autres agents, cette consigne seule.
 
@@ -156,7 +162,7 @@ Les consignes se mettent à jour avec le code, dans la même PR. `npm run check`
 | solde ou crée une dette | « Dette connue » et la fiche de l'ADR concernée |
 
 - Une vue se modifie dans son `.mmd`, jamais entre ses marqueurs dans la page : la recopie l'écraserait. Le texte de la page se modifie directement. Nouvelle vue : créer `docs/architecture/vues/<nom>.mmd`, placer ses marqueurs dans une figure de la page, puis `npm run generate:architecture`.
-- `npm run check` échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou un marqueur plus de schéma, si une ADR de `docs/adr/` n'a pas sa fiche, si `vues/schema.mmd` n'a pas exactement les tables des migrations, si un type d'événement de l'outbox n'est pas cité, ou si un script externe est chargé sans empreinte SRI (`integrity`, `crossorigin`). Le reste du texte ne se vérifie pas : le tableau ci-dessus fait foi.
+- `npm run check` échoue si la page a dérivé de ses schémas, si un schéma n'y a pas sa place ou un marqueur plus de schéma, si une ADR de `docs/adr/` n'a pas sa fiche, si `vues/schema.mmd` n'a pas exactement les tables des migrations, si un type d'événement de l'outbox n'est pas cité, si un script externe est chargé sans empreinte SRI (`integrity`, `crossorigin`), ou si un ID de test E2E n'a pas sa ligne dans `docs/tests/E2E.md` (ou une ligne, plus de test). Le reste du texte ne se vérifie pas : le tableau ci-dessus fait foi.
 - Rien dans le tableau ne change (correctif local, test, refacto sans effet visible) : le dire dans la rubrique « Documentation » de la PR. Ce qui n'est plus vrai se corrige ou se retire : une doc fausse est pire qu'une doc absente.
 
 ## Conventions
@@ -178,7 +184,6 @@ Les consignes se mettent à jour avec le code, dans la même PR. `npm run check`
 
 ## Dette connue (ne pas reproduire, corriger quand le chantier correspondant est en cours)
 
-- `src/utils/` (`validators.ts`, `format.ts`) n'est importé par aucun code : la validation passe par les schémas du contrat. Ne pas s'en servir.
 - Les routes API contrôlent toutes le rôle par `requireRole()` ; seules les pages `/manager` et `/hr` refont le leur, pour l'affichage.
 - « Qui voit quoi » vit à deux endroits : dans le domaine pour une note, et dans le `WHERE` des listes (`PostgresExpenseNoteListRepository`). Les faire évoluer ensemble.
 - À exécuter une fois : `npm run clean:notes-without-receipt` (dry-run, puis `-- --execute --out <dossier>`), qui valide ensuite la contrainte `CHECK (receipt_key <> '')`. À installer une fois l'application déployée : la tâche quotidienne de `ops/cron/` (réconciliation des reçus orphelins).

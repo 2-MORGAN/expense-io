@@ -30,6 +30,12 @@ describe('appUrlFromEnv', () => {
     expect(appUrlFromEnv({})).toBe('http://localhost:3000')
     expect(appUrlFromEnv({ APP_URL: 'https://app.example/' })).toBe('https://app.example')
   })
+  it('retire toutes les barres finales, en temps linéaire', () => {
+    expect(appUrlFromEnv({ APP_URL: 'https://app.example/base///' })).toBe('https://app.example/base')
+    const started = performance.now()
+    appUrlFromEnv({ APP_URL: `https://app.example${'/'.repeat(100_000)}x` })
+    expect(performance.now() - started).toBeLessThan(250)
+  })
   it('exige APP_URL en production, et une URL http(s)', () => {
     expect(() => appUrlFromEnv({ NODE_ENV: 'production' })).toThrow('APP_URL')
     expect(() => appUrlFromEnv({ APP_URL: 'app.example' })).toThrow('APP_URL')

@@ -31,8 +31,8 @@ export interface AgentDir {
 const LIB_LAYERS = LAYERS.filter((layer) => layer.path.startsWith('src/lib/')).map((layer) => layer.path)
 
 export const AGENT_DIRS: readonly AgentDir[] = [
-  { dir: 'src/domain', layers: ['src/domain'] },
-  { dir: 'src/application', layers: ['src/application'] },
+  // Domaine et cas d'usage des modules (ADR-002) : mêmes recettes pour les trois.
+  { dir: 'src/modules', layers: LAYERS.filter((layer) => layer.path.startsWith('src/modules/')).map((layer) => layer.path) },
   { dir: 'src/ports', layers: ['src/ports'] },
   { dir: 'src/adapters', layers: ['src/adapters'] },
   { dir: 'src/composition', layers: ['src/composition'] },
@@ -44,6 +44,7 @@ export const AGENT_DIRS: readonly AgentDir[] = [
   { dir: 'src/worker', layers: ['src/worker'] },
   { dir: 'migrations', layers: [] },
   { dir: 'e2e', layers: [] },
+  { dir: 'integration', layers: [] },
   { dir: 'scripts', layers: [] },
   { dir: 'docs', layers: [] },
 ]
@@ -54,7 +55,7 @@ export const LAYERS_WITHOUT_AGENTS: readonly string[] = [
   // Générés depuis openapi.yaml (`npm run generate:api`), sauf next-auth.d.ts.
   'src/generated',
   'src/types',
-  // Code mort (AGENTS.md, « Dette connue ») : rien ne s'y ajoute.
+  // Noyau partagé réduit à uuid.ts, décrit dans AGENTS.md.
   'src/utils',
   // Un fichier chacun, décrit dans AGENTS.md.
   'src/proxy',

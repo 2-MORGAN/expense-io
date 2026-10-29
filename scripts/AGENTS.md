@@ -25,4 +25,5 @@ Lit `src/`, régénère `docs/architecture/layers.mmd` et `docs/architecture/rou
 ## Pièges
 
 - ESLint et Vitest couvrent aussi `scripts/` : un `*.test.ts` à côté pour toute logique non triviale.
+- Un script lancé en production ou qui modifie des données commence par `// @ts-check` et type ses paramètres en JSDoc : `npm run typecheck` le vérifie comme du TypeScript (`scripts/ocr-engine.mjs`, `scripts/reconcile-orphan-receipts.mjs`).
 - Un script qui touche la base ou S3 se teste en E2E (`e2e/orphan-receipts.spec.ts`, `e2e/receipt-cleanup.spec.ts`).

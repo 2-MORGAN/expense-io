@@ -1,4 +1,4 @@
-import { validateReceipt, type Receipt } from '@/domain/receipt/Receipt'
+import { validateReceipt, type Receipt } from '@/modules/receipt-analysis/domain/Receipt'
 import { receiptInspector } from '@/composition/receipts'
 import { InputError, validateInput } from './validation'
 import { multipartFields, readMultipart } from './readMultipart'

@@ -45,8 +45,8 @@ const GET_POOL_IMPORT = {
 export const SYSTEM_TRANSACTION_ALLOWED = [
   'src/lib/outbox.ts',
   'src/worker/**',
-  'src/adapters/PostgresReceiptAnalysisWork.ts',
-  'src/adapters/PostgresAccountRegistry.ts',
+  'src/modules/receipt-analysis/adapters/PostgresReceiptAnalysisWork.ts',
+  'src/modules/identity/adapters/PostgresAccountRegistry.ts',
   'src/lib/auth.ts',
   // Limite de tentatives de connexion, lue avant toute session (AUTH-11).
   'src/lib/loginThrottle.ts',
@@ -158,7 +158,7 @@ const eslintConfig = defineConfig([
   {
     // Comptes de démonstration publics (AGENTS.md, README) et données de test.
     name: 'expense-io/sonarjs-test-data',
-    files: ['e2e/**', 'scripts/seed.mjs', 'src/**/*.test.ts'],
+    files: ['e2e/**', 'integration/**', 'scripts/seed.mjs', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
     rules: { 'sonarjs/no-hardcoded-passwords': 'off' },
   },
   {
@@ -191,7 +191,7 @@ const eslintConfig = defineConfig([
   {
     // `lib` y interdit déjà tout src/lib/, getPool() compris.
     name: 'expense-io/domain',
-    files: ['src/domain/**'],
+    files: ['src/domain/**', 'src/modules/*/domain/**'],
     rules: {
       'no-restricted-imports': ['error', { patterns: [DOMAIN_IMPORT] }],
     },
@@ -208,7 +208,7 @@ const eslintConfig = defineConfig([
   },
   {
     name: 'expense-io/tests',
-    files: ['e2e/**', 'src/**/*.test.ts', 'scripts/**/*.test.ts'],
+    files: ['e2e/**', 'integration/**', 'src/**/*.test.ts', 'src/**/*.test.tsx', 'scripts/**/*.test.ts'],
     rules: {
       'no-restricted-properties': [
         'error',

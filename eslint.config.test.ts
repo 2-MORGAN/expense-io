@@ -103,7 +103,7 @@ describe('règles d’architecture', () => {
       expect(messages.join('\n')).toMatch(/withSystemTransaction\(\) ne pose aucun contexte/)
     })
 
-    it.each(['src/worker/new.ts', 'src/lib/outbox.ts', 'src/adapters/PostgresAccountRegistry.ts'])(
+    it.each(['src/worker/new.ts', 'src/lib/outbox.ts', 'src/modules/identity/adapters/PostgresAccountRegistry.ts'])(
       'reste permis dans %s, où getPool() reste refusé',
       async (path) => {
         expect(await messagesFor(code, path)).toEqual([])
@@ -163,6 +163,17 @@ describe('règles d’architecture', () => {
       )
       expect(messages.join('\n')).toMatch(/'only' is restricted/)
     })
+
+    it.each(['integration/new.integration.test.ts', 'src/adapters/New.integration.test.ts', 'src/components/New.test.tsx'])(
+      'refusent aussi .skip dans %s (tests d’intégration et de composants, ADR-009)',
+      async (filePath) => {
+        const messages = await messagesFor(
+          `declare const it: Record<string, (...a: unknown[]) => void>\nit.skip('a', () => {})`,
+          filePath
+        )
+        expect(messages.join('\n')).toMatch(/'skip' is restricted/)
+      }
+    )
   })
 })
 
