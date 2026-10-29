@@ -23,8 +23,9 @@ répond à une question de l'ADR-008.
    ```
 
    `npm run analytics:setup` crée dans Umami le site « Expense.io » et
-   l'entonnoir « Inscription → invitation » s'ils n'existent pas, active la
-   heatmap et coupe les replays, puis affiche les lignes à mettre dans `.env`.
+   l'entonnoir « Inscription → invitation » s'ils n'existent pas, donne au site
+   le domaine d'`APP_URL` (port compris), active la heatmap et coupe les
+   replays, puis affiche les lignes à mettre dans `.env`.
 2. Les copier dans `.env` :
 
    ```dotenv
@@ -77,7 +78,12 @@ Dans Umami, site « Expense.io » :
 - **Téléphones** : vue d'ensemble filtrée sur la page `/expenses`, tableau
   des appareils.
 - **Clics et défilement** : « Heatmaps », choisir la page, puis « Clicks » ou
-  « Scroll » ; filtrer par appareil pour les téléphones.
+  « Scroll » ; filtrer par appareil pour les téléphones. Le fond est la vraie
+  page, qu'Umami charge dans une iframe au domaine du site, avec la session
+  de ce navigateur : se connecter d'abord à l'application, sinon c'est la
+  page de connexion qui s'affiche. Cette iframe compte elle-même une visite ;
+  `localStorage.setItem('umami.disabled', '1')`, dans la console de
+  l'application, exclut ce navigateur de la mesure.
 
 ## Ce qui ne part pas
 
@@ -140,7 +146,10 @@ relève de l'[observabilité](observability.md), pas d'Umami.
 - Heatmap : `UMAMI_HEATMAP=true`, puis dans Umami, réglages du site,
   « Replays & Heatmaps » : activer « Heatmaps » seulement, avec un
   échantillon de sessions (15 % par défaut, 100 % en local) ; laisser
-  « Replays » coupé.
+  « Replays » coupé. Le domaine du site doit être l'hôte de l'application,
+  et Umami sur le même site qu'elle : les cookies de session
+  (`SameSite=Lax`) ne suivent pas une iframe d'un autre site, et le fond
+  serait la page de connexion.
 - À trancher avant d'ouvrir la mesure à de vrais utilisateurs : la durée de
   conservation (Umami garde tout par défaut) et l'information dans la
   politique de confidentialité (ADR-008, hors périmètre).
@@ -166,6 +175,8 @@ relève de l'[observabilité](observability.md), pas d'Umami.
 | `npm run analytics:setup` : Umami injoignable | Umami pas démarré : `make analytics` |
 | Des visites, mais aucun événement | bloqueur de publicité ; ou événement absent de `ANALYTICS_EVENTS`, écarté par `beforeSend` |
 | Rien depuis une autre adresse que celle d'`APP_URL` | `data-domains` ne mesure que l'hôte d'`APP_URL` |
+| Heatmap sur une page grise d'erreur | domaine du site sans le port de l'application (`localhost` seul vise le port 80) : `npm run analytics:setup` lui donne l'hôte d'`APP_URL` |
+| Heatmap sur la page de connexion | pas de session sur l'application dans ce navigateur, ou Umami sur un autre site qu'elle |
 | Heatmap vide | `UMAMI_HEATMAP=true` absent de `.env` ; heatmap coupée dans les réglages du site (`npm run analytics:setup` la rallume) ; page hors de `/expenses`, `/manager` et `/hr` |
 | Entonnoir vide | il ne compte que les visiteurs passés par ses étapes dans l'ordre, en 24 h, sur la période choisie ; `npm run analytics:setup` le recrée s'il manque |
 | Port 3002 déjà pris | `UMAMI_PORT`, puis `npm run analytics:setup` |

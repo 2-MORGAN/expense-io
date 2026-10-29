@@ -45,11 +45,14 @@ async function umami(path, { token, body } = {}) {
 try {
   const { token } = await umami('/api/auth/login', { body: { username, password } })
   const { data: websites } = await umami('/api/websites?pageSize=100', { token })
+  // Hôte d'APP_URL, port compris : Umami affiche la page sous la heatmap en
+  // chargeant ce domaine dans une iframe (`localhost` seul viserait le port 80).
+  const domain = new URL(appUrl).host
   const website =
     websites.find((site) => site.name === websiteName) ??
-    (await umami('/api/websites', { token, body: { name: websiteName, domain: new URL(appUrl).hostname } }))
+    (await umami('/api/websites', { token, body: { name: websiteName, domain } }))
 
-  await umami(`/api/websites/${website.id}`, { token, body: { replayConfig } })
+  await umami(`/api/websites/${website.id}`, { token, body: { domain, replayConfig } })
   const { data: funnels } = await umami(`/api/websites/${website.id}/funnels`, { token })
   if (!funnels.some((existing) => existing.name === funnel.name)) {
     await umami(`/api/websites/${website.id}/funnels`, { token, body: funnel })
