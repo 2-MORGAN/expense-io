@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { applyChunks, claudeWrites, guard, isRecipeCall, parsePatch, promptStartsRecipe } from './agent-adapter.mjs'
 import { refusal } from './guard-frozen.mjs'
 import { BLOCK_MESSAGE } from './guard-recipe.mjs'
@@ -115,7 +115,17 @@ describe('adaptateur : migrations et tests E2E de main figés', () => {
 
 describe('adaptateur : recette', () => {
   let dir
-  afterEach(() => dir && rmSync(dir, { recursive: true, force: true }))
+  // Lancé par un hook git (pre-push), git exporte GIT_DIR et ses voisines :
+  // sans les retirer, les commandes git du test viseraient le vrai dépôt.
+  let gitEnv
+  beforeEach(() => {
+    gitEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('GIT_')))
+    for (const key of Object.keys(gitEnv)) delete process.env[key]
+  })
+  afterEach(() => {
+    Object.assign(process.env, gitEnv)
+    if (dir) rmSync(dir, { recursive: true, force: true })
+  })
   const repo = () => {
     dir = mkdtempSync(join(tmpdir(), 'agent-adapter-'))
     execFileSync('git', ['init', '-q'], { cwd: dir })
