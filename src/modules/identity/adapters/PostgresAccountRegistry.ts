@@ -1,5 +1,5 @@
 import { withSystemTransaction } from '@/lib/db'
-import type { AcceptInvitationResult, AccountRegistry, NewAccount } from '@/ports/AccountRegistry'
+import type { AcceptInvitationResult, AccountRegistry, NewAccount } from '@/modules/identity/ports/AccountRegistry'
 
 const UNIQUE_VIOLATION = '23505'
 

@@ -5,7 +5,7 @@ import {
   DuplicateIdempotencyKey,
   type ExpenseNoteSubmissionRepository,
   type SubmittedExpenseNote,
-} from '@/ports/ExpenseNoteSubmissionRepository'
+} from '@/modules/expenses/ports/ExpenseNoteSubmissionRepository'
 
 const companyId = randomUUID()
 const noteId = randomUUID()

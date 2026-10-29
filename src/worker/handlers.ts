@@ -1,4 +1,4 @@
-import { EmailNotificationAdapter } from '@/adapters/EmailNotificationAdapter'
+import { EmailNotificationAdapter } from '@/modules/expenses/adapters/EmailNotificationAdapter'
 import { appUrlFromEnv, createEmailSender, type Env } from '@/lib/email'
 import { generateToken } from '@/lib/tokens'
 import { identityEmailHandlers } from '@/worker/identityEmails'

@@ -1,6 +1,7 @@
-import { enqueueDecided } from '@/adapters/PgNotificationEvents'
+import { PgEventOutbox } from '@/adapters/PgEventOutbox'
 import { withUserScope } from '@/lib/db'
 import { ExpenseNote } from '@/modules/expenses/domain/ExpenseNote'
+import { expenseNoteDecided } from '@/modules/expenses/domain/Notification'
 import {
   ExpenseNoteAlreadyDecided,
   ExpenseNoteNotVisible,
@@ -12,7 +13,7 @@ import {
 import type {
   DecidedExpenseNote,
   ExpenseNoteDecisionRepository,
-} from '@/ports/ExpenseNoteDecisionRepository'
+} from '@/modules/validation/ports/ExpenseNoteDecisionRepository'
 
 interface NoteRow {
   id: string
@@ -92,7 +93,9 @@ export class PostgresExpenseNoteDecisionRepository implements ExpenseNoteDecisio
       )
       const row = updated.rows[0]
       if (!row) throw new ExpenseNoteAlreadyDecided()
-      await enqueueDecided(client, { id: row.id, description: row.description, userId: row.user_id }, decision)
+      // « Note tranchée », dans la même transaction que le statut ; une seconde
+      // décision (409) ne touche aucune ligne et n'émet rien.
+      await new PgEventOutbox(client).enqueue(expenseNoteDecided({ id: row.id, description: row.description, userId: row.user_id }, decision))
       return toDecided(row, decision)
     })
   }

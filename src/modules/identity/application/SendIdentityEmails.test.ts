@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { EmailMessage, EmailPort } from '@/ports/EmailPort'
-import type { IdentityEmailTokens } from '@/ports/IdentityEmailTokens'
+import type { IdentityEmailTokens } from '@/modules/identity/ports/IdentityEmailTokens'
 import { SendIdentityEmails } from './SendIdentityEmails'
 
 const generate = () => ({ token: 'jeton-en-clair', hash: 'empreinte' })

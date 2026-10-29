@@ -5,7 +5,7 @@ import { OcrCapacity } from './OcrCapacity'
 import { SuggestReceiptFields } from './SuggestReceiptFields'
 import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
 import { NonRetryableError, type OutboxEventRecord } from '@/ports/EventOutbox'
-import type { AnalysisStart } from '@/ports/ReceiptAnalysisWorkPort'
+import type { AnalysisStart } from '@/modules/receipt-analysis/ports/ReceiptAnalysisWorkPort'
 import { pngReceipt } from '../../../../e2e/support/files'
 
 function setup() {

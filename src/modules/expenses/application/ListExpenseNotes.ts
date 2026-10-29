@@ -1,5 +1,5 @@
 import { parseNoteSort } from '@/modules/expenses/domain/NoteSort'
-import type { ExpenseNoteListRepository, ListedExpenseNote } from '@/ports/ExpenseNoteListRepository'
+import type { ExpenseNoteListRepository, ListedExpenseNote } from '@/modules/expenses/ports/ExpenseNoteListRepository'
 
 // Les 3 listes de notes (employé, manager, RH). Les routes gardent
 // l'authentification (401/403) et la mise en forme JSON ; le tri demandé

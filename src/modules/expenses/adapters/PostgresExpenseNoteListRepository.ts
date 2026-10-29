@@ -1,6 +1,6 @@
 import { withUserScope } from '@/lib/db'
 import type { NoteSort } from '@/modules/expenses/domain/NoteSort'
-import type { ExpenseNoteListRepository, ListedExpenseNote } from '@/ports/ExpenseNoteListRepository'
+import type { ExpenseNoteListRepository, ListedExpenseNote } from '@/modules/expenses/ports/ExpenseNoteListRepository'
 
 // ORDER BY n'accepte pas de paramètre positionnel pour un nom de colonne :
 // une requête complète et fixe par tri autorisé (liste blanche explicite,

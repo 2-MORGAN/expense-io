@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ReceiptAnalyses } from './ReceiptAnalyses'
 import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
 import { pngReceipt } from '../../../../e2e/support/files'
-import type { ReceiptAnalysisRepository, NewReceiptAnalysis, ReceiptAnalysis } from '@/ports/ReceiptAnalysisRepository'
+import type { ReceiptAnalysisRepository, NewReceiptAnalysis, ReceiptAnalysis } from '@/modules/receipt-analysis/ports/ReceiptAnalysisRepository'
 
 function setup() {
   const actor = { userId: randomUUID(), companyId: randomUUID() }

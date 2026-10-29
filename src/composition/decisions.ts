@@ -1,4 +1,4 @@
-import { PostgresExpenseNoteDecisionRepository } from '@/adapters/PostgresExpenseNoteDecisionRepository'
+import { PostgresExpenseNoteDecisionRepository } from '@/modules/validation/adapters/PostgresExpenseNoteDecisionRepository'
 import { DecideExpenseNote } from '@/modules/validation/application/DecideExpenseNote'
 
 export const expenseNoteDecisionRepository = new PostgresExpenseNoteDecisionRepository()

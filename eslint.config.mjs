@@ -45,8 +45,8 @@ const GET_POOL_IMPORT = {
 export const SYSTEM_TRANSACTION_ALLOWED = [
   'src/lib/outbox.ts',
   'src/worker/**',
-  'src/adapters/PostgresReceiptAnalysisWork.ts',
-  'src/adapters/PostgresAccountRegistry.ts',
+  'src/modules/receipt-analysis/adapters/PostgresReceiptAnalysisWork.ts',
+  'src/modules/identity/adapters/PostgresAccountRegistry.ts',
   'src/lib/auth.ts',
   // Limite de tentatives de connexion, lue avant toute session (AUTH-11).
   'src/lib/loginThrottle.ts',

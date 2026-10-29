@@ -1,5 +1,5 @@
 import { companyNameFromDomain, parseEmail } from '@/modules/identity/domain/identity'
-import type { AccountRegistry } from '@/ports/AccountRegistry'
+import type { AccountRegistry } from '@/modules/identity/ports/AccountRegistry'
 
 export const MIN_PASSWORD_LENGTH = 8
 

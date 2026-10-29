@@ -1,4 +1,4 @@
-import { PostgresReceiptAnalysisWork } from '@/adapters/PostgresReceiptAnalysisWork'
+import { PostgresReceiptAnalysisWork } from '@/modules/receipt-analysis/adapters/PostgresReceiptAnalysisWork'
 import { S3ReceiptAdapter } from '@/adapters/S3ReceiptAdapter'
 import {
   ANALYSIS_BACKOFF_SECONDS,

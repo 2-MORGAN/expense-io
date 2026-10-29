@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg'
-import type { IdentityEmailTokens } from '@/ports/IdentityEmailTokens'
+import type { IdentityEmailTokens } from '@/modules/identity/ports/IdentityEmailTokens'
 
 /**
  * Dans la transaction de l'événement du worker : si l'envoi de l'email

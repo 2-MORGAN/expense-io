@@ -5,7 +5,7 @@ import type {
   AnalysisPayload,
   AnalysisStart,
   ReceiptAnalysisWorkPort,
-} from '@/ports/ReceiptAnalysisWorkPort'
+} from '@/modules/receipt-analysis/ports/ReceiptAnalysisWorkPort'
 
 /**
  * Transactions sans contexte utilisateur (`withSystemTransaction`) : réservées

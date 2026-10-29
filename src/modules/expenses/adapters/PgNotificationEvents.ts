@@ -2,12 +2,10 @@ import type { PoolClient } from 'pg'
 import { PgEventOutbox } from '@/adapters/PgEventOutbox'
 import {
   approverIds,
-  expenseNoteDecided,
   expenseNoteSubmitted,
-  type NoteDecision,
 } from '@/modules/expenses/domain/Notification'
 import type { UserRole } from '@/modules/identity/domain/User'
-import type { Recipient } from '@/ports/NotificationPort'
+import type { Recipient } from '@/modules/expenses/ports/NotificationPort'
 
 type NoteRef = { id: string; description: string; userId: string }
 
@@ -47,19 +45,6 @@ export async function enqueueSubmitted(client: PoolClient, note: NoteRef): Promi
   for (const recipientId of recipientIds) {
     await outbox.enqueue(expenseNoteSubmitted(note, row.name, [recipientId]))
   }
-}
-
-/**
- * Publie « note tranchée » dans la transaction du `client`. À n'appeler que
- * si l'`UPDATE ... AND status = 'pending'` a modifié une ligne : une seconde
- * décision (409) n'émet rien.
- */
-export async function enqueueDecided(
-  client: PoolClient,
-  note: NoteRef,
-  decision: NoteDecision
-): Promise<void> {
-  await new PgEventOutbox(client).enqueue(expenseNoteDecided(note, decision))
 }
 
 /**

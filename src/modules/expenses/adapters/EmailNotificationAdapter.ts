@@ -1,6 +1,6 @@
 import type { NoteDecision } from '@/modules/expenses/domain/Notification'
 import type { EmailPort } from '@/ports/EmailPort'
-import type { NotificationPort, Recipient } from '@/ports/NotificationPort'
+import type { NotificationPort, Recipient } from '@/modules/expenses/ports/NotificationPort'
 
 const DECISION_LABEL: Record<NoteDecision, string> = {
   approved: 'approuvée',

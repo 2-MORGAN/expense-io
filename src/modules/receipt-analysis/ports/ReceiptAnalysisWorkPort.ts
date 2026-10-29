@@ -1,4 +1,4 @@
-import type { OutboxEventRecord } from './EventOutbox'
+import type { OutboxEventRecord } from '@/ports/EventOutbox'
 import type { ExpenseNoteSuggestion } from '@/modules/receipt-analysis/domain/parseReceiptText'
 import type { OcrErrorCode } from '@/modules/receipt-analysis/domain/OcrError'
 

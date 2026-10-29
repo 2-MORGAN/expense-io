@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ListExpenseNotes } from './ListExpenseNotes'
-import type { ExpenseNoteListRepository, ListedExpenseNote } from '@/ports/ExpenseNoteListRepository'
+import type { ExpenseNoteListRepository, ListedExpenseNote } from '@/modules/expenses/ports/ExpenseNoteListRepository'
 
 const note: ListedExpenseNote = {
   id: 'note-1',

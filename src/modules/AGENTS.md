@@ -2,7 +2,7 @@
 
 Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
-Monolithe modulaire, étape 1 (ADR-002 §3.2 : trois domaines cœurs et l'OCR en support) : un hexagone par module, avec son domaine (`domain/`) et ses cas d'usage (`application/`). Les ports (`src/ports`), les adaptateurs (`src/adapters`) et la composition (`src/composition`) restent partagés ; leur découpe par module est l'étape suivante.
+Monolithe modulaire, étape 1 (ADR-002 §3.2 : trois domaines cœurs et l'OCR en support) : un hexagone par module, avec son domaine (`domain/`) et ses cas d'usage (`application/`). Chaque module a aussi ses ports (`ports/`) et ses adaptateurs (`adapters/`) ; `src/ports` et `src/adapters` ne gardent que le noyau partagé sans langage métier (outbox, email, stockage), et `src/composition` reste commun.
 
 | Module | Rôle | Domaine | Cas d'usage |
 |---|---|---|---|
@@ -19,14 +19,22 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/modules/expenses/application` | `src/modules/expenses/domain`, `src/ports`, `src/utils`, `node:crypto` |
-| `src/modules/identity/application` | `src/modules/identity/domain`, `src/ports`, `src/utils`, `node:crypto` |
-| `src/modules/receipt-analysis/application` | `src/modules/receipt-analysis/domain`, `src/ports`, `src/utils`, `node:crypto` |
-| `src/modules/validation/application` | `src/modules/validation/domain`, `src/ports`, `src/utils`, `node:crypto` |
-| `src/modules/expenses/domain` | `src/generated`, `src/modules/identity/domain`, `src/ports`, `src/utils` |
-| `src/modules/identity/domain` | `src/generated`, `src/ports`, `src/utils` |
-| `src/modules/receipt-analysis/domain` | `src/generated`, `src/ports`, `src/utils` |
-| `src/modules/validation/domain` | `src/generated`, `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/ports`, `src/utils` |
+| `src/modules/expenses/application` | `src/modules/expenses/domain`, `src/modules/expenses/ports`, `src/ports`, `src/utils`, `node:crypto` |
+| `src/modules/identity/application` | `src/modules/identity/domain`, `src/modules/identity/ports`, `src/ports`, `src/utils`, `node:crypto` |
+| `src/modules/receipt-analysis/application` | `src/modules/receipt-analysis/domain`, `src/modules/receipt-analysis/ports`, `src/ports`, `src/utils`, `node:crypto` |
+| `src/modules/validation/application` | `src/modules/validation/domain`, `src/modules/validation/ports`, `src/ports`, `src/utils`, `node:crypto` |
+| `src/modules/expenses/domain` | `src/generated`, `src/modules/expenses/ports`, `src/modules/identity/domain`, `src/ports`, `src/utils` |
+| `src/modules/identity/domain` | `src/generated`, `src/modules/identity/ports`, `src/ports`, `src/utils` |
+| `src/modules/receipt-analysis/domain` | `src/generated`, `src/modules/receipt-analysis/ports`, `src/ports`, `src/utils` |
+| `src/modules/validation/domain` | `src/generated`, `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/validation/ports`, `src/ports`, `src/utils` |
+| `src/modules/expenses/ports` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/utils` |
+| `src/modules/identity/ports` | `src/modules/identity/domain`, `src/utils` |
+| `src/modules/validation/ports` | `src/modules/validation/domain`, `src/utils` |
+| `src/modules/receipt-analysis/ports` | `src/modules/receipt-analysis/domain`, `src/ports`, `src/utils` |
+| `src/modules/expenses/adapters` | `src/adapters`, `src/lib/db`, `src/lib/log`, `src/lib/outbox`, `src/modules/expenses/domain`, `src/modules/expenses/ports`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/ports`, `src/utils`, `pg`, `sharp` |
+| `src/modules/validation/adapters` | `src/adapters`, `src/lib/db`, `src/lib/log`, `src/lib/outbox`, `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/validation/domain`, `src/modules/validation/ports`, `src/ports`, `src/utils`, `pg` |
+| `src/modules/identity/adapters` | `src/adapters`, `src/lib/db`, `src/lib/log`, `src/lib/outbox`, `src/modules/identity/domain`, `src/modules/identity/ports`, `src/ports`, `src/utils`, `pg` |
+| `src/modules/receipt-analysis/adapters` | `src/adapters`, `src/lib/db`, `src/lib/log`, `src/lib/outbox`, `src/modules/receipt-analysis/domain`, `src/modules/receipt-analysis/ports`, `src/ports`, `src/utils`, `pg`, `sharp`, `tesseract.js` |
 
 <!-- fin : imports permis -->
 
@@ -64,9 +72,9 @@ Une intention de l'utilisateur ou du worker : soumettre, trancher, lister, invit
 
 ## Pièges
 
-- « Qui voit quoi » existe aussi dans le `WHERE` des listes (`src/adapters/PostgresExpenseNoteListRepository.ts`) : faire évoluer les deux ensemble.
+- « Qui voit quoi » existe aussi dans le `WHERE` des listes (`src/modules/expenses/adapters/PostgresExpenseNoteListRepository.ts`) : faire évoluer les deux ensemble.
 - Note absente et note d'une autre entreprise donnent la même erreur (404) : ne jamais révéler qu'une ressource existe. 401 et 403 (session, rôle) restent dans la route (`requireRole`).
-- Une écriture et son événement d'outbox se font dans la même transaction : c'est l'adaptateur qui les fait ensemble (`src/adapters/PostgresExpenseNoteDecisionRepository.ts`), pas le cas d'usage en appelant deux ports l'un après l'autre.
+- Une écriture et son événement d'outbox se font dans la même transaction : c'est l'adaptateur qui les fait ensemble (`src/modules/validation/adapters/PostgresExpenseNoteDecisionRepository.ts`), pas le cas d'usage en appelant deux ports l'un après l'autre.
 - Upload S3 puis écriture en base : supprimer le reçu si l'écriture échoue, comme `SubmitExpenseNote`.
 - Dates en chaîne `YYYY-MM-DD`, jamais `Date` (fuseau horaire). Pas de `Math.random()` ni d'horloge cachée : recevoir la date ou l'id en paramètre (`invitationExpiry(now)` dans `src/modules/identity/domain/identity.ts`) ; dans un cas d'usage, `randomUUID` de `node:crypto`, seul module de Node permis.
 

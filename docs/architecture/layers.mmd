@@ -13,12 +13,16 @@ flowchart TB
   m_generated["generated"]
   m_modules_2f_expenses_2f_application["modules/expenses/application"]
   m_modules_2f_expenses_2f_domain["modules/expenses/domain"]
+  m_modules_2f_expenses_2f_ports["modules/expenses/ports"]
   m_modules_2f_identity_2f_application["modules/identity/application"]
   m_modules_2f_identity_2f_domain["modules/identity/domain"]
+  m_modules_2f_identity_2f_ports["modules/identity/ports"]
   m_modules_2f_receipt_2d_analysis_2f_application["modules/receipt-analysis/application"]
   m_modules_2f_receipt_2d_analysis_2f_domain["modules/receipt-analysis/domain"]
+  m_modules_2f_receipt_2d_analysis_2f_ports["modules/receipt-analysis/ports"]
   m_modules_2f_validation_2f_application["modules/validation/application"]
   m_modules_2f_validation_2f_domain["modules/validation/domain"]
+  m_modules_2f_validation_2f_ports["modules/validation/ports"]
   m_ports["ports"]
   m_utils["utils"]
   m_adapters["adapters"]
@@ -37,6 +41,10 @@ flowchart TB
   m_lib_2f_storage["lib/storage"]
   m_lib_2f_telemetry["lib/telemetry"]
   m_lib_2f_tokens["lib/tokens"]
+  m_modules_2f_expenses_2f_adapters["modules/expenses/adapters"]
+  m_modules_2f_identity_2f_adapters["modules/identity/adapters"]
+  m_modules_2f_receipt_2d_analysis_2f_adapters["modules/receipt-analysis/adapters"]
+  m_modules_2f_validation_2f_adapters["modules/validation/adapters"]
   p__40_aws_2d_sdk(["@aws-sdk"])
   p__40_opentelemetry(["@opentelemetry"])
   p_next(["next"])
@@ -48,13 +56,7 @@ flowchart TB
   p_sharp(["sharp"])
   m_adapters --> p_nodemailer
   m_adapters --> p_pg
-  m_adapters --> p_sharp
-  m_adapters --> m_lib_2f_db
   m_adapters --> m_lib_2f_storage
-  m_adapters --> m_modules_2f_expenses_2f_domain
-  m_adapters --> m_modules_2f_identity_2f_domain
-  m_adapters --> m_modules_2f_receipt_2d_analysis_2f_domain
-  m_adapters --> m_modules_2f_validation_2f_domain
   m_adapters --> m_ports
   m_app --> p_next
   m_app --> p_react
@@ -84,11 +86,15 @@ flowchart TB
   m_components --> m_types
   m_composition --> m_adapters
   m_composition --> m_lib_2f_tokens
+  m_composition --> m_modules_2f_expenses_2f_adapters
   m_composition --> m_modules_2f_expenses_2f_application
+  m_composition --> m_modules_2f_expenses_2f_ports
+  m_composition --> m_modules_2f_identity_2f_adapters
   m_composition --> m_modules_2f_identity_2f_application
+  m_composition --> m_modules_2f_receipt_2d_analysis_2f_adapters
   m_composition --> m_modules_2f_receipt_2d_analysis_2f_application
+  m_composition --> m_modules_2f_validation_2f_adapters
   m_composition --> m_modules_2f_validation_2f_application
-  m_composition --> m_ports
   m_http --> p_next_2d_auth
   m_http --> m_composition
   m_http --> m_generated
@@ -97,8 +103,8 @@ flowchart TB
   m_http --> m_modules_2f_expenses_2f_domain
   m_http --> m_modules_2f_identity_2f_domain
   m_http --> m_modules_2f_receipt_2d_analysis_2f_domain
+  m_http --> m_modules_2f_receipt_2d_analysis_2f_ports
   m_http --> m_modules_2f_validation_2f_domain
-  m_http --> m_ports
   m_http --> m_types
   m_instrumentation --> p_next
   m_instrumentation --> m_lib_2f_authSecret
@@ -133,28 +139,58 @@ flowchart TB
   m_lib_2f_telemetry --> p__40_opentelemetry
   m_lib_2f_telemetry --> m_lib_2f_log
   m_lib_2f_telemetry --> m_lib_2f_outbox
+  m_modules_2f_expenses_2f_adapters --> p_pg
+  m_modules_2f_expenses_2f_adapters --> p_sharp
+  m_modules_2f_expenses_2f_adapters --> m_adapters
+  m_modules_2f_expenses_2f_adapters --> m_lib_2f_db
+  m_modules_2f_expenses_2f_adapters --> m_modules_2f_expenses_2f_domain
+  m_modules_2f_expenses_2f_adapters --> m_modules_2f_expenses_2f_ports
+  m_modules_2f_expenses_2f_adapters --> m_modules_2f_identity_2f_domain
+  m_modules_2f_expenses_2f_adapters --> m_modules_2f_receipt_2d_analysis_2f_domain
+  m_modules_2f_expenses_2f_adapters --> m_ports
   m_modules_2f_expenses_2f_application --> p_node_3a_crypto
   m_modules_2f_expenses_2f_application --> m_modules_2f_expenses_2f_domain
+  m_modules_2f_expenses_2f_application --> m_modules_2f_expenses_2f_ports
   m_modules_2f_expenses_2f_application --> m_ports
   m_modules_2f_expenses_2f_domain --> m_modules_2f_identity_2f_domain
+  m_modules_2f_expenses_2f_ports --> m_modules_2f_expenses_2f_domain
+  m_modules_2f_expenses_2f_ports --> m_modules_2f_identity_2f_domain
+  m_modules_2f_expenses_2f_ports --> m_modules_2f_receipt_2d_analysis_2f_domain
+  m_modules_2f_identity_2f_adapters --> p_pg
+  m_modules_2f_identity_2f_adapters --> m_adapters
+  m_modules_2f_identity_2f_adapters --> m_lib_2f_db
+  m_modules_2f_identity_2f_adapters --> m_modules_2f_identity_2f_domain
+  m_modules_2f_identity_2f_adapters --> m_modules_2f_identity_2f_ports
   m_modules_2f_identity_2f_application --> m_modules_2f_identity_2f_domain
+  m_modules_2f_identity_2f_application --> m_modules_2f_identity_2f_ports
   m_modules_2f_identity_2f_application --> m_ports
   m_modules_2f_identity_2f_domain --> m_ports
   m_modules_2f_identity_2f_domain --> m_utils
+  m_modules_2f_receipt_2d_analysis_2f_adapters --> m_adapters
+  m_modules_2f_receipt_2d_analysis_2f_adapters --> m_lib_2f_db
+  m_modules_2f_receipt_2d_analysis_2f_adapters --> m_modules_2f_receipt_2d_analysis_2f_domain
+  m_modules_2f_receipt_2d_analysis_2f_adapters --> m_modules_2f_receipt_2d_analysis_2f_ports
+  m_modules_2f_receipt_2d_analysis_2f_adapters --> m_ports
   m_modules_2f_receipt_2d_analysis_2f_application --> p_node_3a_crypto
   m_modules_2f_receipt_2d_analysis_2f_application --> m_modules_2f_receipt_2d_analysis_2f_domain
+  m_modules_2f_receipt_2d_analysis_2f_application --> m_modules_2f_receipt_2d_analysis_2f_ports
   m_modules_2f_receipt_2d_analysis_2f_application --> m_ports
   m_modules_2f_receipt_2d_analysis_2f_domain --> m_generated
+  m_modules_2f_receipt_2d_analysis_2f_domain --> m_modules_2f_receipt_2d_analysis_2f_ports
   m_modules_2f_receipt_2d_analysis_2f_domain --> m_ports
   m_modules_2f_receipt_2d_analysis_2f_domain --> m_utils
+  m_modules_2f_receipt_2d_analysis_2f_ports --> m_modules_2f_receipt_2d_analysis_2f_domain
+  m_modules_2f_receipt_2d_analysis_2f_ports --> m_ports
+  m_modules_2f_validation_2f_adapters --> m_adapters
+  m_modules_2f_validation_2f_adapters --> m_lib_2f_db
+  m_modules_2f_validation_2f_adapters --> m_modules_2f_expenses_2f_domain
+  m_modules_2f_validation_2f_adapters --> m_modules_2f_validation_2f_domain
+  m_modules_2f_validation_2f_adapters --> m_modules_2f_validation_2f_ports
   m_modules_2f_validation_2f_application --> m_modules_2f_validation_2f_domain
-  m_modules_2f_validation_2f_application --> m_ports
+  m_modules_2f_validation_2f_application --> m_modules_2f_validation_2f_ports
   m_modules_2f_validation_2f_domain --> m_modules_2f_expenses_2f_domain
   m_modules_2f_validation_2f_domain --> m_modules_2f_identity_2f_domain
-  m_ports --> m_modules_2f_expenses_2f_domain
-  m_ports --> m_modules_2f_identity_2f_domain
-  m_ports --> m_modules_2f_receipt_2d_analysis_2f_domain
-  m_ports --> m_modules_2f_validation_2f_domain
+  m_modules_2f_validation_2f_ports --> m_modules_2f_validation_2f_domain
   m_proxy --> p_next
   m_proxy --> m_lib_2f_auth
   m_types --> p_next_2d_auth
@@ -168,17 +204,21 @@ flowchart TB
   m_worker --> m_lib_2f_outbox
   m_worker --> m_lib_2f_telemetry
   m_worker --> m_lib_2f_tokens
+  m_worker --> m_modules_2f_expenses_2f_adapters
   m_worker --> m_modules_2f_expenses_2f_domain
+  m_worker --> m_modules_2f_expenses_2f_ports
+  m_worker --> m_modules_2f_identity_2f_adapters
   m_worker --> m_modules_2f_identity_2f_application
   m_worker --> m_modules_2f_identity_2f_domain
+  m_worker --> m_modules_2f_receipt_2d_analysis_2f_adapters
   m_worker --> m_modules_2f_receipt_2d_analysis_2f_application
   m_worker --> m_modules_2f_receipt_2d_analysis_2f_domain
   m_worker --> m_ports
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
   class m_app,m_app_2f_actions,m_app_2f_api,m_app_2f_verify_2d_email,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
-  class m_generated,m_modules_2f_expenses_2f_application,m_modules_2f_expenses_2f_domain,m_modules_2f_identity_2f_application,m_modules_2f_identity_2f_domain,m_modules_2f_receipt_2d_analysis_2f_application,m_modules_2f_receipt_2d_analysis_2f_domain,m_modules_2f_validation_2f_application,m_modules_2f_validation_2f_domain,m_ports,m_utils coeur
+  class m_generated,m_modules_2f_expenses_2f_application,m_modules_2f_expenses_2f_domain,m_modules_2f_expenses_2f_ports,m_modules_2f_identity_2f_application,m_modules_2f_identity_2f_domain,m_modules_2f_identity_2f_ports,m_modules_2f_receipt_2d_analysis_2f_application,m_modules_2f_receipt_2d_analysis_2f_domain,m_modules_2f_receipt_2d_analysis_2f_ports,m_modules_2f_validation_2f_application,m_modules_2f_validation_2f_domain,m_modules_2f_validation_2f_ports,m_ports,m_utils coeur
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
-  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_telemetry,m_lib_2f_tokens infra
+  class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_telemetry,m_lib_2f_tokens,m_modules_2f_expenses_2f_adapters,m_modules_2f_identity_2f_adapters,m_modules_2f_receipt_2d_analysis_2f_adapters,m_modules_2f_validation_2f_adapters infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
   class p__40_aws_2d_sdk,p__40_opentelemetry,p_next,p_next_2d_auth,p_node_3a_crypto,p_nodemailer,p_pg,p_react,p_sharp paquet

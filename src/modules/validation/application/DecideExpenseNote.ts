@@ -2,7 +2,7 @@ import type { Decision } from '@/modules/validation/domain/DecideExpenseNote'
 import type {
   DecidedExpenseNote,
   ExpenseNoteDecisionRepository,
-} from '@/ports/ExpenseNoteDecisionRepository'
+} from '@/modules/validation/ports/ExpenseNoteDecisionRepository'
 
 // Unique logique de décision utilisée par les 4 routes (manager et RH,
 // approve et reject). Les routes gardent l'authentification (401/403) et la

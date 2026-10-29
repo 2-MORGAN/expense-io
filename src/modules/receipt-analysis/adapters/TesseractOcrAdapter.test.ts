@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import sharp from 'sharp'
 import { TesseractOcrAdapter } from './TesseractOcrAdapter'
-import { fixtureImage, pngReceipt } from '../../e2e/support/files'
+import { fixtureImage, pngReceipt } from '../../../../e2e/support/files'
 import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
 
 let directory: string

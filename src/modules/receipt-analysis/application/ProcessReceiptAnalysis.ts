@@ -5,8 +5,8 @@ import type { ReceiptStoragePort } from '@/ports/ReceiptStoragePort'
 import type { SuggestReceiptFields } from './SuggestReceiptFields'
 import type { OcrCapacity } from './OcrCapacity'
 import { analysisPayload } from '@/modules/receipt-analysis/domain/analysisPayload'
-import type { AnalysisPayload, ReceiptAnalysisWorkPort } from '@/ports/ReceiptAnalysisWorkPort'
-import type { OcrExecutionPort } from '@/ports/OcrExecutionPort'
+import type { AnalysisPayload, ReceiptAnalysisWorkPort } from '@/modules/receipt-analysis/ports/ReceiptAnalysisWorkPort'
+import type { OcrExecutionPort } from '@/modules/receipt-analysis/ports/OcrExecutionPort'
 
 /** Trois essais au plus (ADR-003 §2) ; le worker relance avec `ANALYSIS_BACKOFF_SECONDS`. */
 export const MAX_ANALYSIS_ATTEMPTS = 3

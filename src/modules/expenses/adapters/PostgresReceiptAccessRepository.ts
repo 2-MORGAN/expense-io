@@ -1,6 +1,6 @@
 import { withUserScope } from '@/lib/db'
 import type { UserRole } from '@/modules/identity/domain/User'
-import type { ReceiptAccess, ReceiptAccessRepository } from '@/ports/ReceiptAccessRepository'
+import type { ReceiptAccess, ReceiptAccessRepository } from '@/modules/expenses/ports/ReceiptAccessRepository'
 
 interface UserRow {
   id: string

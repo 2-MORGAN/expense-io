@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
-import { PostgresAccountRegistry } from '@/adapters/PostgresAccountRegistry'
-import { PostgresInvitationRepository } from '@/adapters/PostgresInvitationRepository'
+import { PostgresAccountRegistry } from '@/modules/identity/adapters/PostgresAccountRegistry'
+import { PostgresInvitationRepository } from '@/modules/identity/adapters/PostgresInvitationRepository'
 import { InviteEmployee } from '@/modules/identity/application/InviteEmployee'
 import { SignUp } from '@/modules/identity/application/SignUp'
 import { hashToken } from '@/lib/tokens'

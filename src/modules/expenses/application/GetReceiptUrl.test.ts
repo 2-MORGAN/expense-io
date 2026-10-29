@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { GetReceiptUrl } from './GetReceiptUrl'
 import { ReceiptNotVisible } from '@/modules/expenses/domain/ReceiptAccess'
-import type { ReceiptAccess, ReceiptAccessRepository } from '@/ports/ReceiptAccessRepository'
+import type { ReceiptAccess, ReceiptAccessRepository } from '@/modules/expenses/ports/ReceiptAccessRepository'
 import type { ReceiptStoragePort } from '@/ports/ReceiptStoragePort'
 
 const access: ReceiptAccess = {

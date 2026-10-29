@@ -1,7 +1,7 @@
 import { PgEventOutbox } from '@/adapters/PgEventOutbox'
 import { INVITATION_REQUESTED } from '@/modules/identity/domain/identity'
 import { withUserScope } from '@/lib/db'
-import type { InvitationDto, InvitationRepository } from '@/ports/InvitationRepository'
+import type { InvitationDto, InvitationRepository } from '@/modules/identity/ports/InvitationRepository'
 
 export class PostgresInvitationRepository implements InvitationRepository {
   /**
