@@ -6,9 +6,10 @@
 // pas d'origin/main) le hook laisse passer. OpenCode et Codex appliquent la
 // même règle par agent-adapter.mjs.
 import { existsSync, readFileSync } from 'node:fs'
-import { dirname, relative, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { brokenTests, E2E_RULE, fileAt, git, isMigration, isSpec, MIGRATION_RULE } from '../../scripts/frozen.mjs'
+import { pathInRepository, realPath } from './paths.mjs'
 
 const lf = (text) => text.replace(/\r\n/g, '\n')
 
@@ -51,7 +52,7 @@ function repositoryRoot(file) {
     const root = git(['rev-parse', '--show-toplevel'], dir).trim()
     const projectDir = process.env.CLAUDE_PROJECT_DIR
     if (projectDir) {
-      const commonDir = (cwd) => resolve(cwd, git(['rev-parse', '--git-common-dir'], cwd).trim()).toLowerCase()
+      const commonDir = (cwd) => realPath(resolve(cwd, git(['rev-parse', '--git-common-dir'], cwd).trim())).toLowerCase()
       if (commonDir(root) !== commonDir(projectDir)) return undefined
     }
     return root
@@ -68,7 +69,7 @@ function repositoryRoot(file) {
 export function frozenRefusal({ file, toolName, toolInput, cwd = '.' }) {
   if (typeof file !== 'string') return null
   const root = repositoryRoot(resolve(cwd, file))
-  const path = root ? relative(root, resolve(cwd, file)).replaceAll('\\', '/') : ''
+  const path = (root && pathInRepository(root, resolve(cwd, file))) ?? ''
   if (!root || (!isMigration(path) && !isSpec(path))) return null
   try {
     const base = git(['merge-base', 'HEAD', 'origin/main'], root).trim()

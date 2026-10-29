@@ -8,8 +8,9 @@
 // OpenCode et Codex appliquent la même règle par agent-adapter.mjs.
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { isAbsolute, relative, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { pathInRepository } from './paths.mjs'
 
 const RECIPE = 'nouvelle-fonctionnalite'
 const CODE_DIRS = ['src/', 'migrations/', 'e2e/']
@@ -92,8 +93,8 @@ export function markRecipe(cwd, sessionId) {
 export function recipeCheck(cwd, sessionId, file) {
   try {
     const { root, file: stateFile } = stateFileIn(cwd)
-    const path = relative(root, resolve(cwd, file)).replaceAll('\\', '/')
-    if (isAbsolute(path)) return false
+    const path = pathInRepository(root, resolve(cwd, file))
+    if (path === undefined) return false
     const decision = decide(readState(stateFile), sessionId, path)
     if (decision.ask) writeState(stateFile, decision.state)
     return decision.ask

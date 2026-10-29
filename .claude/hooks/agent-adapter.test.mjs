@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -154,5 +154,24 @@ describe('adaptateur : recette', () => {
     const cwd = repo()
     expect(guard({ tool: 'skill', args: { name: 'nouvelle-fonctionnalite' }, cwd, sessionId: 's1' })).toBeNull()
     expect(guard({ tool: 'edit', args: { filePath: 'src/a.ts', oldString: 'a', newString: 'b' }, cwd, sessionId: 's1' })).toBeNull()
+  })
+
+  it('par un chemin à lien symbolique (macOS) : mêmes refus que par le chemin réel', () => {
+    const real = realpathSync(repo())
+    const git = (...args) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: real })
+    mkdirSync(join(real, 'migrations'))
+    writeFileSync(join(real, 'migrations', '1700_x.sql'), 'SELECT 1;\n')
+    git('add', '.')
+    git('commit', '-qm', 'init')
+    git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+    const link = `${real}-lien`
+    symlinkSync(real, link, 'dir')
+    try {
+      const migration = { tool: 'edit', args: { filePath: 'migrations/1700_x.sql', oldString: '1', newString: '2' }, cwd: link, sessionId: 's1' }
+      expect(guard(migration)).toMatch(/déjà dans main/)
+      expect(guard({ tool: 'write', args: { filePath: `${link}/src/a.ts`, content: 'x' }, cwd: link, sessionId: 's1' })).toBe(BLOCK_MESSAGE)
+    } finally {
+      rmSync(link, { force: true })
+    }
   })
 })

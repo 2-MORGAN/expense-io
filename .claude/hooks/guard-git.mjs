@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { realPath } from './paths.mjs'
 
 const REPO = '2-MORGAN/expense-io'
 // Dépôt du cours, dont ce dépôt est un fork : jamais une cible de PR.
@@ -190,7 +191,7 @@ function inThisRepository(cwd) {
   const projectDir = process.env.CLAUDE_PROJECT_DIR
   if (!cwd || !projectDir) return true
   try {
-    const commonDir = (dir) => resolve(dir, git(['rev-parse', '--git-common-dir'], dir)).toLowerCase()
+    const commonDir = (dir) => realPath(resolve(dir, git(['rev-parse', '--git-common-dir'], dir))).toLowerCase()
     return commonDir(cwd) === commonDir(projectDir)
   } catch {
     return true
