@@ -1,3 +1,4 @@
+// @ts-check
 // Nettoyage unique des notes sans reçu (`receipt_key = ''`), 2-476 étape 3,
 // ADR-003 §3. Une note sans reçu vient d'un échec d'upload de l'ancien parcours
 // (INSERT, puis upload, puis UPDATE) :
@@ -19,6 +20,7 @@ loadEnv({ quiet: true })
 
 const CONSTRAINT = 'expense_notes_receipt_key_not_empty'
 const args = process.argv.slice(2)
+/** @param {string} name */
 const option = (name) => {
   const i = args.indexOf(name)
   return i >= 0 ? args[i + 1] : undefined
@@ -33,6 +35,7 @@ if (execute && !outDir) {
   process.exit(2)
 }
 
+/** @param {unknown} value */
 const csvCell = (value) => {
   const text = value instanceof Date ? value.toISOString() : String(value ?? '')
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
@@ -59,12 +62,14 @@ try {
   if (!execute) {
     console.log('Dry-run : rien n’a été modifié. Relancer avec --execute --out <dossier>.')
   } else {
-    mkdirSync(outDir, { recursive: true })
+    // Vérifié en tête : --execute exige --out.
+    const exportDir = /** @type {string} */ (outDir)
+    mkdirSync(exportDir, { recursive: true })
     const header = ['id', 'status', 'amount', 'expense_date', 'description', 'created_at', 'decided_by', 'decided_at', 'user_id', 'email', 'company_id']
     const csv = [header, ...rows.map((row) => header.map((column) => row[column]))]
       .map((line) => line.map(csvCell).join(','))
       .join('\n')
-    const file = path.join(outDir, `notes-sans-recu-${new Date().toISOString().replaceAll(':', '-')}.csv`)
+    const file = path.join(exportDir, `notes-sans-recu-${new Date().toISOString().replaceAll(':', '-')}.csv`)
     writeFileSync(file, `${csv}\n`, { flag: 'wx' })
     console.log(`Export écrit : ${file}`)
 

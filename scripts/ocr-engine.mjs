@@ -1,3 +1,4 @@
+// @ts-check
 // Processus jetable : le parent peut l'arrêter pendant sharp ET createWorker().
 import path from 'node:path'
 import sharp from 'sharp'
@@ -7,6 +8,10 @@ process.once('disconnect', () => process.exit(1))
 sharp.cache(false)
 sharp.concurrency(1)
 let replied = false
+/**
+ * @param {unknown} body
+ * @param {number} code
+ */
 function reply(body, code) {
   if (replied) return
   replied = true

@@ -1,3 +1,4 @@
+// @ts-check
 // Crée le bucket S3 (LocalStack) si besoin — retente pendant quelques
 // secondes le temps que le service finisse de démarrer.
 import {
