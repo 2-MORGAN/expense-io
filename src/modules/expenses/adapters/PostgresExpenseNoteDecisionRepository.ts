@@ -1,4 +1,4 @@
-import { enqueueDecided } from '@/adapters/PgNotificationEvents'
+import { enqueueDecided } from '@/modules/expenses/adapters/PgNotificationEvents'
 import { withUserScope } from '@/lib/db'
 import { ExpenseNote } from '@/modules/expenses/domain/ExpenseNote'
 import {
@@ -12,7 +12,7 @@ import {
 import type {
   DecidedExpenseNote,
   ExpenseNoteDecisionRepository,
-} from '@/ports/ExpenseNoteDecisionRepository'
+} from '@/modules/expenses/ports/ExpenseNoteDecisionRepository'
 
 interface NoteRow {
   id: string

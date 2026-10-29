@@ -4,7 +4,7 @@ import {
   DuplicateIdempotencyKey,
   type ExpenseNoteSubmissionRepository,
   type SubmittedExpenseNote,
-} from '@/ports/ExpenseNoteSubmissionRepository'
+} from '@/modules/expenses/ports/ExpenseNoteSubmissionRepository'
 
 export interface SubmissionInput {
   amount: number

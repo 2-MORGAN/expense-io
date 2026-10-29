@@ -1,5 +1,5 @@
 import { canViewReceipt, ReceiptNotVisible, type ReceiptScope } from '@/modules/expenses/domain/ReceiptAccess'
-import type { ReceiptAccessRepository } from '@/ports/ReceiptAccessRepository'
+import type { ReceiptAccessRepository } from '@/modules/expenses/ports/ReceiptAccessRepository'
 import type { ReceiptStoragePort } from '@/ports/ReceiptStoragePort'
 
 // URL pré-signée d'un reçu, pour les 3 routes receipt-url (employé, manager,

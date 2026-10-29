@@ -14,14 +14,14 @@ flowchart LR
 
   subgraph sgCoeur["Cœur : sans infrastructure"]
     direction TB
-    usecases["Cas d'usage<br/>src/application"]
-    ports["Ports<br/>src/ports"]
-    domain["Domaine<br/>src/domain"]
+    usecases["Cas d'usage<br/>modules/*/application"]
+    ports["Ports du module<br/>modules/*/ports<br/>+ noyau src/ports"]
+    domain["Domaine<br/>modules/*/domain"]
   end
 
   subgraph sgInfra["Infrastructure"]
     direction TB
-    adapters["Adaptateurs<br/>src/adapters"]
+    adapters["Adaptateurs du module<br/>modules/*/adapters<br/>+ noyau src/adapters"]
     lib["src/lib<br/>db · auth · storage<br/>outbox · log"]
   end
 

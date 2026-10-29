@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
 import { validateReceipt, type Receipt } from '@/modules/receipt-analysis/domain/Receipt'
-import type { AnalysisActor, ReceiptAnalysisRepository } from '@/ports/ReceiptAnalysisRepository'
+import type { AnalysisActor, ReceiptAnalysisRepository } from '@/modules/receipt-analysis/ports/ReceiptAnalysisRepository'
 import type { ReceiptStoragePort } from '@/ports/ReceiptStoragePort'
 import { UUID } from '@/modules/receipt-analysis/domain/analysisPayload'
 

@@ -1,11 +1,11 @@
-import { enqueueSubmitted } from '@/adapters/PgNotificationEvents'
+import { enqueueSubmitted } from '@/modules/expenses/adapters/PgNotificationEvents'
 import { withUserScope } from '@/lib/db'
 import {
   DuplicateIdempotencyKey,
   type ExpenseNoteSubmissionRepository,
   type NewExpenseNote,
   type SubmittedExpenseNote,
-} from '@/ports/ExpenseNoteSubmissionRepository'
+} from '@/modules/expenses/ports/ExpenseNoteSubmissionRepository'
 
 export class PostgresExpenseNoteSubmissionRepository implements ExpenseNoteSubmissionRepository {
   async companyIdOf(userId: string): Promise<string> {

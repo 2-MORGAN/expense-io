@@ -1,6 +1,6 @@
 import type { Receipt } from '@/modules/receipt-analysis/domain/Receipt'
-import type { OcrPort } from '@/ports/OcrPort'
-import type { OcrExecutionPort } from '@/ports/OcrExecutionPort'
+import type { OcrPort } from '@/modules/receipt-analysis/ports/OcrPort'
+import type { OcrExecutionPort } from '@/modules/receipt-analysis/ports/OcrExecutionPort'
 import type { ReceiptAnalyses } from './ReceiptAnalyses'
 import type { SuggestReceiptFields } from './SuggestReceiptFields'
 

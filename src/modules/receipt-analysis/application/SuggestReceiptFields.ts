@@ -1,7 +1,7 @@
 import type { Receipt } from '@/modules/receipt-analysis/domain/Receipt'
 import { validateReceipt, isSupportedReceiptType } from '@/modules/receipt-analysis/domain/Receipt'
 import { parseAmount, parseDescription, parseExpenseDate, type ExpenseNoteSuggestion } from '@/modules/receipt-analysis/domain/parseReceiptText'
-import type { OcrPort } from '@/ports/OcrPort'
+import type { OcrPort } from '@/modules/receipt-analysis/ports/OcrPort'
 
 export class SuggestReceiptFields {
   constructor(private ocr: OcrPort) {}

@@ -1,5 +1,5 @@
 import { InvalidEmail, invitationExpiry, normalizeInvitationEmail } from '@/modules/identity/domain/identity'
-import type { InvitationDto, InvitationRepository } from '@/ports/InvitationRepository'
+import type { InvitationDto, InvitationRepository } from '@/modules/identity/ports/InvitationRepository'
 
 // Invitation d'un salarié par la RH (S7). La route garde l'authentification
 // et le rôle (401/403) ; l'entreprise est celle de la RH, lue en base.

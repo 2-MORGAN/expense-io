@@ -77,18 +77,15 @@ src/
 │   ├── actions/auth.ts      # server actions signup/login/logout
 │   └── {expenses,manager,hr,login,signup}/page.tsx
 ├── components/              # composants React (AdminConsole, PendingApprovalsPanel, NavItem)
-├── modules/                 # monolithe modulaire, étape 1 : ports/adapters partagés
-│   ├── expenses/domain/     # ExpenseNote, décision, accès reçu, tri, notifications
-│   ├── expenses/application/ # soumission, décision, listes, URL de reçu
-│   ├── identity/domain/     # User, identité, invitations
-│   ├── identity/application/ # signup, invitation, emails d'identité
-│   ├── receipt-analysis/domain/ # OCR support : OcrError, Receipt, parseReceiptText, UUID via utils
-│   └── receipt-analysis/application/ # analyses, suggestion, capacité, requêtes OCR
+├── modules/                 # monolithe modulaire : un hexagone par contexte
+│   ├── expenses/{domain,application,ports,adapters}/  # note, décision, listes, reçu, notifications
+│   ├── identity/{domain,application,ports,adapters}/  # compte, invitation, annuaire
+│   └── receipt-analysis/{domain,application,ports,adapters}/  # support OCR
 ├── composition/             # branchement des cas d'usage sur leurs adaptateurs
 ├── http/                    # transport et problèmes HTTP (traduit les erreurs domaine en problem+json)
 ├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts, log.ts (journal JSON), telemetry/ (OpenTelemetry, ADR-007)
-├── ports/                   # partagés étape 1 : stockage, OCR, analyses, exécution et outbox
-├── adapters/                # partagés étape 1 : S3, Tesseract isolé, SMTP, notifications et persistance PostgreSQL
+├── ports/                   # noyau partagé : EventOutbox, EmailPort, ReceiptStoragePort (mécanismes, pas de métier)
+├── adapters/                # noyau partagé : PgEventOutbox, SmtpEmailAdapter, S3ReceiptAdapter
 ├── utils/                   # validators.ts, format.ts, uuid.ts (noyau partagé : UUID)
 ├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), processNextEvent.ts, outboxStats.ts (métriques)
 ├── instrumentation.ts       # au démarrage : observabilité si activée, contrôles du secret et du rôle de base ; erreurs captées par Next.js (onRequestError)
@@ -97,8 +94,8 @@ src/
 
 Règles de placement pour tout **nouveau** code :
 
-- **Règle métier** (statuts, qui peut valider quoi, calculs) → `src/modules/<contexte>/domain/` (`expenses`, `identity`, `receipt-analysis` en support). Pas d'import de `pg`, `next`, `aws-sdk`, `auth`. Testable sans infrastructure. Seul lien autorisé entre domaines : `expenses` → `identity` pour les rôles ; le reste passe par les ports ou `src/utils/uuid.ts`.
-- **Dépendance externe** (S3, notifications, OCR, queue) → interface dans `src/ports/`, implémentation dans `src/adapters/` (partagés, étape 1 assumée : la découpe en `modules/*/ports` est le suivi, pas cette PR). Le domaine et les cas d'usage ne dépendent que du port.
+- **Règle métier** (statuts, qui peut valider quoi, calculs) → `src/modules/<contexte>/domain/` (`expenses`, `identity`, `receipt-analysis` en support). Pas d'import de `pg`, `next`, `aws-sdk`, `auth`. Testable sans infrastructure. Dépendances déclarées seules : `expenses` → rôles d'`identity`, `expenses` → Reçu du support.
+- **Dépendance externe** → un port dans `src/modules/<contexte>/ports/`, dans le langage du module, implémenté dans `src/modules/<contexte>/adapters/`. Le domaine et les cas d'usage ne dépendent que du port. Noyau partagé sans langage métier : `src/ports/` (`EventOutbox`, `EmailPort`, `ReceiptStoragePort`), `src/adapters/` (`PgEventOutbox`, `SmtpEmailAdapter`, `S3ReceiptAdapter`), `src/utils/uuid.ts`.
 - **Route handler** (`route.ts`) → fine couche HTTP : authentifier, valider l'entrée, appeler le domaine/cas d'usage, formater la réponse. **Pas de SQL ni de règle métier dans un route handler.**
 - **Traitement asynchrone** (email, OCR…) → un type d'événement dans l'outbox et un handler déclaré dans `src/worker/handlers.ts` ; le worker (`npm run worker`) ne traite que les types déclarés. Traitement court : `handle(event, client)`, dans la transaction de l'événement ; traitement long (OCR, IA) : `run(event, signal)`, hors transaction, idempotent (exemple : `src/worker/receiptAnalysis.ts`).
 - **Accès base** → via `withUserScope()` de `src/lib/db.ts`, jamais `getPool().query` direct pour des données tenant.

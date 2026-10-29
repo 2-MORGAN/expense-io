@@ -1,5 +1,5 @@
 import type { NoteDecision } from '@/modules/expenses/domain/Notification'
-import type { NotificationPort, Recipient } from '@/ports/NotificationPort'
+import type { NotificationPort, Recipient } from '@/modules/expenses/ports/NotificationPort'
 
 // Identifiants seulement : jamais d'adresse email dans les logs (ADR-005 §5).
 export class ConsoleNotificationAdapter implements NotificationPort {

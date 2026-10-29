@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { AccountRegistry } from '@/ports/AccountRegistry'
+import type { AccountRegistry } from '@/modules/identity/ports/AccountRegistry'
 import { SignUp } from './SignUp'
 
 function registry(overrides: Partial<AccountRegistry> = {}): AccountRegistry {

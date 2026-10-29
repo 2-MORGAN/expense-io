@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { InvalidEmail } from '@/modules/identity/domain/identity'
-import type { InvitationRepository } from '@/ports/InvitationRepository'
+import type { InvitationRepository } from '@/modules/identity/ports/InvitationRepository'
 import { InviteEmployee } from './InviteEmployee'
 
 const now = () => new Date('2026-10-26T10:00:00Z')

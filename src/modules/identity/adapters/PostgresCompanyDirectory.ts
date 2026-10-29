@@ -1,5 +1,5 @@
 import { withUserScope } from '@/lib/db'
-import type { AssignManagerResult, CompanyDirectory, CompanyMember } from '@/ports/CompanyDirectory'
+import type { AssignManagerResult, CompanyDirectory, CompanyMember } from '@/modules/identity/ports/CompanyDirectory'
 
 type MemberRow = {
   id: string

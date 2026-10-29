@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg'
-import { PgIdentityEmailTokens } from '@/adapters/PgIdentityEmailTokens'
+import { PgIdentityEmailTokens } from '@/modules/identity/adapters/PgIdentityEmailTokens'
 import { SendIdentityEmails, type TokenGenerator } from '@/modules/identity/application/SendIdentityEmails'
 import {
   EMAIL_VERIFICATION_REQUESTED,

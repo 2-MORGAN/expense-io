@@ -1,7 +1,7 @@
 import { OcrError } from './OcrError'
 import { UUID } from '@/utils/uuid'
 import type { OutboxEventRecord } from '@/ports/EventOutbox'
-import type { AnalysisPayload } from '@/ports/ReceiptAnalysisWorkPort'
+import type { AnalysisPayload } from '@/modules/receipt-analysis/ports/ReceiptAnalysisWorkPort'
 
 /** Type d'événement de l'outbox qui déclenche l'analyse d'un reçu. */
 export const RECEIPT_ANALYSIS_REQUESTED = 'receipt.analysis.requested'

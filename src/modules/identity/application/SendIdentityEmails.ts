@@ -6,7 +6,7 @@ import {
   verificationUrl,
 } from '@/modules/identity/domain/identity'
 import type { EmailPort } from '@/ports/EmailPort'
-import type { IdentityEmailTokens } from '@/ports/IdentityEmailTokens'
+import type { IdentityEmailTokens } from '@/modules/identity/ports/IdentityEmailTokens'
 
 export type TokenGenerator = () => { token: string; hash: string }
 

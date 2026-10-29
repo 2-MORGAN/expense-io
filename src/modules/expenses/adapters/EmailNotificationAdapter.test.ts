@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { EmailNotificationAdapter } from '@/adapters/EmailNotificationAdapter'
+import { EmailNotificationAdapter } from '@/modules/expenses/adapters/EmailNotificationAdapter'
 import type { EmailMessage } from '@/ports/EmailPort'
-import type { Recipient } from '@/ports/NotificationPort'
+import type { Recipient } from '@/modules/expenses/ports/NotificationPort'
 
 const APP = 'http://localhost:3000'
 const manager: Recipient = { id: 'm1', email: 'marie@acme.test', name: 'Marie', role: 'manager' }
