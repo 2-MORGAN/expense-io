@@ -32,18 +32,21 @@ export interface LegacyEdge {
   why: string
 }
 
-// Modules du monolithe modulaire (marché) : un hexagone par contexte.
+// Modules du monolithe modulaire (ADR-002 §3.2) : trois cœurs (expenses,
+// identity, validation) et un support (receipt-analysis), un hexagone chacun.
 // Chaque module a son domaine pur et ses cas d'usage ; les couches techniques
 // (ports, adapters, composition) restent partagées en transition.
 const MODULE_DOMAINS = [
   'src/modules/expenses/domain',
   'src/modules/identity/domain',
   'src/modules/receipt-analysis/domain',
+  'src/modules/validation/domain',
 ]
 const MODULE_APPS = [
   'src/modules/expenses/application',
   'src/modules/identity/application',
   'src/modules/receipt-analysis/application',
+  'src/modules/validation/application',
 ]
 
 // Ce qu'une entrée HTTP (route, server action, helper de src/http) peut
@@ -127,10 +130,17 @@ export const LAYERS: readonly Layer[] = [
   { path: 'src/modules/expenses/application', group: 'coeur', may: ['src/modules/expenses/domain', 'src/ports', 'src/utils', 'node:crypto'] },
   { path: 'src/modules/identity/application', group: 'coeur', may: ['src/modules/identity/domain', 'src/ports', 'src/utils', 'node:crypto'] },
   { path: 'src/modules/receipt-analysis/application', group: 'coeur', may: ['src/modules/receipt-analysis/domain', 'src/ports', 'src/utils', 'node:crypto'] },
-  // Seul lien entre domaines : les notes de frais lisent les rôles de l'identité.
+  { path: 'src/modules/validation/application', group: 'coeur', may: ['src/modules/validation/domain', 'src/ports', 'src/utils', 'node:crypto'] },
+  // Liens entre domaines (ADR-002 §3.2) : les notes de frais et la validation
+  // lisent les rôles de l'identité ; la validation tranche une note de frais.
   { path: 'src/modules/expenses/domain', group: 'coeur', may: ['src/generated', 'src/modules/identity/domain', 'src/ports', 'src/utils'] },
   { path: 'src/modules/identity/domain', group: 'coeur', may: ['src/generated', 'src/ports', 'src/utils'] },
   { path: 'src/modules/receipt-analysis/domain', group: 'coeur', may: ['src/generated', 'src/ports', 'src/utils'] },
+  {
+    path: 'src/modules/validation/domain',
+    group: 'coeur',
+    may: ['src/generated', 'src/modules/expenses/domain', 'src/modules/identity/domain', 'src/ports', 'src/utils'],
+  },
   // Données générées depuis le contrat OpenAPI (2-486) : sans dépendance.
   { path: 'src/generated', group: 'coeur', may: [] },
   { path: 'src/ports', group: 'coeur', may: [...MODULE_DOMAINS] },

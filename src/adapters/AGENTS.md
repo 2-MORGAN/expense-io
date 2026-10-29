@@ -12,7 +12,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/adapters` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/lib/db`, `src/lib/log`, `src/lib/outbox`, `src/lib/storage`, `src/ports`, `src/utils`, `@aws-sdk`, `nodemailer`, `pg`, `sharp`, `tesseract.js` |
+| `src/adapters` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/lib/db`, `src/lib/log`, `src/lib/outbox`, `src/lib/storage`, `src/ports`, `src/utils`, `@aws-sdk`, `nodemailer`, `pg`, `sharp`, `tesseract.js` |
 
 <!-- fin : imports permis -->
 

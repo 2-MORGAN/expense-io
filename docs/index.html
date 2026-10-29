@@ -713,7 +713,7 @@ flowchart LR
     direction TB
     usecases["Cas d'usage&lt;br/&gt;src/modules/*/application"]
     ports["Ports&lt;br/&gt;src/ports"]
-    domain["Domaine&lt;br/&gt;src/modules/*/domain&lt;br/&gt;expenses · identity · receipt-analysis"]
+    domain["Domaine&lt;br/&gt;src/modules/*/domain&lt;br/&gt;expenses · identity · validation&lt;br/&gt;receipt-analysis en support"]
   end
 
   subgraph sgInfra["Infrastructure"]
@@ -751,8 +751,8 @@ flowchart LR
           <tbody>
             <tr><td><code>src/app/api/**/route.ts</code> et <code>src/http/</code></td><td>authentifier (<code>requireRole</code>), valider l'entrée selon le contrat, appeler un cas d'usage, formater la réponse (DTO, <code>problem+json</code>)</td><td>SQL, règle métier, appel direct à <code>lib/storage</code></td></tr>
             <tr><td><code>src/app/actions/</code>, pages</td><td>server actions (inscription, connexion, déconnexion) ; une page serveur peut appeler un cas d'usage par <code>src/composition</code></td><td>SQL, droits ; <code>src/composition</code> depuis un fichier <code>'use client'</code></td></tr>
-            <tr><td><code>src/modules/expenses/application/</code>, <code>src/modules/identity/application/</code>, <code>src/modules/receipt-analysis/application/</code></td><td>cas d'usage par module : expenses (<code>SubmitExpenseNote</code>, <code>DecideExpenseNote</code>, <code>ListExpenseNotes</code>, <code>GetReceiptUrl</code>), identity (<code>SignUp</code>, <code>InviteEmployee</code>), receipt-analysis en support (OCR…)</td><td>toute infrastructure : seulement domaine du module, ports et <code>node:crypto</code></td></tr>
-            <tr><td><code>src/modules/expenses/domain/</code>, <code>src/modules/identity/domain/</code>, <code>src/modules/receipt-analysis/domain/</code></td><td>règles pures par module — expenses : décision (<code>decideExpenseNote</code>), accès reçu (<code>canViewReceipt</code>), tri, transitions ; identity ; support OCR : lecture ticket (<code>parseReceiptText</code>), <code>UUID</code> partagé via <code>src/utils/uuid</code></td><td><code>pg</code>, <code>next</code>, <code>aws-sdk</code>, <code>auth</code>, toute autre couche ; pas d'import entre domaines sauf expenses → identity pour les rôles</td></tr>
+            <tr><td><code>src/modules/expenses/application/</code>, <code>src/modules/identity/application/</code>, <code>src/modules/validation/application/</code>, <code>src/modules/receipt-analysis/application/</code></td><td>cas d'usage par module : expenses (<code>SubmitExpenseNote</code>, <code>ListExpenseNotes</code>, <code>GetReceiptUrl</code>), validation (<code>DecideExpenseNote</code>), identity (<code>SignUp</code>, <code>InviteEmployee</code>), receipt-analysis en support (OCR…)</td><td>toute infrastructure : seulement domaine du module, ports et <code>node:crypto</code></td></tr>
+            <tr><td><code>src/modules/expenses/domain/</code>, <code>src/modules/identity/domain/</code>, <code>src/modules/validation/domain/</code>, <code>src/modules/receipt-analysis/domain/</code></td><td>règles pures par module — expenses : accès reçu (<code>canViewReceipt</code>), tri, transitions ; validation : décision (<code>decideExpenseNote</code>) ; identity ; support OCR : lecture ticket (<code>parseReceiptText</code>), <code>UUID</code> partagé via <code>src/utils/uuid</code></td><td><code>pg</code>, <code>next</code>, <code>aws-sdk</code>, <code>auth</code>, toute autre couche ; pas d'import entre domaines sauf expenses et validation → identity (rôles), validation → expenses (note tranchée)</td></tr>
             <tr><td><code>src/ports/</code></td><td>interfaces : stockage, OCR, outbox, notifications, repositories</td><td>une implémentation</td></tr>
             <tr><td><code>src/adapters/</code>, <code>src/lib/</code></td><td>implémentations : PostgreSQL par <code>withUserScope()</code>, S3, SMTP, Tesseract ; session, journal, outbox</td><td>règle métier</td></tr>
             <tr><td><code>src/composition/</code></td><td>assemble cas d'usage et adaptateurs, une fois par processus</td><td>logique propre</td></tr>
@@ -815,6 +815,8 @@ flowchart TB
   m_modules_2f_identity_2f_domain["modules/identity/domain"]
   m_modules_2f_receipt_2d_analysis_2f_application["modules/receipt-analysis/application"]
   m_modules_2f_receipt_2d_analysis_2f_domain["modules/receipt-analysis/domain"]
+  m_modules_2f_validation_2f_application["modules/validation/application"]
+  m_modules_2f_validation_2f_domain["modules/validation/domain"]
   m_ports["ports"]
   m_utils["utils"]
   m_adapters["adapters"]
@@ -850,6 +852,7 @@ flowchart TB
   m_adapters --&gt; m_modules_2f_expenses_2f_domain
   m_adapters --&gt; m_modules_2f_identity_2f_domain
   m_adapters --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
+  m_adapters --&gt; m_modules_2f_validation_2f_domain
   m_adapters --&gt; m_ports
   m_app --&gt; p_next
   m_app --&gt; p_react
@@ -882,6 +885,7 @@ flowchart TB
   m_composition --&gt; m_modules_2f_expenses_2f_application
   m_composition --&gt; m_modules_2f_identity_2f_application
   m_composition --&gt; m_modules_2f_receipt_2d_analysis_2f_application
+  m_composition --&gt; m_modules_2f_validation_2f_application
   m_composition --&gt; m_ports
   m_http --&gt; p_next_2d_auth
   m_http --&gt; m_composition
@@ -891,6 +895,7 @@ flowchart TB
   m_http --&gt; m_modules_2f_expenses_2f_domain
   m_http --&gt; m_modules_2f_identity_2f_domain
   m_http --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
+  m_http --&gt; m_modules_2f_validation_2f_domain
   m_http --&gt; m_ports
   m_http --&gt; m_types
   m_instrumentation --&gt; p_next
@@ -940,9 +945,14 @@ flowchart TB
   m_modules_2f_receipt_2d_analysis_2f_domain --&gt; m_generated
   m_modules_2f_receipt_2d_analysis_2f_domain --&gt; m_ports
   m_modules_2f_receipt_2d_analysis_2f_domain --&gt; m_utils
+  m_modules_2f_validation_2f_application --&gt; m_modules_2f_validation_2f_domain
+  m_modules_2f_validation_2f_application --&gt; m_ports
+  m_modules_2f_validation_2f_domain --&gt; m_modules_2f_expenses_2f_domain
+  m_modules_2f_validation_2f_domain --&gt; m_modules_2f_identity_2f_domain
   m_ports --&gt; m_modules_2f_expenses_2f_domain
   m_ports --&gt; m_modules_2f_identity_2f_domain
   m_ports --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
+  m_ports --&gt; m_modules_2f_validation_2f_domain
   m_proxy --&gt; p_next
   m_proxy --&gt; m_lib_2f_auth
   m_types --&gt; p_next_2d_auth
@@ -965,7 +975,7 @@ flowchart TB
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
   class m_app,m_app_2f_actions,m_app_2f_api,m_app_2f_verify_2d_email,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
-  class m_generated,m_modules_2f_expenses_2f_application,m_modules_2f_expenses_2f_domain,m_modules_2f_identity_2f_application,m_modules_2f_identity_2f_domain,m_modules_2f_receipt_2d_analysis_2f_application,m_modules_2f_receipt_2d_analysis_2f_domain,m_ports,m_utils coeur
+  class m_generated,m_modules_2f_expenses_2f_application,m_modules_2f_expenses_2f_domain,m_modules_2f_identity_2f_application,m_modules_2f_identity_2f_domain,m_modules_2f_receipt_2d_analysis_2f_application,m_modules_2f_receipt_2d_analysis_2f_domain,m_modules_2f_validation_2f_application,m_modules_2f_validation_2f_domain,m_ports,m_utils coeur
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
   class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_telemetry,m_lib_2f_tokens infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
@@ -1000,8 +1010,8 @@ flowchart LR
   %% À tenir à jour avec CLAUDE.md (« Où placer le code »).
 
   q{"Que dois-tu&lt;br/&gt;ajouter ?"}
-  domain["src/modules/&amp;lt;module&amp;gt;/domain/&lt;br/&gt;règle pure, testée par Vitest à côté"]
-  usecase["src/modules/&amp;lt;module&amp;gt;/application/&lt;br/&gt;cas d'usage, ne voit que des ports&lt;br/&gt;et le domaine de son module"]
+  domain["src/modules/*/domain/&lt;br/&gt;règle pure, testée par Vitest à côté"]
+  usecase["src/modules/*/application/&lt;br/&gt;cas d'usage, ne voit que des ports&lt;br/&gt;et le domaine de son module"]
   port["port dans src/ports/&lt;br/&gt;adaptateur dans src/adapters/&lt;br/&gt;assemblage dans src/composition/"]
   route["openapi.yaml d'abord, npm run generate:api&lt;br/&gt;puis route.ts fine"]
   event["type d'événement de l'outbox&lt;br/&gt;+ handler déclaré dans src/worker/handlers.ts"]
@@ -1911,7 +1921,7 @@ flowchart TB
           <h4>Décide</h4>
           <ul>
             <li>Monolithe modulaire hexagonal léger : route fine, cas d'usage, domaine pur, ports, adaptateurs.</li>
-            <li>Deux domaines cœurs (identité et tenancy ; note de frais avec sa décision, ses listes et l'accès au reçu) ; OCR en prestataire derrière des ports, future facturation idem.</li>
+            <li>Trois domaines cœurs (identité et tenancy, note de frais, validation) ; OCR et future facturation derrière des ports. Dans le code : un module par domaine sous <code>src/modules</code>, l'OCR en module de support (<code>receipt-analysis</code>).</li>
             <li>La matrice « où va quoi » (§3.3) ; une page serveur peut appeler la composition (amendement du 27/10).</li>
             <li>B8 : décision atomique, 409 à la seconde ; B16 : <code>decided_by</code> et <code>decided_at</code>.</li>
           </ul>

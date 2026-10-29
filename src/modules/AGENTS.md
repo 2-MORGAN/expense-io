@@ -2,12 +2,13 @@
 
 Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
-Monolithe modulaire, étape 1 (ADR-002) : un hexagone par module, avec son domaine (`domain/`) et ses cas d'usage (`application/`). Les ports (`src/ports`), les adaptateurs (`src/adapters`) et la composition (`src/composition`) restent partagés ; leur découpe par module est l'étape suivante.
+Monolithe modulaire, étape 1 (ADR-002 §3.2 : trois domaines cœurs et l'OCR en support) : un hexagone par module, avec son domaine (`domain/`) et ses cas d'usage (`application/`). Les ports (`src/ports`), les adaptateurs (`src/adapters`) et la composition (`src/composition`) restent partagés ; leur découpe par module est l'étape suivante.
 
 | Module | Rôle | Domaine | Cas d'usage |
 |---|---|---|---|
-| `src/modules/expenses` | cœur : notes de frais et leur validation | note, décision, accès au reçu, tri, événements de notification | soumettre, trancher, lister, URL de reçu |
+| `src/modules/expenses` | cœur : notes de frais | note, accès au reçu, tri, événements de notification | soumettre, lister, URL de reçu |
 | `src/modules/identity` | cœur : comptes, entreprises, invitations | utilisateur et rôles, inscription, invitation, vérification d'email | inscription, invitation, emails d'identité |
+| `src/modules/validation` | cœur : décision sur une note | qui tranche quoi, une seule fois | trancher (manager, RH) |
 | `src/modules/receipt-analysis` | support : lecture des reçus (OCR) | bornes, lecture du texte, erreurs, charge utile d'analyse | suggestion, analyses asynchrones, capacité |
 
 ## Peut importer
@@ -21,13 +22,15 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 | `src/modules/expenses/application` | `src/modules/expenses/domain`, `src/ports`, `src/utils`, `node:crypto` |
 | `src/modules/identity/application` | `src/modules/identity/domain`, `src/ports`, `src/utils`, `node:crypto` |
 | `src/modules/receipt-analysis/application` | `src/modules/receipt-analysis/domain`, `src/ports`, `src/utils`, `node:crypto` |
+| `src/modules/validation/application` | `src/modules/validation/domain`, `src/ports`, `src/utils`, `node:crypto` |
 | `src/modules/expenses/domain` | `src/generated`, `src/modules/identity/domain`, `src/ports`, `src/utils` |
 | `src/modules/identity/domain` | `src/generated`, `src/ports`, `src/utils` |
 | `src/modules/receipt-analysis/domain` | `src/generated`, `src/ports`, `src/utils` |
+| `src/modules/validation/domain` | `src/generated`, `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/ports`, `src/utils` |
 
 <!-- fin : imports permis -->
 
-Deux règles en découlent : un cas d'usage ne voit que le domaine de son module, et le seul lien entre domaines va de `expenses` vers `identity` (les rôles). Un identifiant partagé passe par `src/utils/uuid.ts`, le reste par un port.
+Deux règles en découlent : un cas d'usage ne voit que le domaine de son module, et les seuls liens entre domaines sont ceux de l'ADR-002 : `expenses` et `validation` lisent les rôles d'`identity`, `validation` tranche une note d'`expenses`. Fusionner validation et notes de frais est écarté par l'ADR-002. Un identifiant partagé passe par `src/utils/uuid.ts`, le reste par un port.
 
 ## Ajouter une règle (domaine)
 
@@ -56,7 +59,7 @@ Une intention de l'utilisateur ou du worker : soumettre, trancher, lister, invit
 - `src/modules/expenses/domain/NoteSort.ts` : liste blanche réduite à une clé fermée, que l'adaptateur traduit en requête fixe.
 - `src/modules/expenses/domain/Notification.ts` : types d'événements, payloads et gardes `isXPayload`.
 - `src/modules/expenses/application/GetReceiptUrl.ts` et son test : lecture par un port, règle du domaine, erreur du domaine, puis stockage.
-- `src/modules/expenses/application/DecideExpenseNote.test.ts` : le test type avec de faux ports.
+- `src/modules/validation/application/DecideExpenseNote.test.ts` : le test type avec de faux ports.
 - `src/modules/expenses/application/SubmitExpenseNote.ts` : opération en plusieurs étapes (reçu puis note), compensée en cas d'échec et rejouable (`Idempotency-Key`).
 
 ## Pièges

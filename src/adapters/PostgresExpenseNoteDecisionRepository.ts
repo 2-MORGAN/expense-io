@@ -8,7 +8,7 @@ import {
   type Decision,
   type DecisionActor,
   type NoteSubmitter,
-} from '@/modules/expenses/domain/DecideExpenseNote'
+} from '@/modules/validation/domain/DecideExpenseNote'
 import type {
   DecidedExpenseNote,
   ExpenseNoteDecisionRepository,

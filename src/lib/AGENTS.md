@@ -12,7 +12,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/lib/auth` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/lib/authErrors`, `src/lib/db`, `src/lib/log`, `src/lib/loginThrottle`, `src/lib/sessionUser`, `next`, `next-auth` |
+| `src/lib/auth` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/lib/authErrors`, `src/lib/db`, `src/lib/log`, `src/lib/loginThrottle`, `src/lib/sessionUser`, `next`, `next-auth` |
 | `src/lib/authSecret` | `src/lib/log` |
 | `src/lib/authErrors` | `next-auth` |
 | `src/lib/db` | `src/lib/log`, `pg` |
@@ -21,9 +21,9 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 | `src/lib/errors` | `src/http`, `src/lib/log`, `next` |
 | `src/lib/log` | `@opentelemetry` |
 | `src/lib/loginThrottle` | `src/lib/db` |
-| `src/lib/outbox` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/lib/db`, `src/lib/log`, `src/ports`, `pg` |
-| `src/lib/sessionUser` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/lib/db`, `react` |
-| `src/lib/storage` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/lib/log`, `@aws-sdk` |
+| `src/lib/outbox` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/lib/db`, `src/lib/log`, `src/ports`, `pg` |
+| `src/lib/sessionUser` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/lib/db`, `react` |
+| `src/lib/storage` | `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/lib/log`, `@aws-sdk` |
 | `src/lib/telemetry` | `src/lib/log`, `src/lib/outbox`, `@opentelemetry` |
 | `src/lib/tokens` | rien |
 

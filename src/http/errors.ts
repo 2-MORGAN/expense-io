@@ -1,6 +1,6 @@
 import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
 import { ReceiptNotVisible } from '@/modules/expenses/domain/ReceiptAccess'
-import { ExpenseNoteAlreadyDecided, ExpenseNoteNotVisible } from '@/modules/expenses/domain/DecideExpenseNote'
+import { ExpenseNoteAlreadyDecided, ExpenseNoteNotVisible } from '@/modules/validation/domain/DecideExpenseNote'
 import { log, logError } from '@/lib/log'
 import { InputError } from './validation'
 import { problemCatalogue, problemResponse, type ProblemCode } from './problem'

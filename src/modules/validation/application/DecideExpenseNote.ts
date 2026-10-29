@@ -1,4 +1,4 @@
-import type { Decision } from '@/modules/expenses/domain/DecideExpenseNote'
+import type { Decision } from '@/modules/validation/domain/DecideExpenseNote'
 import type {
   DecidedExpenseNote,
   ExpenseNoteDecisionRepository,

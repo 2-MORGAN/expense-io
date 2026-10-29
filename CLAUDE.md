@@ -80,12 +80,14 @@ src/
 │   └── {expenses,manager,hr,login,signup}/page.tsx
 ├── components/              # composants React (AdminConsole, PendingApprovalsPanel, NavItem, UmamiScript) ; analytics.ts : événements d'usage (ADR-008)
 ├── modules/                 # monolithe modulaire, étape 1 : ports/adapters partagés
-│   ├── expenses/domain/     # ExpenseNote, décision, accès reçu, tri, notifications
-│   ├── expenses/application/ # soumission, décision, listes, URL de reçu
+│   ├── expenses/domain/     # ExpenseNote, accès reçu, tri, notifications
+│   ├── expenses/application/ # soumission, listes, URL de reçu
 │   ├── identity/domain/     # User, identité, invitations
 │   ├── identity/application/ # signup, invitation, emails d'identité
 │   ├── receipt-analysis/domain/ # OCR support : OcrError, Receipt, parseReceiptText, UUID via utils
-│   └── receipt-analysis/application/ # analyses, suggestion, capacité, requêtes OCR
+│   ├── receipt-analysis/application/ # analyses, suggestion, capacité, requêtes OCR
+│   ├── validation/domain/   # décision : qui tranche quoi, une seule fois
+│   └── validation/application/ # trancher une note (manager, RH)
 ├── composition/             # branchement des cas d'usage sur leurs adaptateurs
 ├── http/                    # transport et problèmes HTTP (traduit les erreurs domaine en problem+json)
 ├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts, log.ts (journal JSON), telemetry/ (OpenTelemetry, ADR-007)
@@ -99,7 +101,7 @@ src/
 
 Règles de placement pour tout **nouveau** code :
 
-- **Règle métier** (statuts, qui peut valider quoi, calculs) → `src/modules/<contexte>/domain/` (`expenses`, `identity`, `receipt-analysis` en support). Pas d'import de `pg`, `next`, `aws-sdk`, `auth`. Testable sans infrastructure. Seul lien autorisé entre domaines : `expenses` → `identity` pour les rôles ; le reste passe par les ports ou `src/utils/uuid.ts`.
+- **Règle métier** (statuts, qui peut valider quoi, calculs) → `src/modules/<contexte>/domain/` (`expenses`, `identity`, `validation`, et `receipt-analysis` en support, ADR-002 §3.2). Pas d'import de `pg`, `next`, `aws-sdk`, `auth`. Testable sans infrastructure. Seuls liens entre domaines : `expenses` et `validation` → `identity` pour les rôles, `validation` → `expenses` pour la note tranchée ; le reste passe par les ports ou `src/utils/uuid.ts`. Un cas d'usage ne voit que le domaine de son module.
 - **Dépendance externe** (S3, notifications, OCR, queue) → interface dans `src/ports/`, implémentation dans `src/adapters/` (partagés, étape 1 assumée : la découpe en `modules/*/ports` est le suivi, pas cette PR). Le domaine et les cas d'usage ne dépendent que du port.
 - **Route handler** (`route.ts`) → fine couche HTTP : authentifier, valider l'entrée, appeler le domaine/cas d'usage, formater la réponse. **Pas de SQL ni de règle métier dans un route handler.**
 - **Traitement asynchrone** (email, OCR…) → un type d'événement dans l'outbox et un handler déclaré dans `src/worker/handlers.ts` ; le worker (`npm run worker`) ne traite que les types déclarés. Traitement court : `handle(event, client)`, dans la transaction de l'événement ; traitement long (OCR, IA) : `run(event, signal)`, hors transaction, idempotent (exemple : `src/worker/receiptAnalysis.ts`).
