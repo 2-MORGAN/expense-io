@@ -1,6 +1,6 @@
 # src/domain — règles métier pures
 
-Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 Ici vivent les règles : statuts, qui peut voir ou trancher quoi, calculs, validation métier, types d'événements de l'outbox. Du TypeScript pur, testé en millisecondes, sans base, sans HTTP, sans SDK.
 

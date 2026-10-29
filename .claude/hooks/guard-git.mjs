@@ -1,5 +1,5 @@
 // Hook PreToolUse de Claude Code (ADR-005 §4) : refuse les commandes shell qui
-// contournent le harnais de validation (CLAUDE.md, « Harnais de validation »,
+// contournent le harnais de validation (AGENTS.md, « Harnais de validation »,
 // règles 4 et 5). C'est un garde-fou contre l'erreur, pas une barrière : les
 // hooks git, la CI et le ruleset de `main` restent la garantie.
 import { execFileSync } from 'node:child_process'
@@ -139,26 +139,26 @@ function pushRefusal(args, currentBranch) {
 export function refusal(command, currentBranch, shell = 'Bash') {
   for (const segment of withoutQuotedText(command, shell).split(/[;&|\n()`]+|\$\(/)) {
     if (HUSKY_OFF.test(segment.trim())) {
-      return '`HUSKY=0` désactive les hooks git (CLAUDE.md, règle 4) : corriger la cause de l’échec du hook.'
+      return '`HUSKY=0` désactive les hooks git (AGENTS.md, règle 4) : corriger la cause de l’échec du hook.'
     }
     const words = segment.trim().split(/\s+/).filter(Boolean)
     if (suppressesLint(words)) {
-      return '`--suppress-all` et `--suppress-rule` figent de nouveaux constats dans eslint-suppressions.json (CLAUDE.md, règle 4) : corriger le code. Après une correction, `npx eslint --prune-suppressions` raccourcit la liste.'
+      return '`--suppress-all` et `--suppress-rule` figent de nouveaux constats dans eslint-suppressions.json (AGENTS.md, règle 4) : corriger le code. Après une correction, `npx eslint --prune-suppressions` raccourcit la liste.'
     }
     if (words[0] === 'gh' && words[1] === 'pr' && words[2] === 'create') {
       const flag = words.findIndex((word) => word === '--repo' || word === '-R')
       const target = flag === -1 ? words.find((word) => word.startsWith('--repo='))?.slice('--repo='.length) : words[flag + 1]
       if (!target || target.toLowerCase() === COURSE_REPO.toLowerCase()) {
-        return `Préciser le dépôt : \`--repo ${REPO}\` pour ce projet. Sans \`--repo\`, \`gh\` peut ouvrir la PR sur le dépôt du cours (CLAUDE.md, règle 5).`
+        return `Préciser le dépôt : \`--repo ${REPO}\` pour ce projet. Sans \`--repo\`, \`gh\` peut ouvrir la PR sur le dépôt du cours (AGENTS.md, règle 5).`
       }
     }
     const git = gitInvocation(words)
     if (!git) continue
     if ([...git.globals, ...git.args].includes('--no-verify') || (git.subcommand === 'commit' && hasShortNoVerify(git.args))) {
-      return '`--no-verify` (ou `git commit -n`) contourne les hooks git (CLAUDE.md, règle 4) : corriger la cause de l’échec du hook ; si le blocage paraît injustifié, demander à l’utilisateur.'
+      return '`--no-verify` (ou `git commit -n`) contourne les hooks git (AGENTS.md, règle 4) : corriger la cause de l’échec du hook ; si le blocage paraît injustifié, demander à l’utilisateur.'
     }
     if (writesHooksPath(git)) {
-      return 'Modifier `core.hooksPath` désactive les hooks git (CLAUDE.md, règle 4).'
+      return 'Modifier `core.hooksPath` désactive les hooks git (AGENTS.md, règle 4).'
     }
     if (git.subcommand === 'push') {
       const reason = pushRefusal(git.args, currentBranch)

@@ -5,7 +5,7 @@ description: Recette pour implémenter une fonctionnalité nouvelle ou faire év
 
 # Nouvelle fonctionnalité
 
-Recette pas à pas, pour un agent comme pour un humain. Elle s'appuie sur le [CLAUDE.md](../../../CLAUDE.md) de la racine et sur l'`AGENTS.md` de chaque dossier touché : le lire au moment d'écrire dans ce dossier. Chemins donnés depuis la racine du dépôt.
+Recette pas à pas, pour un agent comme pour un humain. Elle s'appuie sur l'[AGENTS.md](../../../AGENTS.md) de la racine et sur l'`AGENTS.md` de chaque dossier touché : le lire au moment d'écrire dans ce dossier. Chemins donnés depuis la racine du dépôt.
 
 ## 0. Partir propre
 
@@ -57,7 +57,7 @@ Un scénario par comportement observable nouveau, avec un ID nouveau inscrit dan
 
 ## 9. Documentation
 
-Le tableau « Documentation développeur » du CLAUDE.md dit quoi mettre à jour : sections de `docs/index.html`, vues de `docs/architecture/vues` (`docs/AGENTS.md`). `npm run generate:architecture` si une route, une couche ou un import entre couches change. Les `AGENTS.md` des dossiers touchés aussi, si une consigne n'est plus vraie.
+Le tableau « Documentation développeur » de l'AGENTS.md de la racine dit quoi mettre à jour : sections de `docs/index.html`, vues de `docs/architecture/vues` (`docs/AGENTS.md`). `npm run generate:architecture` si une route, une couche ou un import entre couches change. Les `AGENTS.md` des dossiers touchés aussi, si une consigne n'est plus vraie.
 
 ## 10. Vérifier
 

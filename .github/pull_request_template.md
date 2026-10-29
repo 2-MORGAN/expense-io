@@ -16,7 +16,7 @@ Les commentaires comme celui-ci ne s'affichent pas dans la PR : inutile de les e
 
 <!--
 Pour chaque ligne : ce qui a été lancé et le résultat, ou « non lancé » et pourquoi.
-E2E obligatoires dès que la PR touche src/app, src/lib, migrations/ ou scripts/ (CLAUDE.md, « Harnais de validation »).
+E2E obligatoires dès que la PR touche src/app, src/lib, migrations/ ou scripts/ (AGENTS.md, « Harnais de validation »).
 -->
 
 - `npm run check` :
@@ -26,7 +26,7 @@ E2E obligatoires dès que la PR touche src/app, src/lib, migrations/ ou scripts/
 ## Documentation
 
 <!--
-Doc des développeurs mise à jour dans cette PR (CLAUDE.md, « Documentation développeur ») :
+Doc des développeurs mise à jour dans cette PR (AGENTS.md, « Documentation développeur ») :
 sections de docs/index.html et vues de docs/architecture/vues/ touchées, ou « sans objet » et
 pourquoi (correctif local, test, refacto sans effet visible).
 -->

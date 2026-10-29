@@ -1,5 +1,5 @@
 // Hook Stop de Claude Code (ADR-005 §4) : un tour ne se conclut pas avec
-// `npm run check` rouge (CLAUDE.md, « Harnais de validation », règle 1).
+// `npm run check` rouge (AGENTS.md, « Harnais de validation », règle 1).
 //
 // Le check tourne quand la copie de travail (fichiers suivis et nouveaux, hors
 // Markdown) diffère du dernier état vérifié vert. Rouge, la fin du tour est
@@ -83,7 +83,7 @@ function main() {
   const output = `${check.stdout ?? ''}${check.stderr ?? ''}`.trim().split('\n').slice(-MAX_OUTPUT_LINES).join('\n')
   console.log(JSON.stringify({
     decision: 'block',
-    reason: `\`npm run check\` échoue : corriger le code avant de conclure, ou expliquer à l’utilisateur pourquoi ce n’est pas possible (CLAUDE.md, « Harnais de validation »).\n\n${output || check.error?.message || ''}`,
+    reason: `\`npm run check\` échoue : corriger le code avant de conclure, ou expliquer à l’utilisateur pourquoi ce n’est pas possible (AGENTS.md, « Harnais de validation »).\n\n${output || check.error?.message || ''}`,
   }))
 }
 

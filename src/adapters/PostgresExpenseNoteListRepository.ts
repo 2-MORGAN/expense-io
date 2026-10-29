@@ -4,7 +4,7 @@ import type { ExpenseNoteListRepository, ListedExpenseNote } from '@/ports/Expen
 
 // ORDER BY n'accepte pas de paramètre positionnel pour un nom de colonne :
 // une requête complète et fixe par tri autorisé (liste blanche explicite,
-// CLAUDE.md règle 3), choisie par la clé fermée de `parseNoteSort`. Aucune
+// AGENTS.md règle 3), choisie par la clé fermée de `parseNoteSort`. Aucune
 // valeur venue du client n'atteint le SQL. Chaque tri se termine par `id`,
 // dans le même sens, pour un ordre stable entre deux lectures (ADR-004 §7.2).
 const OWN_NOTES: Record<NoteSort, string> = {

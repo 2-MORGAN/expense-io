@@ -1,6 +1,6 @@
 # src/app/api — routes HTTP
 
-Consignes du dossier, en complément du [CLAUDE.md](../../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 Une route est une couche fine : authentifier, valider l'entrée, appeler un cas d'usage, formater la réponse. Ni SQL, ni règle métier, ni accès direct au stockage.
 

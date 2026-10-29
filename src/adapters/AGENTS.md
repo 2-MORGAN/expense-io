@@ -1,6 +1,6 @@
 # src/adapters — implémentations des ports
 
-Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 PostgreSQL, S3, SMTP, Tesseract : chaque fichier implémente un port de `src/ports` en parlant à une technologie. Le SQL de l'application vit ici, et nulle part ailleurs hors `src/lib` et `migrations`.
 

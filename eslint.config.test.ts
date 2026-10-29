@@ -174,7 +174,7 @@ describe('listes LEGACY_*', () => {
   })
 
   // Chaque fichier listé doit encore enfreindre la règle : sinon il est
-  // conforme et doit sortir de la liste (CLAUDE.md : les listes ne font que
+  // conforme et doit sortir de la liste (AGENTS.md : les listes ne font que
   // raccourcir).
   it.each(LEGACY_DB_ACCESS)('LEGACY_DB_ACCESS : %s enfreint encore une règle', async (path) => {
     const code = readFileSync(unescape(path), 'utf8')

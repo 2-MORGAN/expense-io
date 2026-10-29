@@ -82,7 +82,7 @@ describe('architecture du dépôt (docs/architecture)', () => {
     const unguarded = analysis.routes.methods.flatMap((m) =>
       m.guard.kind === 'none' ? [`${routeName(m)} : ${m.guard.reason}`] : []
     )
-    expect(unguarded, 'CLAUDE.md, règle 2 : autorisation côté serveur, à chaque route').toEqual([])
+    expect(unguarded, 'AGENTS.md, règle 2 : autorisation côté serveur, à chaque route').toEqual([])
   })
 
   it('chaque route publique déclarée existe', () => {
@@ -125,9 +125,9 @@ describe(`page des développeurs (${DOC_PAGE})`, () => {
 describe('consignes par dossier (AGENTS.md et CLAUDE.md)', () => {
   const gaps = agentGaps(readAgentInputs(root))
 
-  it('chaque dossier de AGENT_DIRS a son AGENTS.md, et un CLAUDE.md qui ne fait que l’importer', () => {
+  it('la racine et chaque dossier de AGENT_DIRS ont leur AGENTS.md, et un CLAUDE.md qui ne fait que l’importer', () => {
     expect(gaps.missing, 'créer le fichier (modèle : src/domain/AGENTS.md et src/domain/CLAUDE.md)').toEqual([])
-    expect(gaps.notImporting, 'un CLAUDE.md de dossier ne contient que « @AGENTS.md » : écrire dans AGENTS.md').toEqual([])
+    expect(gaps.notImporting, 'un CLAUDE.md, racine comprise, ne contient que « @AGENTS.md » : écrire dans AGENTS.md').toEqual([])
   })
 
   it('aucun AGENTS.md ni CLAUDE.md hors de la liste', () => {

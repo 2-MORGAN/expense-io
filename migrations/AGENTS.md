@@ -1,6 +1,6 @@
 # migrations — schéma de la base
 
-Consignes du dossier, en complément du [CLAUDE.md](../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 SQL versionné, seule source de vérité du schéma, appliqué par `node-pg-migrate` sous le rôle propriétaire (`MIGRATION_DATABASE_URL`). L'application (`expense_app`) et le worker (`expense_worker`) sont soumis à la RLS et n'ont que les droits accordés ici.
 

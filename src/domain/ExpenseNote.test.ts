@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ExpenseNote, type ExpenseNoteProps, type ExpenseNoteStatus } from '@/domain/ExpenseNote'
 
-// Règles du workflow de validation d'une note de frais (CLAUDE.md, « Contexte ») :
+// Règles du workflow de validation d'une note de frais (AGENTS.md, « Contexte ») :
 // seule une note en attente peut être approuvée ou rejetée, une fois.
 
 const noteWith = (status: ExpenseNoteStatus): ExpenseNote =>

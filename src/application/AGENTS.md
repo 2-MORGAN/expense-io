@@ -1,6 +1,6 @@
 # src/application — cas d'usage
 
-Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 Un cas d'usage = une intention de l'utilisateur ou du worker : soumettre une note, trancher, lister, inviter, analyser un reçu. Il orchestre : lire par un port, appliquer la règle du domaine, écrire par un port. Il ne connaît ni HTTP, ni SQL, ni S3, seulement les interfaces de `src/ports`.
 

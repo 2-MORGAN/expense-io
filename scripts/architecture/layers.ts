@@ -1,5 +1,5 @@
 // Couches du code et ce que chacune peut importer : la matrice de l'ADR-002
-// (§3.3) et de CLAUDE.md (« Où placer le code »), vérifiée par
+// (§3.3) et de AGENTS.md (« Où placer le code »), vérifiée par
 // architecture.test.ts et dessinée dans docs/architecture/layers.mmd
 // (`npm run generate:architecture`).
 //

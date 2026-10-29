@@ -1,6 +1,6 @@
 # e2e — tests de non-régression (Playwright)
 
-Consignes du dossier, en complément du [CLAUDE.md](../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 La suite fige le comportement observable : parcours UI, codes HTTP, JSON, droits, isolation entre entreprises, policies en base. Les correcteurs la rejouent. Registre des scénarios et de leurs IDs : `docs/tests/E2E.md`.
 

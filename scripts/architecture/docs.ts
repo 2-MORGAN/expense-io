@@ -8,7 +8,7 @@ import { withBlock } from './mermaid'
 // main (docs/architecture/vues/*.mmd), recopiés dans la page entre leurs
 // marqueurs, comme dans le README de docs/architecture. Le texte de la page
 // s'écrit à la main ; architecture.test.ts vérifie qu'il ne perd ni une ADR,
-// ni une table, ni un type d'événement de l'outbox (CLAUDE.md,
+// ni une table, ni un type d'événement de l'outbox (AGENTS.md,
 // « Documentation développeur »).
 
 export const DOC_PAGE = 'docs/index.html'

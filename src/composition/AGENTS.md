@@ -1,6 +1,6 @@
 # src/composition — branchement des cas d'usage
 
-Consignes du dossier, en complément du [CLAUDE.md](../../CLAUDE.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
+Consignes du dossier, en complément de l'[AGENTS.md](../../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
 Le seul endroit, côté serveur web, où l'on crée les adaptateurs (`new PostgresXxx()`) et où on les donne aux cas d'usage. Routes, server actions et pages serveur importent d'ici un cas d'usage déjà branché.
 

@@ -12,7 +12,7 @@
   `npm run generate:architecture` les recopie entre les marqueurs
   « début » et « fin ». Ne jamais modifier un schéma entre ses marqueurs :
   la recopie l'écraserait. `npm run check` vérifie que la page est à jour.
-  Règles de mise à jour : CLAUDE.md, « Documentation développeur ».
+  Règles de mise à jour : AGENTS.md, « Documentation développeur ».
 -->
 <style>
 :root {
@@ -350,7 +350,7 @@ footer.page-end { margin-top: 72px; padding-top: 20px; border-top: 1px solid var
 
     <div class="callout">
       <span class="callout-title">Cette page résume, elle ne remplace pas les sources de vérité</span>
-      <a href="https://github.com/2-MORGAN/expense-io/blob/main/CLAUDE.md">CLAUDE.md</a> (règles, communes aux humains et aux IA), <a href="https://github.com/2-MORGAN/expense-io/tree/main/docs/adr">docs/adr/</a> (décisions), <a href="https://github.com/2-MORGAN/expense-io/blob/main/openapi.yaml">openapi.yaml</a> (contrat HTTP), <a href="https://github.com/2-MORGAN/expense-io/tree/main/migrations">migrations/</a> (schéma), <a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/tests/E2E.md">docs/tests/E2E.md</a> (scénarios E2E). Ses schémas sont des fichiers Mermaid versionnés : deux sont générés depuis le code, les autres sont vérifiés par <code>npm run check</code> (voir <a href="#maintenir">Maintenir cette page</a>).
+      <a href="https://github.com/2-MORGAN/expense-io/blob/main/AGENTS.md">AGENTS.md</a> (règles, communes aux humains et aux IA), <a href="https://github.com/2-MORGAN/expense-io/tree/main/docs/adr">docs/adr/</a> (décisions), <a href="https://github.com/2-MORGAN/expense-io/blob/main/openapi.yaml">openapi.yaml</a> (contrat HTTP), <a href="https://github.com/2-MORGAN/expense-io/tree/main/migrations">migrations/</a> (schéma), <a href="https://github.com/2-MORGAN/expense-io/blob/main/docs/tests/E2E.md">docs/tests/E2E.md</a> (scénarios E2E). Ses schémas sont des fichiers Mermaid versionnés : deux sont générés depuis le code, les autres sont vérifiés par <code>npm run check</code> (voir <a href="#maintenir">Maintenir cette page</a>).
     </div>
 
     <p id="mermaid-offline" class="callout warn">Les schémas sont dessinés par Mermaid, chargé depuis jsDelivr : sans connexion, leur source reste lisible ci-dessous, et chaque fichier <code>.mmd</code> s'ouvre dans un éditeur ou sur <a href="https://mermaid.live">mermaid.live</a>.</p>
@@ -483,7 +483,7 @@ npm run test:e2e:coverage         <span class="c"># couverture E2E : serveur, wo
 <pre class="mermaid">
 flowchart BT
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
 
   subgraph tenant["Une entreprise = un tenant (table companies)"]
     hr["RH · hr_admin&lt;br/&gt;invite, rattache les managers,&lt;br/&gt;tranche les notes des managers racines"]
@@ -520,7 +520,7 @@ flowchart BT
 <pre class="mermaid">
 stateDiagram-v2
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
   direction LR
 
   [*] --&gt; pending: création (201)
@@ -584,7 +584,7 @@ stateDiagram-v2
 <pre class="mermaid">
 flowchart TB
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
 
   user(["Navigateur&lt;br/&gt;employé · manager · RH"])
 
@@ -696,7 +696,7 @@ flowchart TB
 <pre class="mermaid">
 flowchart LR
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
 
   subgraph sgEntrees["Entrées"]
     direction TB
@@ -971,7 +971,7 @@ flowchart TB
 <pre class="mermaid">
 flowchart LR
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec CLAUDE.md (« Où placer le code »).
+  %% À tenir à jour avec AGENTS.md (« Où placer le code »).
 
   q{"Que dois-tu&lt;br/&gt;ajouter ?"}
   domain["src/domain/&lt;br/&gt;règle pure, testée par Vitest à côté"]
@@ -1036,7 +1036,7 @@ flowchart LR
 <pre class="mermaid">
 sequenceDiagram
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
   autonumber
   actor M as Manager
   participant R as route.ts
@@ -1090,7 +1090,7 @@ sequenceDiagram
 <pre class="mermaid">
 sequenceDiagram
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
   autonumber
   actor F as Employé
   participant R as POST&lt;br/&gt;/api/expense-notes
@@ -1140,7 +1140,7 @@ sequenceDiagram
 <pre class="mermaid">
 flowchart LR
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
 
   subgraph producers["Écrit dans la transaction métier"]
     direction TB
@@ -1204,7 +1204,7 @@ flowchart LR
 <pre class="mermaid">
 stateDiagram-v2
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
   direction LR
 
   state "pending (dû)" as due
@@ -1250,7 +1250,7 @@ stateDiagram-v2
 <pre class="mermaid">
 sequenceDiagram
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
   autonumber
   actor B as Navigateur
   participant A as /api/&lt;br/&gt;receipt-analyses
@@ -1310,7 +1310,7 @@ sequenceDiagram
 <pre class="mermaid">
 flowchart TB
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
 
   start(["Arrivée sur /signup"])
   invited{"Lien d'invitation ?&lt;br/&gt;/signup?invitation=jeton"}
@@ -1488,7 +1488,7 @@ erDiagram
 <pre class="mermaid">
 flowchart TB
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
 
   request(["Requête HTTP sur /api/**"])
   guard["① requireRole() : 401 sans session, 403 si le rôle est refusé&lt;br/&gt;rôle relu en base à chaque auth() (S9)"]
@@ -1570,7 +1570,7 @@ flowchart TB
 <pre class="mermaid">
 flowchart LR
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
 
   yaml["openapi.yaml&lt;br/&gt;OpenAPI 3.1, source de vérité"]
   generate["npm run generate:api"]
@@ -1785,7 +1785,7 @@ X-Request-Id: 5d693674-3f69-4ea2-bb6b-c9d502eefad9
           <h3>SQL brut et migrations SQL</h3>
           <p><strong>Pourquoi.</strong> Convention du projet : pas d'ORM. Policies RLS, fonctions <code>SECURITY DEFINER</code> et contraintes s'écrivent de toute façon en SQL ; les requêtes restent paramétrées (<code>$1</code>, <code>$2</code>), un tri passe par une liste blanche.</p>
           <p><strong>En pratique.</strong> <code>node-pg-migrate</code>, une migration horodatée par changement, avec sa partie <code>down</code>.</p>
-          <ul class="pills"><li><a href="https://github.com/2-MORGAN/expense-io/blob/main/CLAUDE.md">CLAUDE.md</a></li></ul>
+          <ul class="pills"><li><a href="https://github.com/2-MORGAN/expense-io/blob/main/AGENTS.md">AGENTS.md</a></li></ul>
         </article>
         <article class="card violet">
           <h3>Un harnais à plusieurs étages</h3>
@@ -1819,7 +1819,7 @@ X-Request-Id: 5d693674-3f69-4ea2-bb6b-c9d502eefad9
 <pre class="mermaid">
 flowchart TB
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec docs/adr (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec docs/adr (AGENTS.md, « Documentation développeur »).
 
   adr5["ADR-005 · Harnais de validation&lt;br/&gt;tests, CI, garde-fous"]
   adr2["ADR-002 · Architecture cible&lt;br/&gt;monolithe modulaire hexagonal"]
@@ -1943,7 +1943,7 @@ flowchart TB
           <ul>
             <li>Cinq niveaux de vérification : statique, unitaire, contrat, intégration base, E2E.</li>
             <li>Un E2E rouge est une régression, sauf changement décidé par une ADR acceptée.</li>
-            <li>CI <code>check</code> et <code>e2e</code> obligatoires, <code>main</code> protégée ; hooks git ; CLAUDE.md, README, modèle d'ADR et hooks Claude Code.</li>
+            <li>CI <code>check</code> et <code>e2e</code> obligatoires, <code>main</code> protégée ; hooks git ; AGENTS.md (importé par CLAUDE.md), README, modèle d'ADR et hooks Claude Code ; mise à jour du 29/10 : les consignes de la racine sont passées de CLAUDE.md à AGENTS.md.</li>
             <li>Journal JSON des erreurs serveur, sans donnée sensible ; métriques dérivées des logs (amendement du 27/10), sans traces distribuées.</li>
           </ul>
           <h4>Livré</h4>
@@ -2048,9 +2048,9 @@ flowchart TB
 <pre class="mermaid">
 flowchart TB
   %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
-  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+  %% À tenir à jour avec le code (AGENTS.md, « Documentation développeur »).
 
-  guide["Consignes avant d'écrire&lt;br/&gt;AGENTS.md par dossier (+ CLAUDE.md)&lt;br/&gt;recette /nouvelle-fonctionnalite"]
+  guide["Consignes avant d'écrire&lt;br/&gt;AGENTS.md à la racine et par dossier (+ CLAUDE.md)&lt;br/&gt;recette /nouvelle-fonctionnalite"]
   change(["Modification"])
   commit["git commit&lt;br/&gt;pre-commit : ESLint"]
   push["git push&lt;br/&gt;pre-push : npm run check"]
@@ -2093,7 +2093,7 @@ flowchart TB
         <table>
           <thead><tr><th>Niveau</th><th>Outil</th><th>Ce qu'il protège</th><th>Où</th></tr></thead>
           <tbody>
-            <tr><td>Statique</td><td>ESLint, SonarJS, <code>tsc</code> strict</td><td>erreurs de code et de types, règles d'architecture de CLAUDE.md</td><td><code>eslint.config.mjs</code></td></tr>
+            <tr><td>Statique</td><td>ESLint, SonarJS, <code>tsc</code> strict</td><td>erreurs de code et de types, règles d'architecture d'AGENTS.md</td><td><code>eslint.config.mjs</code></td></tr>
             <tr><td>Unitaire</td><td>Vitest</td><td>règles métier pures, en millisecondes, sans infrastructure</td><td><code>*.test.ts</code> à côté du code</td></tr>
             <tr><td>Architecture et doc</td><td>Vitest</td><td>matrice des couches, garde de chaque route, graphes et cette page à jour, consignes par dossier sans chemin ni commande périmés</td><td><code>scripts/architecture</code></td></tr>
             <tr><td>Contrat</td><td>Redocly, openapi-typescript, Ajv, oasdiff</td><td>contrat valide, artefacts à jour, chaque route dans le contrat, chaque réponse E2E conforme, aucune rupture par rapport à <code>main</code></td><td><code>npm run check:api</code>, <code>e2e/support/api.ts</code>, <code>scripts/check-api-breaking.sh</code></td></tr>
@@ -2123,13 +2123,13 @@ flowchart TB
         <table>
           <thead><tr><th>Quoi</th><th>Où</th><th>Tenu à jour par</th></tr></thead>
           <tbody>
-            <tr><td>Règles communes</td><td><code>CLAUDE.md</code> et <code>AGENTS.md</code> à la racine</td><td>la main ; chemins, scripts npm et cibles <code>make</code> cités vérifiés</td></tr>
+            <tr><td>Règles communes</td><td><code>AGENTS.md</code> à la racine, importé par le <code>CLAUDE.md</code> voisin, qui ne contient que cet import</td><td>la main ; chemins, scripts npm et cibles <code>make</code> cités vérifiés</td></tr>
             <tr><td>Consignes d'un dossier</td><td><code>AGENTS.md</code> de <code>src/domain</code>, <code>src/application</code>, <code>src/ports</code>, <code>src/adapters</code>, <code>src/composition</code>, <code>src/http</code>, <code>src/app/api</code>, <code>src/app</code>, <code>src/components</code>, <code>src/lib</code>, <code>src/worker</code>, <code>migrations</code>, <code>e2e</code>, <code>scripts</code>, <code>docs</code></td><td>la main, sauf le bloc « Peut importer », recopié de <code>layers.ts</code> par <code>npm run generate:architecture</code></td></tr>
             <tr><td>Recette d'une fonctionnalité</td><td><code>.claude/skills/nouvelle-fonctionnalite/SKILL.md</code> (skill <code>/nouvelle-fonctionnalite</code>)</td><td>la main : plan validé, contrat, domaine, migration, port et adaptateur, cas d'usage, entrée, E2E, doc, vérifications, PR, définition de terminé</td></tr>
           </tbody>
         </table>
       </div>
-      <p><code>npm run check</code> échoue si un dossier de la liste (<code>scripts/architecture/agents.ts</code>) perd une de ses consignes, si un <code>CLAUDE.md</code> de dossier fait autre chose qu'importer <code>AGENTS.md</code>, si une couche de <code>layers.ts</code> n'a ni consignes ni exclusion motivée, si le bloc « Peut importer » a dérivé, ou si une consigne cite un chemin, un script npm ou une cible <code>make</code> qui n'existe pas. Parce que <code>migrations/</code> a ses consignes, <code>migrate:up</code> et <code>migrate:down</code> n'y lisent que les fichiers horodatés (<code>--ignore-pattern</code>, vérifié par <code>scripts/migrations.test.ts</code>).</p>
+      <p><code>npm run check</code> échoue si un dossier de la liste (<code>scripts/architecture/agents.ts</code>) perd une de ses consignes, si un <code>CLAUDE.md</code>, racine comprise, fait autre chose qu'importer <code>AGENTS.md</code>, si une couche de <code>layers.ts</code> n'a ni consignes ni exclusion motivée, si le bloc « Peut importer » a dérivé, ou si une consigne cite un chemin, un script npm ou une cible <code>make</code> qui n'existe pas. Parce que <code>migrations/</code> a ses consignes, <code>migrate:up</code> et <code>migrate:down</code> n'y lisent que les fichiers horodatés (<code>--ignore-pattern</code>, vérifié par <code>scripts/migrations.test.ts</code>).</p>
 
       <h3 id="journal">Journal et métriques<a class="anchor" href="#journal" aria-label="Lien vers cette section">#</a></h3>
       <p>Serveur et worker écrivent une ligne JSON par événement, sans email, jeton ni URL pré-signée (<a href="#adr-005">ADR-005 §5</a>). Une réponse d'erreur porte son <code>requestId</code> (corps et <code>X-Request-Id</code>), repris dans la ligne <code>http.error</code>. Deux lignes servent de métriques à un collecteur de logs (<a href="#adr-003">ADR-003</a>, mise à jour du 27/10) :</p>
@@ -2242,7 +2242,7 @@ flowchart TB
           <ol class="steps">
             <li><strong>Partir de main à jour</strong><code>git pull</code>, puis <code>npm install</code> si <code>package.json</code> a changé.</li>
             <li><strong>Une branche par changement</strong>Nommée avec le ticket Linear : <code>fix/2-471-correctifs-securite</code>.</li>
-            <li><strong>Lire avant d'écrire</strong>CLAUDE.md, l'<code>AGENTS.md</code> de chaque dossier touché, les ADR acceptées concernées, le contrat si l'API change, les fichiers voisins.</li>
+            <li><strong>Lire avant d'écrire</strong>l'<code>AGENTS.md</code> de la racine et celui de chaque dossier touché, les ADR acceptées concernées, le contrat si l'API change, les fichiers voisins.</li>
             <li><strong>Domaine d'abord</strong>Règle et test, puis port et adaptateur, route fine, interface : la recette <code>/nouvelle-fonctionnalite</code> (<a href="#consignes">consignes</a>).</li>
             <li><strong>Mettre à jour cette page</strong>Dans la même PR (<a href="#maintenir">comment</a>).</li>
             <li><strong>Vérifier</strong><code>npm run check</code>, puis les E2E concernés.</li>
@@ -2269,7 +2269,7 @@ flowchart TB
     <section id="maintenir" aria-labelledby="maintenir-titre">
       <span class="kicker">Cette page</span>
       <h2 id="maintenir-titre">Maintenir cette page<a class="anchor" href="#maintenir" aria-label="Lien vers cette section">#</a></h2>
-      <p class="section-lead">La doc fait partie du changement : elle se met à jour dans la même PR que le code, sans attendre qu'on le demande. Les règles sont dans CLAUDE.md, « Documentation développeur ».</p>
+      <p class="section-lead">La doc fait partie du changement : elle se met à jour dans la même PR que le code, sans attendre qu'on le demande. Les règles sont dans AGENTS.md, « Documentation développeur ».</p>
 
       <h3 id="livrables">Cette page tient lieu de DAT<a class="anchor" href="#livrables" aria-label="Lien vers cette section">#</a></h3>
       <p>Les livrables d'architecture du cours ne sont pas des documents séparés : leur contenu vit ici et dans les fichiers qu'elle cite, tenus à jour avec le code plutôt que rédigés à part.</p>
@@ -2349,7 +2349,7 @@ flowchart TB
     </section>
 
     <footer class="page-end">
-      Page maintenue avec le code (CLAUDE.md, « Documentation développeur ») · schémas dans <code>docs/architecture/</code> · recopiés par <code>npm run generate:architecture</code>, vérifiés par <code>npm run check</code>.
+      Page maintenue avec le code (AGENTS.md, « Documentation développeur ») · schémas dans <code>docs/architecture/</code> · recopiés par <code>npm run generate:architecture</code>, vérifiés par <code>npm run check</code>.
     </footer>
   </main>
 </div>

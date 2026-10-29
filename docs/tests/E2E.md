@@ -487,7 +487,7 @@ B8 (deux décisions simultanées pouvant toutes deux réussir) n'est plus dans c
 
 ## Faire évoluer la suite pendant la refacto
 
-- Un test rouge signale une régression, **sauf changement de comportement voulu** : mettre alors le test à jour dans la même PR et le signaler dans la description (règle de `CLAUDE.md`).
+- Un test rouge signale une régression, **sauf changement de comportement voulu** : mettre alors le test à jour dans la même PR et le signaler dans la description (règle de `AGENTS.md`).
 - Les attentes susceptibles d'évoluer sont regroupées :
   - format d'erreur `{ "error": … }` → `expectApiError` dans `e2e/support/api.ts` (par exemple pour passer à `application/problem+json`) ;
   - codes 401 (sans session) / 403 (rôle refusé), corrigés depuis Q1.1 → `e2e/access-control.spec.ts` ;
