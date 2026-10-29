@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { agentGaps, readAgentInputs } from './agents'
 import { analyze, readSources, README } from './architecture'
-import { DATA_VIEW, DIAGRAMS, DOC_PAGE, docGaps, pageDiagrams, pageWith, readDocInputs, readViews } from './docs'
+import { DATA_VIEW, DIAGRAMS, DOC_PAGE, docGaps, outboxEventTypes, pageDiagrams, pageWith, readDocInputs, readViews } from './docs'
 import { edgeName } from './graph'
 import { fileImports } from './imports'
 import { readmeWith } from './mermaid'
@@ -119,6 +119,13 @@ describe(`page des développeurs (${DOC_PAGE})`, () => {
 
   it('cite chaque type d’événement de l’outbox', () => {
     expect(gaps.events, 'le décrire dans la section « L’outbox et le worker » de la page').toEqual([])
+  })
+
+  it('trouve les types d’événements dans le domaine des modules', () => {
+    // Sans ce garde-fou, un déplacement du domaine rendrait le contrôle précédent vide, donc toujours vert.
+    expect(outboxEventTypes(sources), 'chercher les constantes là où vit le domaine (outboxEventTypes, docs.ts)').toEqual(
+      expect.arrayContaining(['expense_note.submitted', 'expense_note.decided', 'receipt.analysis.requested'])
+    )
   })
 })
 

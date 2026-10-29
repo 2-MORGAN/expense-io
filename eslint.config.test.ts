@@ -103,7 +103,7 @@ describe('règles d’architecture', () => {
       expect(messages.join('\n')).toMatch(/withSystemTransaction\(\) ne pose aucun contexte/)
     })
 
-    it.each(['src/worker/new.ts', 'src/lib/outbox.ts', 'src/adapters/PostgresAccountRegistry.ts'])(
+    it.each(['src/worker/new.ts', 'src/lib/outbox.ts', 'src/modules/identity/adapters/PostgresAccountRegistry.ts'])(
       'reste permis dans %s, où getPool() reste refusé',
       async (path) => {
         expect(await messagesFor(code, path)).toEqual([])

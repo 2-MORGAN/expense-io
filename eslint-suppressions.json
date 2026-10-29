@@ -53,12 +53,12 @@
       "count": 1
     }
   },
-  "src/domain/identity/identity.ts": {
+  "src/modules/identity/domain/identity.ts": {
     "sonarjs/super-linear-regex": {
       "count": 3
     }
   },
-  "src/domain/receipt/Receipt.ts": {
+  "src/modules/receipt-analysis/domain/Receipt.ts": {
     "sonarjs/cognitive-complexity": {
       "count": 1
     },
@@ -66,7 +66,7 @@
       "count": 3
     }
   },
-  "src/domain/receipt/parseReceiptText.ts": {
+  "src/modules/receipt-analysis/domain/parseReceiptText.ts": {
     "sonarjs/super-linear-regex": {
       "count": 1
     }

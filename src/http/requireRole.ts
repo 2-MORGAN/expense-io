@@ -1,7 +1,7 @@
 import { problemResponse } from './problem'
 import { requestContext } from './requestContext'
 import type { Session } from 'next-auth'
-import type { UserRole } from '@/domain/User'
+import type { UserRole } from '@/modules/identity/domain/User'
 
 // Vérification commune du rôle pour les routes (WS2) : 401 sans session,
 // 403 si le rôle est refusé. Sans `role`, vérifie seulement la session.

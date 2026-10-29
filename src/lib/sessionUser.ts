@@ -1,5 +1,5 @@
 import { cache } from 'react'
-import type { UserRole } from '@/domain/User'
+import type { UserRole } from '@/modules/identity/domain/User'
 import { withUserScope } from '@/lib/db'
 
 /**

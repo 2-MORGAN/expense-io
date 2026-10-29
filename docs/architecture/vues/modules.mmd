@@ -1,0 +1,82 @@
+flowchart TB
+  %% Vue écrite à la main : la modifier ici, npm run generate:architecture la recopie dans docs/index.html.
+  %% À tenir à jour avec le code (CLAUDE.md, « Documentation développeur »).
+
+  user(["Navigateur<br/>employé · manager · RH"])
+
+  subgraph deploy["Un seul déployable · un dépôt, un build"]
+    direction LR
+    web["Processus web · Next.js :3000<br/>pages · server actions · /api/**"]
+    worker["Processus worker<br/>boucles outbox · emails · OCR"]
+  end
+
+  composition["Composition<br/>src/composition<br/>assemble, une fois par processus"]
+
+  subgraph modules["Code : quatre modules-hexagones (ADR-002 §3.2)"]
+    direction LR
+    subgraph modOcr["receipt-analysis · support"]
+      direction TB
+      ocrApp["Cas d'usage<br/>analyser · suggérer<br/>capacité"]
+      ocrDom["Domaine<br/>ticket · total TTC<br/>marchand"]
+    end
+    subgraph modId["identity · cœur"]
+      direction TB
+      idApp["Cas d'usage<br/>inscription · invitation<br/>emails d'identité"]
+      idDom["Domaine<br/>compte · invitation<br/>vérification"]
+    end
+    subgraph modExp["expenses · cœur"]
+      direction TB
+      expApp["Cas d'usage<br/>soumettre · lister<br/>URL de reçu"]
+      expDom["Domaine<br/>note · accès reçu · tri"]
+    end
+    subgraph modVal["validation · cœur"]
+      direction TB
+      valApp["Cas d'usage<br/>trancher : manager, RH"]
+      valDom["Domaine<br/>qui tranche quoi<br/>une seule fois"]
+    end
+  end
+
+  backbone[("Épine dorsale : outbox_events<br/>les modules ne s'appellent jamais<br/>ils publient des événements")]
+
+  subgraph shared["Ports + adaptateurs : par module · noyau partagé"]
+    direction LR
+    ports["Ports<br/>modules/*/ports<br/>+ noyau src/ports"]
+    adapters["Adaptateurs<br/>modules/*/adapters<br/>+ noyau src/adapters"]
+  end
+
+  pg[("PostgreSQL 16 · 5433<br/>données · RLS · outbox")]
+  s3[("S3 · 4567<br/>reçus par entreprise")]
+  smtp["SMTP · Mailpit<br/>1025 · interface 8025"]
+  ocrKid["Moteur OCR jetable<br/>processus enfant<br/>sharp + tesseract.js"]
+
+  user -->|"pages, fetch JSON"| web
+  web & worker --> composition
+  composition --> expApp & valApp & idApp & ocrApp
+  expApp --> expDom
+  idApp --> idDom
+  ocrApp --> ocrDom
+  valApp --> valDom
+  valDom -.->|"lit la note, les rôles"| expDom
+  expApp & valApp & idApp & ocrApp -->|"note créée · décision<br/>invitation · analyse"| backbone
+  expApp & valApp & idApp & ocrApp -.->|"via leurs ports"| ports
+  ports -.->|"implémentés par"| adapters
+  backbone --> worker
+  worker -->|"emails"| smtp
+  worker -->|"analyse détachée"| ocrKid
+  adapters --> pg
+  adapters --> s3
+
+  classDef entree fill:#dbeafe,stroke:#2563eb,color:#111827
+  classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
+  classDef support fill:#f3e8ff,stroke:#7c3aed,color:#111827
+  classDef partage fill:#fef9c3,stroke:#a16207,color:#111827
+  classDef infra fill:#fefce8,stroke:#a16207,color:#111827
+  classDef epine fill:#059669,stroke:#065f46,color:#ffffff
+  classDef externe fill:#f3f4f6,stroke:#6b7280,color:#111827
+  class web,worker,composition entree
+  class expApp,expDom,valApp,valDom,idApp,idDom coeur
+  class ocrApp,ocrDom support
+  class ports,adapters partage
+  class pg,s3,smtp,ocrKid infra
+  class backbone epine
+  class user externe

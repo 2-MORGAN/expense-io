@@ -1,11 +1,11 @@
-import { withOcrExecution } from '@/adapters/PostgresOcrExecution'
-import { OcrRequests } from '@/application/OcrRequests'
-import { TesseractOcrAdapter } from '@/adapters/TesseractOcrAdapter'
-import { PostgresReceiptAnalysisRepository } from '@/adapters/PostgresReceiptAnalysisRepository'
+import { withOcrExecution } from '@/modules/receipt-analysis/adapters/PostgresOcrExecution'
+import { OcrRequests } from '@/modules/receipt-analysis/application/OcrRequests'
+import { TesseractOcrAdapter } from '@/modules/receipt-analysis/adapters/TesseractOcrAdapter'
+import { PostgresReceiptAnalysisRepository } from '@/modules/receipt-analysis/adapters/PostgresReceiptAnalysisRepository'
 import { S3ReceiptAdapter } from '@/adapters/S3ReceiptAdapter'
-import { OcrCapacity } from '@/application/OcrCapacity'
-import { SuggestReceiptFields } from '@/application/SuggestReceiptFields'
-import { ReceiptAnalyses } from '@/application/ReceiptAnalyses'
+import { OcrCapacity } from '@/modules/receipt-analysis/application/OcrCapacity'
+import { SuggestReceiptFields } from '@/modules/receipt-analysis/application/SuggestReceiptFields'
+import { ReceiptAnalyses } from '@/modules/receipt-analysis/application/ReceiptAnalyses'
 
 const state = globalThis as typeof globalThis & { __ocrCapacity?: OcrCapacity }
 export const ocrCapacity = state.__ocrCapacity ??= new OcrCapacity()

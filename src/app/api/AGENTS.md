@@ -12,14 +12,14 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/app/api` | `src/application`, `src/composition`, `src/domain`, `src/generated`, `src/http`, `src/lib/auth`, `src/lib/authErrors`, `src/lib/errors`, `src/lib/log`, `src/ports`, `src/types`, `src/utils`, `next`, `next-auth` |
+| `src/app/api` | `src/modules/expenses/application`, `src/modules/identity/application`, `src/modules/receipt-analysis/application`, `src/modules/validation/application`, `src/composition`, `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/modules/expenses/ports`, `src/modules/identity/ports`, `src/modules/receipt-analysis/ports`, `src/modules/validation/ports`, `src/generated`, `src/http`, `src/lib/auth`, `src/lib/authErrors`, `src/lib/errors`, `src/lib/log`, `src/ports`, `src/types`, `src/utils`, `next`, `next-auth` |
 
 <!-- fin : imports permis -->
 
 ## Ajouter une opération
 
 1. **Contrat d'abord** : l'opération dans `openapi.yaml` (chemin, schémas, réponses d'erreur), puis `npm run generate:api`. Lire `docs/api/README.md`.
-2. Le cas d'usage dans `src/application`, branché dans `src/composition`.
+2. Le cas d'usage dans `src/modules/<module>/application`, branché dans `src/composition`.
 3. Le fichier `route.ts` sous le chemin de l'URL, sur ce modèle :
 
    ```ts
