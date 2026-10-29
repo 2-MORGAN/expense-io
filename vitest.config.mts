@@ -14,8 +14,8 @@ export default defineConfig({
       // Logique testée en unitaire (ADR-005 §1). Adaptateurs (Postgres, S3),
       // pages, composants et composition relèvent des E2E : hors périmètre.
       include: [
-        'src/domain/**/*.ts',
-        'src/application/**/*.ts',
+        'src/modules/*/domain/**/*.ts',
+        'src/modules/*/application/**/*.ts',
         'src/http/**/*.ts',
         'src/lib/**/*.ts',
         'src/utils/**/*.ts',

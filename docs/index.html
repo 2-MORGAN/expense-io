@@ -2279,9 +2279,9 @@ flowchart TB
         <table>
           <thead><tr><th>Niveau</th><th>Outil</th><th>Ce qu'il protège</th><th>Où</th></tr></thead>
           <tbody>
-            <tr><td>Statique</td><td>ESLint, SonarJS, <code>tsc</code> strict</td><td>erreurs de code et de types, règles d'architecture de CLAUDE.md</td><td><code>eslint.config.mjs</code></td></tr>
+            <tr><td>Statique</td><td>ESLint, SonarJS, <code>tsc</code> strict (scripts <code>.mjs</code> en <code>// @ts-check</code> compris), règles typées sur les promesses</td><td>erreurs de code et de types, règles d'architecture de CLAUDE.md, promesse oubliée hors de sa transaction</td><td><code>eslint.config.mjs</code>, <code>eslint.promises.config.mjs</code> (<code>npm run lint:promises</code>, dans <code>npm run check</code>)</td></tr>
             <tr><td>Unitaire</td><td>Vitest</td><td>règles métier pures, en millisecondes, sans infrastructure</td><td><code>*.test.ts</code> à côté du code</td></tr>
-            <tr><td>Architecture et doc</td><td>Vitest</td><td>matrice des couches, garde de chaque route, graphes et cette page à jour, consignes par dossier sans chemin ni commande périmés</td><td><code>scripts/architecture</code></td></tr>
+            <tr><td>Architecture et doc</td><td>Vitest</td><td>matrice des couches, garde de chaque route, graphes et cette page à jour, consignes par dossier sans chemin ni commande périmés, registre des E2E (<code>docs/tests/E2E.md</code>) avec une ligne par ID de test</td><td><code>scripts/architecture</code></td></tr>
             <tr><td>Contrat</td><td>Redocly, openapi-typescript, Ajv, oasdiff</td><td>contrat valide, artefacts à jour, chaque route dans le contrat, chaque réponse E2E conforme, aucune rupture par rapport à <code>main</code></td><td><code>npm run check:api</code>, <code>e2e/support/api.ts</code>, <code>scripts/check-api-breaking.sh</code></td></tr>
             <tr><td>Intégration base</td><td>Playwright sans navigateur</td><td>ce que le HTTP ne voit pas : policies RLS, concurrence, pannes injectées, worker</td><td><code>e2e/</code> (ISO-07, OUTBOX…)</td></tr>
             <tr><td>E2E</td><td>Playwright</td><td>comportement observable : parcours, codes HTTP, JSON, droits, isolation</td><td><code>e2e/</code>, IDs dans <code>docs/tests/E2E.md</code></td></tr>
@@ -2294,7 +2294,7 @@ flowchart TB
           <thead><tr><th>Moment</th><th>Ce qui tourne</th><th>Durée</th></tr></thead>
           <tbody>
             <tr><td><code>git commit</code></td><td>hook pre-commit : ESLint avec cache</td><td>≈ 3 s</td></tr>
-            <tr><td><code>git push</code></td><td>hook pre-push : <code>npm run check</code></td><td>≈ 35 s</td></tr>
+            <tr><td><code>git push</code></td><td>hook pre-push : <code>npm run check</code></td><td>≈ 50 s</td></tr>
             <tr><td>À la demande</td><td><code>npx playwright test -g "&lt;ID&gt;"</code>, <code>make test-e2e</code>, <code>make verify</code> (tout ce que fait la CI), <code>make frozen</code> (migrations et tests E2E de <code>main</code> inchangés)</td><td>≈ 3 min pour la suite</td></tr>
             <tr><td>Couverture, à la demande</td><td><code>npm run test:coverage</code> (unitaires, Vitest v8) ; <code>npm run test:e2e:coverage</code> (E2E : serveur Next.js, worker et scripts, c8). Aucun seuil bloquant (<a href="#adr-005">ADR-005</a>) ; citer les branches, les lignes E2E sont gonflées</td><td>≈ 20 s ; suite E2E + rapport</td></tr>
             <tr><td>PR et push sur <code>main</code></td><td>CI : <code>check</code> (lint, types, unitaires, contrat, build ; sur les PR : oasdiff, migrations et tests E2E existants inchangés) et <code>e2e</code> (2 shards), obligatoires, plus 1 approbation ; le PO fusionne sans approbation, jamais sans CI verte</td><td>≈ 1 min et 3 min 30</td></tr>

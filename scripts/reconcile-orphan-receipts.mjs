@@ -1,3 +1,4 @@
+// @ts-check
 // Réconciliation des reçus orphelins, 2-476 bonus, ADR-003 §3. Un objet de
 // `receipts/` qui n'est référencé ni par une note (`expense_notes.receipt_key`)
 // ni par une analyse OCR en cours (`receipt_analyses.receipt_key`) et qui a plus
@@ -15,6 +16,7 @@ import { Pool } from 'pg'
 loadEnv({ quiet: true })
 
 const args = process.argv.slice(2)
+/** @param {string} name */
 const option = (name) => {
   const i = args.indexOf(name)
   return i >= 0 ? args[i + 1] : undefined
@@ -43,6 +45,7 @@ const s3 = new S3Client({
 // Rôle du worker (2-481) : il ne lit les clés que par `referenced_receipt_keys`.
 const pool = new Pool({ connectionString: process.env.WORKER_DATABASE_URL ?? process.env.DATABASE_URL })
 
+/** @param {Array<string | undefined>} keys */
 const isReferenced = async (keys) => {
   const { rows } = await pool.query(
     'SELECT receipt_key FROM referenced_receipt_keys($1::text[]) AS receipt_key',
@@ -54,6 +57,7 @@ const isReferenced = async (keys) => {
 try {
   let scanned = 0
   const orphans = []
+  /** @type {string | undefined} */
   let token
   do {
     const page = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }))
@@ -67,7 +71,7 @@ try {
   } while (token)
 
   console.log(`Objets sous ${prefix} : ${scanned} ; orphelins de plus de ${olderThanHours} h : ${orphans.length}.`)
-  for (const object of orphans) console.log(`  ${object.Key} (${object.LastModified.toISOString()}, ${object.Size} octets)`)
+  for (const object of orphans) console.log(`  ${object.Key} (${object.LastModified?.toISOString()}, ${object.Size} octets)`)
 
   if (!execute) {
     console.log('Dry-run : rien n’a été supprimé. Relancer avec --execute après relecture.')
