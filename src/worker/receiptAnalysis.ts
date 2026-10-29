@@ -1,12 +1,12 @@
-import { PostgresReceiptAnalysisWork } from '@/adapters/PostgresReceiptAnalysisWork'
+import { PostgresReceiptAnalysisWork } from '@/modules/receipt-analysis/adapters/PostgresReceiptAnalysisWork'
 import { S3ReceiptAdapter } from '@/adapters/S3ReceiptAdapter'
 import {
   ANALYSIS_BACKOFF_SECONDS,
   MAX_ANALYSIS_ATTEMPTS,
   ProcessReceiptAnalysis,
-} from '@/application/ProcessReceiptAnalysis'
+} from '@/modules/receipt-analysis/application/ProcessReceiptAnalysis'
 import { ocrCapacity, ocrExecution, suggestReceiptFields } from '@/composition/ocr'
-import { RECEIPT_ANALYSIS_REQUESTED } from '@/domain/receipt/analysisPayload'
+import { RECEIPT_ANALYSIS_REQUESTED } from '@/modules/receipt-analysis/domain/analysisPayload'
 import { log } from '@/worker/log'
 import type { OutboxHandlers } from '@/worker/processNextEvent'
 

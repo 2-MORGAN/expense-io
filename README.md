@@ -105,11 +105,11 @@ les mots de passe lus dans `.env` : rien à échanger entre postes.
 
 | Commande | Ce qu'elle vérifie | Docker |
 |---|---|---|
-| `npm run check` | lint (règles d'architecture et de SonarQube comprises), types, tests unitaires, contrat API valide et types générés à jour, graphes des couches et des routes à jour ([`docs/architecture/`](docs/architecture/README.md)), doc des développeurs à jour de ses schémas ([`docs/index.html`](docs/index.html)) | non |
+| `npm run check` | lint (règles d'architecture et de SonarQube comprises, promesses oubliées par `npm run lint:promises`), types (scripts `.mjs` en `// @ts-check` compris), tests unitaires, contrat API valide et types générés à jour, graphes des couches et des routes à jour ([`docs/architecture/`](docs/architecture/README.md)), doc des développeurs à jour de ses schémas ([`docs/index.html`](docs/index.html)) | non |
 | `npx playwright test -g "<ID>"` | un scénario E2E désigné par son ID ([`docs/tests/E2E.md`](docs/tests/E2E.md)), sur le serveur de `make dev` s'il tourne | oui |
 | `make test-e2e` | toute la suite E2E de non-régression, environ 3 min | oui |
 | `make verify` | tout ce que vérifie la CI : `npm run check`, build de production, puis la suite E2E | oui |
-| `npm run test:coverage` | couverture des tests unitaires (domaine, cas d'usage, `src/http`, `src/lib`, `src/utils`), rapport dans `coverage/index.html` ; `npm run test:coverage:ui` pour l'interface Vitest | non |
+| `npm run test:coverage` | couverture des tests unitaires (domaine, cas d'usage, `src/http`, `src/lib`), rapport dans `coverage/index.html` ; `npm run test:coverage:ui` pour l'interface Vitest | non |
 | `npm run test:e2e:coverage` | couverture de la suite E2E : serveur Next.js, worker et scripts, rapport dans `coverage-e2e-report/index.html`. Démarre son propre serveur : arrêter `make dev` avant. Arguments passés à Playwright : `npm run test:e2e:coverage -- -g "NDF-"` | oui |
 
 Avant le premier test E2E, installer le navigateur : `npx playwright install chromium`

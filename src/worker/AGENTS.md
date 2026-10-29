@@ -12,13 +12,13 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/worker` | `src/adapters`, `src/application`, `src/composition`, `src/domain`, `src/lib/db`, `src/lib/dbRole`, `src/lib/email`, `src/lib/log`, `src/lib/outbox`, `src/lib/telemetry`, `src/lib/tokens`, `src/ports`, `src/utils`, `pg` |
+| `src/worker` | `src/adapters`, `src/modules/expenses/adapters`, `src/modules/identity/adapters`, `src/modules/receipt-analysis/adapters`, `src/modules/validation/adapters`, `src/modules/expenses/application`, `src/modules/identity/application`, `src/modules/receipt-analysis/application`, `src/modules/validation/application`, `src/composition`, `src/modules/expenses/domain`, `src/modules/identity/domain`, `src/modules/receipt-analysis/domain`, `src/modules/validation/domain`, `src/modules/expenses/ports`, `src/modules/identity/ports`, `src/modules/receipt-analysis/ports`, `src/modules/validation/ports`, `src/lib/db`, `src/lib/dbRole`, `src/lib/email`, `src/lib/log`, `src/lib/outbox`, `src/lib/telemetry`, `src/lib/tokens`, `src/ports`, `src/utils`, `pg` |
 
 <!-- fin : imports permis -->
 
 ## Ajouter un traitement asynchrone
 
-1. **Domaine** : le type `export const X = 'contexte.action'` et son payload (construction et garde `isXPayload`) dans `src/domain`, comme `src/domain/Notification.ts`. Le payload ne transporte que des ids et des données non sensibles : jamais de jeton ni d'URL pré-signée.
+1. **Domaine** : le type `export const X = 'contexte.action'` et son payload (construction et garde `isXPayload`) dans le domaine de son module, comme `src/modules/expenses/domain/Notification.ts`. Le payload ne transporte que des ids et des données non sensibles : jamais de jeton ni d'URL pré-signée.
 2. **Émission** : dans l'adaptateur, dans la même transaction que la donnée : `new PgEventOutbox(client).enqueue({ type, payload })`. L'événement n'existe que si la transaction est validée.
 3. **Handler** : un fichier `src/worker/<contexte>Handlers.ts` qui exporte une fonction renvoyant des `OutboxHandlers`, ajoutée à `buildHandlers` dans `src/worker/handlers.ts`. Un type sans handler reste `pending` pour toujours.
    - court (email, écriture) : `handle(event, client)`, dans la transaction de l'événement ;

@@ -4,7 +4,8 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { agentGaps, readAgentInputs } from './agents'
 import { analyze, readSources, README } from './architecture'
-import { DATA_VIEW, DIAGRAMS, DOC_PAGE, docGaps, pageDiagrams, pageWith, readDocInputs, readViews } from './docs'
+import { DATA_VIEW, DIAGRAMS, DOC_PAGE, docGaps, outboxEventTypes, pageDiagrams, pageWith, readDocInputs, readViews } from './docs'
+import { E2E_REGISTRY, readSpecs, registryGaps } from './e2eRegistry'
 import { edgeName } from './graph'
 import { fileImports } from './imports'
 import { readmeWith } from './mermaid'
@@ -17,7 +18,8 @@ import { routeName } from './routes'
 // ou une route sans garde restent rouges (docs/architecture/README.md). La
 // page des développeurs (docs/index.html) recopie ces graphes et les vues
 // écrites à la main, et présente chaque ADR, table et type d'événement. Les
-// consignes par dossier (AGENTS.md, agents.ts) ne citent que ce qui existe.
+// consignes par dossier (AGENTS.md, agents.ts) ne citent que ce qui existe, et
+// le registre des E2E (docs/tests/E2E.md) a une ligne par ID de test.
 
 const root = process.cwd()
 const sources = readSources(root)
@@ -120,13 +122,29 @@ describe(`page des développeurs (${DOC_PAGE})`, () => {
   it('cite chaque type d’événement de l’outbox', () => {
     expect(gaps.events, 'le décrire dans la section « L’outbox et le worker » de la page').toEqual([])
   })
+
+  it('trouve les types d’événements dans le domaine des modules', () => {
+    // Sans ce garde-fou, un déplacement du domaine rendrait le contrôle précédent vide, donc toujours vert.
+    expect(outboxEventTypes(sources), 'chercher les constantes là où vit le domaine (outboxEventTypes, docs.ts)').toEqual(
+      expect.arrayContaining(['expense_note.submitted', 'expense_note.decided', 'receipt.analysis.requested'])
+    )
+  })
+})
+
+describe(`registre des E2E (${E2E_REGISTRY})`, () => {
+  const gaps = registryGaps(readSpecs(root), read(E2E_REGISTRY) ?? '')
+
+  it('chaque ID de test E2E a sa ligne dans le registre, et chaque ligne son test', () => {
+    expect(gaps.undocumented, `ajouter la ligne (ID, scénario, niveau) au tableau du domaine dans ${E2E_REGISTRY}, et mettre le total à jour (e2e/AGENTS.md)`).toEqual([])
+    expect(gaps.stale, `retirer la ligne de ${E2E_REGISTRY}, ou rétablir le test (un test existant ne se supprime pas : ADR-005 §2)`).toEqual([])
+  })
 })
 
 describe('consignes par dossier (AGENTS.md et CLAUDE.md)', () => {
   const gaps = agentGaps(readAgentInputs(root))
 
   it('la racine et chaque dossier de AGENT_DIRS ont leur AGENTS.md, et un CLAUDE.md qui ne fait que l’importer', () => {
-    expect(gaps.missing, 'créer le fichier (modèle : src/domain/AGENTS.md et src/domain/CLAUDE.md)').toEqual([])
+    expect(gaps.missing, 'créer le fichier (modèle : src/modules/AGENTS.md et src/modules/CLAUDE.md)').toEqual([])
     expect(gaps.notImporting, 'un CLAUDE.md, racine comprise, ne contient que « @AGENTS.md » : écrire dans AGENTS.md').toEqual([])
   })
 

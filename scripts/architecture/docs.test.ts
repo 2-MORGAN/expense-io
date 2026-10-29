@@ -97,11 +97,11 @@ describe('ce que la page doit présenter', () => {
   it('types d’événements : constantes pointées du domaine, hors tests et hors domaine', () => {
     const sources = [
       {
-        path: 'src/domain/a.ts',
+        path: 'src/modules/a/domain/a.ts',
         text: "export const A_DONE = 'a.done'\nexport const LABEL = 'Libellé'\nexport const B = 'b.c.requested'\n",
       },
-      { path: 'src/domain/a.test.ts', text: "export const T = 't.done'\n" },
-      { path: 'src/application/x.ts', text: "export const X = 'x.done'\n" },
+      { path: 'src/modules/a/domain/a.test.ts', text: "export const T = 't.done'\n" },
+      { path: 'src/modules/a/application/x.ts', text: "export const X = 'x.done'\n" },
     ]
     expect(outboxEventTypes(sources)).toEqual(['a.done', 'b.c.requested'])
   })
@@ -126,7 +126,7 @@ describe('ce que la page doit présenter', () => {
     const gaps = docGaps(page, diagrams, {
       adrFiles: ['ADR-001-a.md', 'ADR-002-b.md'],
       migrations: [{ path: 'migrations/1_a.sql', text: 'CREATE TABLE notes (id uuid);\nCREATE TABLE users (id uuid);\n' }],
-      sources: [{ path: 'src/domain/a.ts', text: "export const A = 'a.done'\nexport const B = 'b.done'\n" }],
+      sources: [{ path: 'src/modules/a/domain/a.ts', text: "export const A = 'a.done'\nexport const B = 'b.done'\n" }],
     })
     expect(gaps).toEqual({
       unplaced: ['vues/nouveau.mmd'],

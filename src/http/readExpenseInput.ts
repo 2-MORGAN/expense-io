@@ -1,5 +1,5 @@
 import { receiptInspector } from '@/composition/receipts'
-import { OcrError } from '@/domain/receipt/OcrError'
+import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
 import { InputError, validateInput } from './validation'
 import { multipartFields, readMultipart } from './readMultipart'
 
