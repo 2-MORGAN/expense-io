@@ -111,11 +111,24 @@ export function ocrSuggestionOutcome(
   return kept ? 'kept' : 'edited'
 }
 
-/** Attributs du script d'Umami : son adresse, le site, et l'hôte où il mesure. */
+/** Pages dont la heatmap enregistre les clics et le défilement (ADR-008, amendement du 29/10). */
+export const HEATMAP_PATHS = ['/expenses', '/manager', '/hr'] as const
+
+/**
+ * Vrai si la heatmap mesure cette page. `recorder.js` envoie l'URL complète,
+ * sans passer par beforeSend : il n'est chargé que sur des pages sans jeton
+ * dans leur adresse, contrairement à `/signup?invitation=…`.
+ */
+export function recordsHeatmap(pathname: string): boolean {
+  return (HEATMAP_PATHS as readonly string[]).includes(pathname)
+}
+
+/** Attributs du script d'Umami : son adresse, le site, l'hôte où il mesure, et le script de la heatmap. */
 export interface UmamiScriptConfig {
   src: string
   websiteId: string
   domains?: string
+  recorderSrc?: string
 }
 
 function parseUrl(value: string | undefined): URL | null {
@@ -130,11 +143,17 @@ function parseUrl(value: string | undefined): URL | null {
 /**
  * Le script n'est chargé que si `UMAMI_SCRIPT_URL` (http ou https) et
  * `UMAMI_WEBSITE_ID` sont définis (ADR-008 §1) ; il ne mesure alors que sur
- * l'hôte d'`APP_URL`, quand elle est définie.
+ * l'hôte d'`APP_URL`, quand elle est définie. La heatmap s'y ajoute avec
+ * `UMAMI_HEATMAP=true` : `recorder.js`, servi par Umami à côté de `script.js`.
  */
 export function umamiScriptConfig(env: Readonly<Record<string, string | undefined>>): UmamiScriptConfig | null {
   const src = parseUrl(env.UMAMI_SCRIPT_URL)
   const websiteId = env.UMAMI_WEBSITE_ID?.trim()
   if (!src || (src.protocol !== 'http:' && src.protocol !== 'https:') || !websiteId) return null
-  return { src: src.href, websiteId, domains: parseUrl(env.APP_URL)?.hostname }
+  return {
+    src: src.href,
+    websiteId,
+    domains: parseUrl(env.APP_URL)?.hostname,
+    recorderSrc: env.UMAMI_HEATMAP?.trim() === 'true' ? new URL('recorder.js', src).href : undefined,
+  }
 }

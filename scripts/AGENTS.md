@@ -2,7 +2,7 @@
 
 Consignes du dossier, en complément de l'[AGENTS.md](../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
-Scripts Node lancés par `package.json` : poste de dev (`scripts/dev.mjs`, `scripts/seed.mjs`, `scripts/ensure-bucket.mjs`), base (`scripts/provision-db-roles.mjs`), contrat (`scripts/generate-api.mjs`, `scripts/check-api.mjs`), exploitation (`scripts/reconcile-orphan-receipts.mjs`, `scripts/clean-notes-without-receipt.mjs`), et en TypeScript les contrôles d'architecture et de doc (`scripts/architecture`) et la couverture (`scripts/coverage`).
+Scripts Node lancés par `package.json` : poste de dev (`scripts/dev.mjs`, `scripts/seed.mjs`, `scripts/ensure-bucket.mjs`), base (`scripts/provision-db-roles.mjs`), contrat (`scripts/generate-api.mjs`, `scripts/check-api.mjs`), exploitation (`scripts/reconcile-orphan-receipts.mjs`, `scripts/clean-notes-without-receipt.mjs`), mesure d'usage (`scripts/analytics-setup.mjs`, `scripts/analytics-demo.mjs`), et en TypeScript les contrôles d'architecture et de doc (`scripts/architecture`) et la couverture (`scripts/coverage`).
 
 ## Ajouter un script
 

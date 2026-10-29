@@ -2,7 +2,7 @@
 
 Consignes du dossier, en complément de l'[AGENTS.md](../AGENTS.md) de la racine, qui reste la référence. Chemins donnés depuis la racine du dépôt.
 
-`docs/index.html` est la doc d'accueil, à ouvrir dans un navigateur. Ses schémas sont des fichiers Mermaid versionnés : `docs/architecture/layers.mmd` et `docs/architecture/routes.mmd`, générés depuis le code, et les vues écrites à la main de `docs/architecture/vues`. Autour : les ADR (`docs/adr`), le registre des E2E (`docs/tests/E2E.md`), l'audit (`docs/audit`), l'API (`docs/api/README.md`), l'OCR (`docs/ocr.md`).
+`docs/index.html` est la doc d'accueil, à ouvrir dans un navigateur. Ses schémas sont des fichiers Mermaid versionnés : `docs/architecture/layers.mmd` et `docs/architecture/routes.mmd`, générés depuis le code, et les vues écrites à la main de `docs/architecture/vues`. Autour : les ADR (`docs/adr`), le registre des E2E (`docs/tests/E2E.md`), l'audit (`docs/audit`), l'API (`docs/api/README.md`), l'OCR (`docs/ocr.md`), les documents de conception (`docs/designs`), qui ne décident rien tant qu'une ADR ne les reprend pas.
 
 ## La doc fait partie du changement
 
