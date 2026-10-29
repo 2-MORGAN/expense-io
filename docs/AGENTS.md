@@ -25,4 +25,4 @@ La page et ses vues se mettent à jour dans la même PR que le code. Quoi mettre
 
 - Une doc fausse est pire qu'une doc absente : ce qui n'est plus vrai se corrige ou se retire.
 - Interface et docs en français ; code et API en anglais.
-- `npm run check` vérifie les schémas, les fiches d'ADR, les tables, les types d'événements et les scripts externes ; le reste du texte, non : le relire.
+- `npm run check` vérifie les schémas, les fiches d'ADR, les tables, les types d'événements, les scripts externes et le registre des E2E (un ID de test = une ligne de `docs/tests/E2E.md`) ; le reste du texte, non : le relire.
