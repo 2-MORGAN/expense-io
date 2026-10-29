@@ -19,7 +19,7 @@ flowchart TB
     guardHook["avant le shell : guard-git.mjs<br/>refuse les contournements"]
     frozenHook["avant l'écriture : guard-frozen.mjs<br/>migrations et tests E2E de main figés"]
     recipeHook["avant l'écriture : guard-recipe.mjs<br/>sans recette, demande à l'humain<br/>(OpenCode, Codex : refus unique)"]
-    stopHook["fin de tour : check-on-stop.mjs<br/>npm run check si le code a changé<br/>(Claude Code, Codex)"]
+    stopHook["fin de tour : check-on-stop.mjs<br/>npm run check dans la copie de la session<br/>si le code a changé ; l'agent ne corrige<br/>que ses changements ; Node ou npm install<br/>faux : l'humain est prévenu (Claude Code, Codex)"]
   end
 
   guide -.->|"guide"| change

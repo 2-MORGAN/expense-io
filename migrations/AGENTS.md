@@ -31,6 +31,7 @@ Pour une opération qui doit franchir la RLS (inscription, invitation, jeton) : 
 - Contrainte sur des données existantes : la poser `NOT VALID`, la valider après nettoyage (`migrations/1793400000000_receipt-key-not-empty.sql`).
 - Aucun mot de passe dans une migration : `scripts/provision-db-roles.mjs` les pose depuis l'environnement.
 - Ne pas passer une colonne `date` en `timestamp` : le parser des dates (`src/lib/db.ts`) et l'API comptent sur `YYYY-MM-DD`.
+- Redéfinir une fonction (`CREATE OR REPLACE FUNCTION`) : partir de sa **dernière** définition, pas de la première. La redéfinition remplace toute la fonction, et repartir d'une version ancienne efface ce que les migrations suivantes y ont ajouté. `grep -l "FUNCTION <nom>" migrations/` liste ses versions. Exemple : `accept_invitation`, créée par `migrations/1793100000000_invitations-verification-email.sql`, redéfinie par `migrations/1793200000000_adresse-non-verifiee-renvoi.sql` qui y ajoute l'appel à `purge_unverified_account()`.
 
 ## À mettre à jour avec
 

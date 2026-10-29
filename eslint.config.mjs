@@ -233,6 +233,10 @@ const eslintConfig = defineConfig([
     'coverage-e2e-report/**',
     'test-results/**',
     'next-env.d.ts',
+    // Worktrees des sessions d'agent : chacun a sa copie et se vérifie chez lui.
+    // Sans cela, un lint lancé depuis le checkout principal lisait leurs
+    // fichiers avec des suppressions qui ne leur correspondent pas.
+    '.claude/worktrees/**',
   ]),
 ])
 

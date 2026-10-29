@@ -35,6 +35,8 @@ Ce que le HTTP ne voit pas (policy RLS, requête SQL, handler du worker, compens
 - Pas de `test.only`, `.skip`, `.fixme` ni `.fail` (ESLint).
 - Pas d'attente fixe (`waitForTimeout`) : attendre un état (`expect(…).toBeVisible()`, `waitForEmail`).
 - Ne pas modifier `src/` pendant un run local : le serveur de dev recompile et des tests échouent au hasard.
+- Un 500 qui n'apparaît qu'en suite complète, alors que le test passe seul : redémarrer le serveur de `make dev` (état de recompilation périmé) avant de chercher dans le code.
+- Montants et dates formatés par `Intl` (`src/components/PendingApprovalsPanel.tsx`) : le séparateur est un espace insécable. Comparer avec une expression régulière (`/12,50\s€/`) plutôt qu'avec une chaîne tapée au clavier.
 
 ## Vérifié par
 
