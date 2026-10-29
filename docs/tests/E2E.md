@@ -77,7 +77,7 @@ e2e/
 
 ## Scénarios couverts
 
-**194 tests** (182 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 30 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`. `npm run check` vérifie que chaque ID a sa ligne ci-dessous, et chaque ligne son test (`scripts/architecture/e2eRegistry.ts`).
+**196 tests** (184 scénarios, certains déclinés par type de fichier ou par cas d'erreur), répartis dans 30 fichiers. L'identifiant figure dans le titre du test : `npx playwright test -g "<ID>"`. `npm run check` vérifie que chaque ID a sa ligne ci-dessous, et chaque ligne son test (`scripts/architecture/e2eRegistry.ts`).
 
 La colonne « Niveau » dit ce que le test exerce : **UI** (navigateur), **API** (HTTP réel sur la pile complète), **Base** (SQL et policies sous un rôle de connexion), **Intégration** (code serveur ou script lancé par la spec, contre la vraie base, S3 ou SMTP, sans passer par le HTTP).
 
@@ -382,11 +382,13 @@ ADR-003 §6 : état de l'outbox que le worker journalise chaque minute (`outbox.
 
 ### Mesure d'usage — `e2e/analytics.spec.ts`
 
-ADR-008 : le script d'Umami n'est chargé que si `UMAMI_SCRIPT_URL` et `UMAMI_WEBSITE_ID` sont définis, lus dans `.env` comme par l'application. Le contrôle de chaque envoi (`beforeSend` : chaîne de requête, identification, événements hors liste) est couvert par `src/components/analytics.test.ts`.
+ADR-008 : le script d'Umami n'est chargé que si `UMAMI_SCRIPT_URL` et `UMAMI_WEBSITE_ID` sont définis, et celui de la heatmap et des replays (`recorder.js`) qu'avec `UMAMI_HEATMAP=true` en plus, lus dans `.env` comme par l'application. Le contrôle de chaque envoi (`beforeSend` : chaîne de requête, identification, événements hors liste) et la liste des pages de la heatmap (`recordsHeatmap`) sont couverts par `src/components/analytics.test.ts`.
 
 | ID | Scénario | Niveau |
 |---|---|---|
 | USAGE-01 | Sans configuration (CI), `/login` ne charge aucun script d'Umami ; configuré, la balise porte le site, `data-exclude-search`, `data-exclude-hash` et sa fonction `data-before-send` | UI |
+| USAGE-02 | `/signup?invitation=…` ne charge jamais `recorder.js` ; sans heatmap (CI), `/expenses` non plus ; avec, `/expenses` le charge pour le site, et la déconnexion (navigation côté client vers `/login`) recharge la page sans lui | UI |
+| USAGE-03 | `/login` et `/expenses` : le `<body>` porte `rr-mask`, donc un replay d'Umami n'enregistre aucun texte, quel que soit son réglage | UI |
 
 ### Notifications — `e2e/notifications.spec.ts`
 
@@ -419,20 +421,20 @@ Les lignes à égalité sont insérées dans un ordre ni croissant ni décroissa
 
 ## Résultat de la dernière exécution
 
-**194 / 194 tests verts (100 %)** en CI sur `main`, 0 échec, aucun test instable (aucun vert au seul second essai).
+**196 / 196 tests verts (100 %)** en CI sur `main`, 0 échec, aucun test instable (aucun vert au seul second essai).
 
 | | |
 |---|---|
-| Date | 28 octobre 2026 (run GitHub Actions 40733324387) |
-| Code testé | `main` @ `61e5a4e` |
+| Date | 29 octobre 2026 (run GitHub Actions 40882241361) |
+| Code testé | `main` @ `875d7d8` |
 | Commande | job `e2e` de `.github/workflows/ci.yml` : sur chaque shard, `make up migrate ensure-bucket`, puis `npm run test:e2e -- --shard=N/2`, qui démarre lui-même `next dev` |
-| Durée | 1,8 min (shard 1, 97 tests) et 2,0 min (shard 2, 97 tests), 2 workers chacun ; environ 4 min pour toute la CI |
+| Durée | 1,5 min par shard (98 tests chacun), 2 workers chacun ; environ 3 min 10 s pour toute la CI |
 | Environnement | `ubuntu-latest`, Google Chrome du runner, PostgreSQL 16, LocalStack 3.8.1, Mailpit 1.31.6 (`docker-compose.yml`) |
 
 | Fichier | Tests | Résultat |
 |---|---:|---|
 | `access-control.spec.ts` | 7 | ✅ 7/7 |
-| `analytics.spec.ts` | 1 | ✅ 1/1 |
+| `analytics.spec.ts` | 3 | ✅ 3/3 |
 | `api-contract.spec.ts` | 4 | ✅ 4/4 |
 | `api-errors.spec.ts` | 3 | ✅ 3/3 |
 | `auth.spec.ts` | 9 | ✅ 9/9 |
@@ -461,12 +463,13 @@ Les lignes à égalité sont insérées dans un ordre ni croissant ni décroissa
 | `signup.spec.ts` | 7 | ✅ 7/7 |
 | `submission.spec.ts` | 2 | ✅ 2/2 |
 | `unverified-accounts.spec.ts` | 4 | ✅ 4/4 |
-| **Total** | **194** | **✅ 194/194** |
+| **Total** | **196** | **✅ 196/196** |
 
 ### Toutes les exécutions
 
 | Où | Date | Code | Résultat |
 |---|---|---|---|
+| CI GitHub Actions, `ubuntu-latest`, 2 shards | 29/10/2026 | `main` @ `875d7d8` | ✅ 196/196 en 1,5 min par shard, 2 workers |
 | CI GitHub Actions, `ubuntu-latest`, 2 shards | 28/10/2026 | `main` @ `61e5a4e` | ✅ 194/194 en 1,8 et 2,0 min par shard, 2 workers |
 | Windows 11, poste de Stanislas | 22/10/2026 | `main` @ `e7239b6` | ✅ 89/89 en 2,6 min, 4 workers (PostgreSQL de Docker sur 5434 : le 5433 était pris par un PostgreSQL natif) |
 | macOS, poste de Florent, `make test-e2e` | 20/10/2026 | `main` | ✅ vert |
