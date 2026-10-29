@@ -182,7 +182,9 @@ c'est le cas par défaut, en CI et pendant les E2E. Sans cookie ni identifiant,
 et sans chaîne de requête dans les URL envoyées. En option, `UMAMI_HEATMAP=true`
 ajoute la heatmap (clics et défilement) et les replays, tout texte masqué, de
 `/expenses`, `/manager` et `/hr`.
-Entonnoirs et objectifs sont créés par `npm run analytics:setup`. Questions,
+Entonnoirs et objectifs sont créés par `npm run analytics:setup`, et
+`npm run analytics:demo -- --execute` les remplit avec des parcours de
+démonstration, joués dans l'application lancée par `make dev`. Questions,
 rapports et ajout d'un événement : [`docs/analytics.md`](docs/analytics.md).
 
 ### Tâches planifiées
@@ -251,6 +253,7 @@ make observability       # Grafana : traces, métriques et journaux (http://loca
 make observability-down  # arrête Grafana, garde ses données
 make analytics           # Umami : mesure d'usage (http://localhost:3002), affiche les variables de .env
 make analytics-down      # arrête Umami, garde ses données
+npm run analytics:demo -- --execute  # parcours de démonstration qui remplissent les rapports d'Umami
 ```
 
 ## Dépannage

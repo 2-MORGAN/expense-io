@@ -202,7 +202,10 @@ chemin, mais l'URL complète quitte le navigateur : un jeton d'invitation
    questions, pour qu'ils ne dépendent pas d'une saisie à la main : entonnoirs
    « Note commencée → envoyée » (deuxième question, dans l'heure) et
    « Inscription → invitation » (troisième, sur 24 h), objectifs « Note
-   envoyée » et « Invitation envoyée ».
+   envoyée » et « Invitation envoyée ». `npm run analytics:demo -- --execute`
+   les remplit avec des parcours joués dans l'application locale, un
+   navigateur par personne, pour une démonstration : les données d'Umami
+   restent sur chaque poste.
 
 **Conséquences.** Avec `UMAMI_HEATMAP=true`, environ 190 Ko de script en plus
 sur les trois pages, et un rechargement de la page suivante quand on les

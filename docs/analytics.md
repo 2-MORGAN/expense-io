@@ -36,6 +36,19 @@ répond à une question de l'ADR-008.
    ```
 
 3. Relancer `make dev` (ou `npm run dev`).
+4. En option, remplir les rapports avec des données de démonstration (les
+   données d'Umami restent sur chaque poste : rien n'est partagé) :
+
+   ```bash
+   npm run analytics:demo               # vérifie les prérequis, décrit les parcours
+   npm run analytics:demo -- --execute  # les joue, environ 2 minutes
+   ```
+
+   Trois personnes, chacune avec son navigateur : une RH sur PC inscrit son
+   entreprise, commence une note sans l'envoyer et invite un salarié ; une RH
+   sur Mac s'arrête à la page RH ; le salarié, sur téléphone, accepte
+   l'invitation et envoie deux notes (suggestion OCR gardée, puis corrigée).
+   Comptes jetables `*.demo.test` ; `make clean` les efface.
 
 Umami s'ouvre sur **http://localhost:3002**, avec le compte `admin` / `umami`
 qu'il crée à son premier démarrage. Il n'écoute que sur `localhost`.
@@ -200,3 +213,6 @@ relève de l'[observabilité](observability.md), pas d'Umami.
 | Aucun replay | `UMAMI_HEATMAP=true` absent de `.env` ; replays coupés dans les réglages du site (`npm run analytics:setup` les rallume) ; page hors de `/expenses`, `/manager` et `/hr` |
 | Entonnoir vide | personne n'est encore passé par sa première étape sur la période choisie (une inscription pour « Inscription → invitation ») ; il ne compte que les étapes franchies dans l'ordre, dans le délai ; `npm run analytics:setup` le recrée s'il manque |
 | Port 3002 déjà pris | `UMAMI_PORT`, puis `npm run analytics:setup` |
+| `analytics:demo` : « Umami n'est pas chargé » | `UMAMI_SCRIPT_URL` ou `UMAMI_WEBSITE_ID` absent de `.env`, ou `make dev` pas relancé |
+| `analytics:demo` bloqué à l'envoi d'une note | bucket des reçus absent, perdu au redémarrage de LocalStack : `npm run ensure-bucket` |
+| `analytics:demo` : Chromium introuvable | `npx playwright install chromium` |
