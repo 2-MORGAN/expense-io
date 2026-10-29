@@ -1,6 +1,6 @@
 // Mesure d'usage (ADR-008, docs/analytics.md) : crée dans Umami le site
-// « Expense.io » et son entonnoir s'ils n'existent pas encore, règle la heatmap,
-// puis affiche les lignes à mettre dans .env. Idempotent. Lancé par
+// « Expense.io », ses entonnoirs et ses objectifs s'ils n'existent pas encore,
+// règle la heatmap, puis affiche les lignes à mettre dans .env. Idempotent. Lancé par
 // `make analytics`, après le démarrage de docker-compose.analytics.yml. Compte :
 // celui qu'Umami crée à son premier démarrage (admin / umami), joignable sur
 // localhost seulement.
@@ -14,19 +14,39 @@ const password = process.env.UMAMI_PASSWORD ?? 'umami'
 const appUrl = process.env.APP_URL ?? 'http://localhost:3000'
 const websiteName = 'Expense.io'
 
-// Question « les entreprises inscrites vont-elles jusqu'à inviter un salarié ? »
-// (ADR-008) : étapes franchies dans les 24 h par un même visiteur.
-const funnel = {
-  name: 'Inscription → invitation',
-  parameters: {
-    window: 24 * 60,
-    steps: [
-      { type: 'path', value: '/signup/verify' },
-      { type: 'path', value: '/hr' },
-      { type: 'event', value: 'invitation-sent' },
-    ],
+// Rapports des questions de l'ADR-008, retrouvés par leur nom. Entonnoirs :
+// étapes franchies dans l'ordre par un même visiteur, en `window` minutes.
+const funnels = [
+  {
+    // Les entreprises inscrites vont-elles jusqu'à inviter un salarié ?
+    name: 'Inscription → invitation',
+    parameters: {
+      window: 24 * 60,
+      steps: [
+        { type: 'path', value: '/signup/verify' },
+        { type: 'path', value: '/hr' },
+        { type: 'event', value: 'invitation-sent' },
+      ],
+    },
   },
-}
+  {
+    // Combien commencent une note sans l'envoyer ?
+    name: 'Note commencée → envoyée',
+    parameters: {
+      window: 60,
+      steps: [
+        { type: 'event', value: 'expense-note-started' },
+        { type: 'event', value: 'expense-note-submitted' },
+      ],
+    },
+  },
+]
+
+// Part des visiteurs qui envoient une note, ou une invitation.
+const goals = [
+  { name: 'Note envoyée', parameters: { type: 'event', value: 'expense-note-submitted' } },
+  { name: 'Invitation envoyée', parameters: { type: 'event', value: 'invitation-sent' } },
+]
 
 // Heatmap de toutes les sessions en local ; replays toujours coupés (ADR-008,
 // amendement du 29/10). Le navigateur ne charge recorder.js qu'avec UMAMI_HEATMAP=true.
@@ -42,6 +62,14 @@ async function umami(path, { token, body } = {}) {
   return response.json()
 }
 
+/** Crée chaque rapport de `reports` absent de la liste `path` du site, par son nom. */
+async function ensureReports(path, reports, token) {
+  const { data: existing } = await umami(path, { token })
+  for (const report of reports) {
+    if (!existing.some((current) => current.name === report.name)) await umami(path, { token, body: report })
+  }
+}
+
 try {
   const { token } = await umami('/api/auth/login', { body: { username, password } })
   const { data: websites } = await umami('/api/websites?pageSize=100', { token })
@@ -53,13 +81,13 @@ try {
     (await umami('/api/websites', { token, body: { name: websiteName, domain } }))
 
   await umami(`/api/websites/${website.id}`, { token, body: { domain, replayConfig } })
-  const { data: funnels } = await umami(`/api/websites/${website.id}/funnels`, { token })
-  if (!funnels.some((existing) => existing.name === funnel.name)) {
-    await umami(`/api/websites/${website.id}/funnels`, { token, body: funnel })
-  }
+  await ensureReports(`/api/websites/${website.id}/funnels`, funnels, token)
+  await ensureReports(`/api/websites/${website.id}/goals`, goals, token)
 
+  const names = (reports) => reports.map((report) => `« ${report.name} »`).join(', ')
   console.log(`Site « ${websiteName} » dans Umami : ${new URL('/websites/' + website.id, umamiUrl)}`)
-  console.log(`Entonnoir « ${funnel.name} », heatmap activée, replays coupés.`)
+  console.log(`Entonnoirs ${names(funnels)} ; objectifs ${names(goals)}.`)
+  console.log('Heatmap activée, replays coupés.')
   console.log('')
   console.log('À mettre dans .env, puis relancer make dev (ou npm run dev) :')
   console.log(`UMAMI_SCRIPT_URL=${new URL('/script.js', umamiUrl)}`)

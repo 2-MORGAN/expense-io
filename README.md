@@ -181,7 +181,7 @@ compte `admin` / `umami`. Sans ces variables, aucune page ne charge le script :
 c'est le cas par défaut, en CI et pendant les E2E. Sans cookie ni identifiant,
 et sans chaîne de requête dans les URL envoyées. En option, `UMAMI_HEATMAP=true`
 ajoute la heatmap (clics et défilement) de `/expenses`, `/manager` et `/hr`.
-L'entonnoir d'inscription est créé par `npm run analytics:setup`. Questions,
+Entonnoirs et objectifs sont créés par `npm run analytics:setup`. Questions,
 rapports et ajout d'un événement : [`docs/analytics.md`](docs/analytics.md).
 
 ### Tâches planifiées

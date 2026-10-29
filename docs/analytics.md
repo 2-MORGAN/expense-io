@@ -22,8 +22,8 @@ répond à une question de l'ADR-008.
    npm run analytics:setup
    ```
 
-   `npm run analytics:setup` crée dans Umami le site « Expense.io » et
-   l'entonnoir « Inscription → invitation » s'ils n'existent pas, donne au site
+   `npm run analytics:setup` crée dans Umami le site « Expense.io », ses
+   entonnoirs et ses objectifs (« Lire les réponses ») s'ils n'existent pas, donne au site
    le domaine d'`APP_URL` (port compris), active la heatmap et coupe les
    replays, puis affiche les lignes à mettre dans `.env`.
 2. Les copier dans `.env` :
@@ -69,12 +69,19 @@ Dans Umami, site « Expense.io » :
 
 - **Suggestion OCR** : événements, `expense-note-submitted`, réparti par la
   propriété `ocr`.
-- **Notes abandonnées** : `expense-note-started` comparé à
-  `expense-note-submitted` sur la même période.
+- **Notes abandonnées** : « Funnels », entonnoir « Note commencée →
+  envoyée » : `expense-note-started` puis `expense-note-submitted`, dans
+  l'heure.
 - **Entreprises qui invitent** : « Funnels », entonnoir « Inscription →
-  invitation » créé par `npm run analytics:setup` : page `/signup/verify`
-  (inscription réussie), page `/hr`, événement `invitation-sent`, dans les
-  24 h.
+  invitation » : page `/signup/verify` (inscription réussie), page `/hr`,
+  événement `invitation-sent`, dans les 24 h.
+- **En un chiffre** : « Goals », objectifs « Note envoyée » et « Invitation
+  envoyée » : part des visiteurs de la période qui envoient une note, une
+  invitation.
+
+Entonnoirs et objectifs sont créés par `npm run analytics:setup`, qui les
+retrouve par leur nom. Umami reconnaît un visiteur à son navigateur et à son
+adresse IP : deux comptes ouverts dans le même navigateur comptent pour un.
 - **Téléphones** : vue d'ensemble filtrée sur la page `/expenses`, tableau
   des appareils.
 - **Clics et défilement** : « Heatmaps », choisir la page, puis « Clicks » ou
@@ -178,5 +185,5 @@ relève de l'[observabilité](observability.md), pas d'Umami.
 | Heatmap sur une page grise d'erreur | domaine du site sans le port de l'application (`localhost` seul vise le port 80) : `npm run analytics:setup` lui donne l'hôte d'`APP_URL` |
 | Heatmap sur la page de connexion | pas de session sur l'application dans ce navigateur, ou Umami sur un autre site qu'elle |
 | Heatmap vide | `UMAMI_HEATMAP=true` absent de `.env` ; heatmap coupée dans les réglages du site (`npm run analytics:setup` la rallume) ; page hors de `/expenses`, `/manager` et `/hr` |
-| Entonnoir vide | il ne compte que les visiteurs passés par ses étapes dans l'ordre, en 24 h, sur la période choisie ; `npm run analytics:setup` le recrée s'il manque |
+| Entonnoir vide | personne n'est encore passé par sa première étape sur la période choisie (une inscription pour « Inscription → invitation ») ; il ne compte que les étapes franchies dans l'ordre, dans le délai ; `npm run analytics:setup` le recrée s'il manque |
 | Port 3002 déjà pris | `UMAMI_PORT`, puis `npm run analytics:setup` |

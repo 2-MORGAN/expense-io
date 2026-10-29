@@ -190,9 +190,11 @@ chemin, mais l'URL complète quitte le navigateur : un jeton d'invitation
    `replayEnabled: false` à chaque passage. L'enregistrement de sessions reste
    proscrit (option E) : il capterait le texte des pages, montants et noms
    compris.
-5. **Entonnoir.** `npm run analytics:setup` crée aussi l'entonnoir de la
-   troisième question (« Inscription → invitation », sur 24 h), pour qu'il ne
-   dépende pas d'une saisie à la main.
+5. **Rapports.** `npm run analytics:setup` crée aussi les rapports des
+   questions, pour qu'ils ne dépendent pas d'une saisie à la main : entonnoirs
+   « Note commencée → envoyée » (deuxième question, dans l'heure) et
+   « Inscription → invitation » (troisième, sur 24 h), objectifs « Note
+   envoyée » et « Invitation envoyée ».
 
 **Conséquences.** Avec la heatmap activée, environ 190 Ko de script en plus
 sur les trois pages, et un rechargement de la page suivante quand on les
