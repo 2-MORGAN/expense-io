@@ -53,8 +53,6 @@ export const LAYERS_WITHOUT_AGENTS: readonly string[] = [
   // Générés depuis openapi.yaml (`npm run generate:api`), sauf next-auth.d.ts.
   'src/generated',
   'src/types',
-  // Code mort (CLAUDE.md, « Dette connue ») : rien ne s'y ajoute.
-  'src/utils',
   // Un fichier chacun, décrit dans CLAUDE.md.
   'src/proxy',
   'src/instrumentation',

@@ -47,13 +47,12 @@ const HTTP_ENTRY = [
   'src/lib/log',
   'src/ports',
   'src/types',
-  'src/utils',
   'next',
   'next-auth',
 ]
 
 // L'interface lit les types du contrat HTTP (src/http, src/types, src/generated).
-const UI = ['src/app/actions', 'src/domain', 'src/generated', 'src/http', 'src/types', 'src/utils', 'next', 'react']
+const UI = ['src/app/actions', 'src/domain', 'src/generated', 'src/http', 'src/types', 'next', 'react']
 
 export const LAYERS: readonly Layer[] = [
   // Entrées : HTTP, UI, worker. Elles appellent un cas d'usage (ADR-002 §3.3).
@@ -100,7 +99,6 @@ export const LAYERS: readonly Layer[] = [
       'src/lib/telemetry',
       'src/lib/tokens',
       'src/ports',
-      'src/utils',
       'pg',
     ],
   },
@@ -108,12 +106,11 @@ export const LAYERS: readonly Layer[] = [
   // Cœur : règles pures et cas d'usage, sans infrastructure. Tout paquet
   // qu'il importe est jugé, déclaré dans PACKAGES ou non (`node:fs`, `zod`…).
   // Les cas d'usage tirent leurs identifiants de node:crypto (ReceiptAnalyses).
-  { path: 'src/application', group: 'coeur', may: ['src/domain', 'src/ports', 'src/utils', 'node:crypto'] },
-  { path: 'src/domain', group: 'coeur', may: ['src/generated', 'src/ports', 'src/utils'] },
+  { path: 'src/application', group: 'coeur', may: ['src/domain', 'src/ports', 'node:crypto'] },
+  { path: 'src/domain', group: 'coeur', may: ['src/generated', 'src/ports'] },
   // Données générées depuis le contrat OpenAPI (2-486) : sans dépendance.
   { path: 'src/generated', group: 'coeur', may: [] },
   { path: 'src/ports', group: 'coeur', may: ['src/domain'] },
-  { path: 'src/utils', group: 'coeur', may: [] },
 
   // Infrastructure : implémentations des ports et leur branchement.
   {
@@ -131,7 +128,6 @@ export const LAYERS: readonly Layer[] = [
       'src/lib/storage',
       'src/lib/tokens',
       'src/ports',
-      'src/utils',
     ],
   },
   {
@@ -144,7 +140,6 @@ export const LAYERS: readonly Layer[] = [
       'src/lib/outbox',
       'src/lib/storage',
       'src/ports',
-      'src/utils',
       '@aws-sdk',
       'nodemailer',
       'pg',

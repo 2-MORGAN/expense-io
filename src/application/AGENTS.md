@@ -12,7 +12,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/application` | `src/domain`, `src/ports`, `src/utils`, `node:crypto` |
+| `src/application` | `src/domain`, `src/ports`, `node:crypto` |
 
 <!-- fin : imports permis -->
 

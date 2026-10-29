@@ -12,7 +12,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/components` | `src/app/actions`, `src/domain`, `src/generated`, `src/http`, `src/types`, `src/utils`, `next`, `react` |
+| `src/components` | `src/app/actions`, `src/domain`, `src/generated`, `src/http`, `src/types`, `next`, `react` |
 
 <!-- fin : imports permis -->
 

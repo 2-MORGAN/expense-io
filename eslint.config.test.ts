@@ -143,7 +143,7 @@ describe('règles d’architecture', () => {
     it.each(['only', 'skip', 'fixme', 'fail', 'fails'])('refusent .%s', async (property) => {
       const messages = await messagesFor(
         `declare const test: Record<string, (...a: unknown[]) => void>\ntest.${property}('a', () => {})`,
-        'src/utils/new.test.ts'
+        'src/domain/new.test.ts'
       )
       expect(messages.join('\n')).toMatch(new RegExp(`'${property}' is restricted`))
     })

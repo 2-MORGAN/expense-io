@@ -18,7 +18,6 @@ export default defineConfig({
         'src/application/**/*.ts',
         'src/http/**/*.ts',
         'src/lib/**/*.ts',
-        'src/utils/**/*.ts',
       ],
       exclude: ['src/**/*.test.ts', 'src/**/*.d.ts'],
       reporter: ['text-summary', 'html', 'lcov'],

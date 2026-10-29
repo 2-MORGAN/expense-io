@@ -47,7 +47,6 @@ flowchart TB
   m_domain["domain"]
   m_generated["generated"]
   m_ports["ports"]
-  m_utils["utils"]
   m_adapters["adapters"]
   m_composition["composition"]
   m_lib_2f_auth["lib/auth"]
@@ -176,7 +175,7 @@ flowchart TB
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
   class m_app,m_app_2f_actions,m_app_2f_api,m_app_2f_verify_2d_email,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
-  class m_application,m_domain,m_generated,m_ports,m_utils coeur
+  class m_application,m_domain,m_generated,m_ports coeur
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
   class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_telemetry,m_lib_2f_tokens infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827

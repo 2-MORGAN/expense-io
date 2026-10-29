@@ -12,7 +12,7 @@ Recopié depuis `scripts/architecture/layers.ts` par `npm run generate:architect
 
 | Module | Peut importer |
 |---|---|
-| `src/app/api` | `src/application`, `src/composition`, `src/domain`, `src/generated`, `src/http`, `src/lib/auth`, `src/lib/authErrors`, `src/lib/errors`, `src/lib/log`, `src/ports`, `src/types`, `src/utils`, `next`, `next-auth` |
+| `src/app/api` | `src/application`, `src/composition`, `src/domain`, `src/generated`, `src/http`, `src/lib/auth`, `src/lib/authErrors`, `src/lib/errors`, `src/lib/log`, `src/ports`, `src/types`, `next`, `next-auth` |
 
 <!-- fin : imports permis -->
 
