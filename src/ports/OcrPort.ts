@@ -1,4 +1,4 @@
-import type { Receipt } from '@/domain/receipt/Receipt'
+import type { Receipt } from '@/modules/receipt-analysis/domain/Receipt'
 
 export interface OcrPort {
   inspect(receipt: Receipt, signal: AbortSignal): Promise<void>

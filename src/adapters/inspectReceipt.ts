@@ -1,7 +1,7 @@
 import sharp from 'sharp'
 import { PDFDocument } from 'pdf-lib'
-import { OcrError } from '@/domain/receipt/OcrError'
-import { validateReceipt, type Receipt } from '@/domain/receipt/Receipt'
+import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
+import { validateReceipt, type Receipt } from '@/modules/receipt-analysis/domain/Receipt'
 
 /** Shared content validation, without OCR, resizing, upload or persistence. */
 export async function inspectReceipt(receipt: Receipt): Promise<void> {

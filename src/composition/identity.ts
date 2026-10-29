@@ -1,8 +1,8 @@
 import bcrypt from 'bcryptjs'
 import { PostgresAccountRegistry } from '@/adapters/PostgresAccountRegistry'
 import { PostgresInvitationRepository } from '@/adapters/PostgresInvitationRepository'
-import { InviteEmployee } from '@/application/InviteEmployee'
-import { SignUp } from '@/application/SignUp'
+import { InviteEmployee } from '@/modules/identity/application/InviteEmployee'
+import { SignUp } from '@/modules/identity/application/SignUp'
 import { hashToken } from '@/lib/tokens'
 
 const BCRYPT_COST = 12

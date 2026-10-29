@@ -191,7 +191,7 @@ const eslintConfig = defineConfig([
   {
     // `lib` y interdit déjà tout src/lib/, getPool() compris.
     name: 'expense-io/domain',
-    files: ['src/domain/**'],
+    files: ['src/domain/**', 'src/modules/*/domain/**'],
     rules: {
       'no-restricted-imports': ['error', { patterns: [DOMAIN_IMPORT] }],
     },

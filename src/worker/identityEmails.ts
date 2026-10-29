@@ -1,12 +1,12 @@
 import type { PoolClient } from 'pg'
 import { PgIdentityEmailTokens } from '@/adapters/PgIdentityEmailTokens'
-import { SendIdentityEmails, type TokenGenerator } from '@/application/SendIdentityEmails'
+import { SendIdentityEmails, type TokenGenerator } from '@/modules/identity/application/SendIdentityEmails'
 import {
   EMAIL_VERIFICATION_REQUESTED,
   INVITATION_REQUESTED,
   invitationIdOf,
   userIdOf,
-} from '@/domain/identity/identity'
+} from '@/modules/identity/domain/identity'
 import type { EmailPort } from '@/ports/EmailPort'
 import { BACKOFF_SECONDS } from '@/worker/retry'
 import type { OutboxHandlers } from '@/worker/processNextEvent'

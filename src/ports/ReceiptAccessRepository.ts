@@ -1,4 +1,4 @@
-import type { ReceiptOwner, ReceiptViewer } from '@/domain/expense/ReceiptAccess'
+import type { ReceiptOwner, ReceiptViewer } from '@/modules/expenses/domain/ReceiptAccess'
 
 // Ce qu'il faut pour décider de l'accès à un reçu : sa clé, l'auteur de la
 // note et le lecteur, tels que la base (sous RLS) les montre au lecteur.

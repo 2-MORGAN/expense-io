@@ -1,4 +1,4 @@
-import type { NoteSort } from '@/domain/expense/NoteSort'
+import type { NoteSort } from '@/modules/expenses/domain/NoteSort'
 
 // Une note telle que la base la liste, comme `DecidedExpenseNote` : la mise
 // en forme JSON (`toExpenseNoteDto`) reste dans la couche HTTP.

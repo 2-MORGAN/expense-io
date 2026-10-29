@@ -1,6 +1,6 @@
 import type { OutboxEventRecord } from './EventOutbox'
-import type { ExpenseNoteSuggestion } from '@/domain/receipt/parseReceiptText'
-import type { OcrErrorCode } from '@/domain/receipt/OcrError'
+import type { ExpenseNoteSuggestion } from '@/modules/receipt-analysis/domain/parseReceiptText'
+import type { OcrErrorCode } from '@/modules/receipt-analysis/domain/OcrError'
 
 export interface AnalysisPayload {
   version: 1; analysisId: string; userId: string; companyId: string; receiptKey: string

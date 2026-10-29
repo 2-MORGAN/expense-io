@@ -5,7 +5,7 @@ import path from 'node:path'
 import sharp from 'sharp'
 import { TesseractOcrAdapter } from './TesseractOcrAdapter'
 import { fixtureImage, pngReceipt } from '../../e2e/support/files'
-import { OcrError } from '@/domain/receipt/OcrError'
+import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
 
 let directory: string
 beforeAll(async () => { directory = await mkdtemp(path.join(os.tmpdir(), 'ocr-engine-test-')) })

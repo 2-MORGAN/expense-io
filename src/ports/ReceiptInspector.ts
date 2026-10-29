@@ -1,4 +1,4 @@
-import type { Receipt } from '@/domain/receipt/Receipt'
+import type { Receipt } from '@/modules/receipt-analysis/domain/Receipt'
 
 // Vérification du contenu d'un reçu (image décodable, PDF complet), sans OCR,
 // upload ni persistance. La couche HTTP ne dépend que de ce port ; l'adaptateur

@@ -1,9 +1,9 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
-import { OcrError } from '@/domain/receipt/OcrError'
-import type { Receipt } from '@/domain/receipt/Receipt'
+import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
+import type { Receipt } from '@/modules/receipt-analysis/domain/Receipt'
 import type { OcrPort } from '@/ports/OcrPort'
-import { MAX_RECEIPT_BYTES, MAX_IMAGE_PIXELS, MAX_IMAGE_SIDE } from '@/domain/receipt/limits'
+import { MAX_RECEIPT_BYTES, MAX_IMAGE_PIXELS, MAX_IMAGE_SIDE } from '@/modules/receipt-analysis/domain/limits'
 
 export class TesseractOcrAdapter implements OcrPort {
   constructor(private enginePath = path.join(process.cwd(), 'scripts/ocr-engine.mjs')) {}

@@ -1,8 +1,8 @@
 import { PgEventOutbox } from '@/adapters/PgEventOutbox'
-import { RECEIPT_ANALYSIS_REQUESTED } from '@/domain/receipt/analysisPayload'
+import { RECEIPT_ANALYSIS_REQUESTED } from '@/modules/receipt-analysis/domain/analysisPayload'
 import { withUserScope } from '@/lib/db'
-import { OcrError, type OcrErrorCode } from '@/domain/receipt/OcrError'
-import type { ExpenseNoteSuggestion } from '@/domain/receipt/parseReceiptText'
+import { OcrError, type OcrErrorCode } from '@/modules/receipt-analysis/domain/OcrError'
+import type { ExpenseNoteSuggestion } from '@/modules/receipt-analysis/domain/parseReceiptText'
 import type { AnalysisActor, NewReceiptAnalysis, ReceiptAnalysis, ReceiptAnalysisRepository } from '@/ports/ReceiptAnalysisRepository'
 
 interface Row {

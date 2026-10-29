@@ -1,4 +1,4 @@
-import type { Decision } from '@/domain/validation/DecideExpenseNote'
+import type { Decision } from '@/modules/expenses/domain/DecideExpenseNote'
 
 // La note tranchée telle que la base la connaît, comme `SubmittedExpenseNote` :
 // la mise en forme JSON de l'API (`toExpenseNoteDto`) reste dans la couche

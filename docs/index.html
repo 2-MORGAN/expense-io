@@ -744,8 +744,8 @@ flowchart LR
           <tbody>
             <tr><td><code>src/app/api/**/route.ts</code> et <code>src/http/</code></td><td>authentifier (<code>requireRole</code>), valider l'entrée selon le contrat, appeler un cas d'usage, formater la réponse (DTO, <code>problem+json</code>)</td><td>SQL, règle métier, appel direct à <code>lib/storage</code></td></tr>
             <tr><td><code>src/app/actions/</code>, pages</td><td>server actions (inscription, connexion, déconnexion) ; une page serveur peut appeler un cas d'usage par <code>src/composition</code></td><td>SQL, droits ; <code>src/composition</code> depuis un fichier <code>'use client'</code></td></tr>
-            <tr><td><code>src/application/</code></td><td>cas d'usage : enchaîner les étapes (<code>SubmitExpenseNote</code>, <code>DecideExpenseNote</code>, <code>ListExpenseNotes</code>, <code>GetReceiptUrl</code>, <code>SignUp</code>, <code>InviteEmployee</code>, OCR…)</td><td>toute infrastructure : seulement domaine, ports et <code>node:crypto</code></td></tr>
-            <tr><td><code>src/domain/</code></td><td>règles pures : qui peut décider, qui voit quel reçu (<code>canViewReceipt</code>), tri des listes (<code>parseNoteSort</code>), transitions, lecture d'un ticket (<code>parseReceiptText</code>), identité, notifications</td><td><code>pg</code>, <code>next</code>, <code>aws-sdk</code>, <code>auth</code>, toute autre couche</td></tr>
+            <tr><td><code>src/modules/expenses/application/</code>, <code>src/modules/identity/application/</code>, <code>src/modules/receipt-analysis/application/</code></td><td>cas d'usage par module : expenses (<code>SubmitExpenseNote</code>, <code>DecideExpenseNote</code>, <code>ListExpenseNotes</code>, <code>GetReceiptUrl</code>), identity (<code>SignUp</code>, <code>InviteEmployee</code>), receipt-analysis en support (OCR…)</td><td>toute infrastructure : seulement domaine du module, ports et <code>node:crypto</code></td></tr>
+            <tr><td><code>src/modules/expenses/domain/</code>, <code>src/modules/identity/domain/</code>, <code>src/modules/receipt-analysis/domain/</code></td><td>règles pures par module — expenses : décision (<code>decideExpenseNote</code>), accès reçu (<code>canViewReceipt</code>), tri, transitions ; identity ; support OCR : lecture ticket (<code>parseReceiptText</code>), <code>UUID</code> partagé via <code>src/utils/uuid</code></td><td><code>pg</code>, <code>next</code>, <code>aws-sdk</code>, <code>auth</code>, toute autre couche ; pas d'import entre domaines sauf expenses → identity pour les rôles</td></tr>
             <tr><td><code>src/ports/</code></td><td>interfaces : stockage, OCR, outbox, notifications, repositories</td><td>une implémentation</td></tr>
             <tr><td><code>src/adapters/</code>, <code>src/lib/</code></td><td>implémentations : PostgreSQL par <code>withUserScope()</code>, S3, SMTP, Tesseract ; session, journal, outbox</td><td>règle métier</td></tr>
             <tr><td><code>src/composition/</code></td><td>assemble cas d'usage et adaptateurs, une fois par processus</td><td>logique propre</td></tr>
@@ -755,7 +755,8 @@ flowchart LR
         </table>
       </div>
 
-      <h3 id="ports">Ports et adaptateurs<a class="anchor" href="#ports" aria-label="Lien vers cette section">#</a></h3>
+      <h3 id="ports">Ports et adaptateurs (partagés, étape 1)<a class="anchor" href="#ports" aria-label="Lien vers cette section">#</a></h3>
+      <p>Étape 1 du monolithe modulaire : les modules ont leur domaine et leurs cas d'usage propres, mais partagent encore <code>src/ports</code> et <code>src/adapters</code>. La découpe en <code>modules/*/ports</code> est le suivi, pas cette PR — ne pas présenter les modules comme des hexagones isolés.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Port (<code>src/ports</code>)</th><th>Adaptateur (<code>src/adapters</code>)</th><th>Utilisé par</th></tr></thead>
@@ -800,9 +801,13 @@ flowchart TB
   m_proxy["proxy"]
   m_types["types"]
   m_worker["worker"]
-  m_application["application"]
-  m_domain["domain"]
   m_generated["generated"]
+  m_modules_2f_expenses_2f_application["modules/expenses/application"]
+  m_modules_2f_expenses_2f_domain["modules/expenses/domain"]
+  m_modules_2f_identity_2f_application["modules/identity/application"]
+  m_modules_2f_identity_2f_domain["modules/identity/domain"]
+  m_modules_2f_receipt_2d_analysis_2f_application["modules/receipt-analysis/application"]
+  m_modules_2f_receipt_2d_analysis_2f_domain["modules/receipt-analysis/domain"]
   m_ports["ports"]
   m_utils["utils"]
   m_adapters["adapters"]
@@ -833,9 +838,11 @@ flowchart TB
   m_adapters --&gt; p_nodemailer
   m_adapters --&gt; p_pg
   m_adapters --&gt; p_sharp
-  m_adapters --&gt; m_domain
   m_adapters --&gt; m_lib_2f_db
   m_adapters --&gt; m_lib_2f_storage
+  m_adapters --&gt; m_modules_2f_expenses_2f_domain
+  m_adapters --&gt; m_modules_2f_identity_2f_domain
+  m_adapters --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
   m_adapters --&gt; m_ports
   m_app --&gt; p_next
   m_app --&gt; p_react
@@ -846,38 +853,37 @@ flowchart TB
   m_app --&gt; m_lib_2f_auth
   m_app_2f_actions --&gt; p_next
   m_app_2f_actions --&gt; p_next_2d_auth
-  m_app_2f_actions --&gt; m_application
   m_app_2f_actions --&gt; m_composition
   m_app_2f_actions --&gt; m_lib_2f_auth
   m_app_2f_actions --&gt; m_lib_2f_authErrors
+  m_app_2f_actions --&gt; m_modules_2f_identity_2f_application
   m_app_2f_api --&gt; p_next
-  m_app_2f_api --&gt; m_application
   m_app_2f_api --&gt; m_composition
-  m_app_2f_api --&gt; m_domain
   m_app_2f_api --&gt; m_http
   m_app_2f_api --&gt; m_lib_2f_auth
+  m_app_2f_api --&gt; m_modules_2f_expenses_2f_application
+  m_app_2f_api --&gt; m_modules_2f_identity_2f_domain
   m_app_2f_verify_2d_email --&gt; p_next
   m_app_2f_verify_2d_email --&gt; m_composition
-  m_application --&gt; p_node_3a_crypto
-  m_application --&gt; m_domain
-  m_application --&gt; m_ports
   m_components --&gt; p_next
   m_components --&gt; p_react
   m_components --&gt; m_app_2f_actions
   m_components --&gt; m_http
   m_components --&gt; m_types
   m_composition --&gt; m_adapters
-  m_composition --&gt; m_application
   m_composition --&gt; m_lib_2f_tokens
+  m_composition --&gt; m_modules_2f_expenses_2f_application
+  m_composition --&gt; m_modules_2f_identity_2f_application
+  m_composition --&gt; m_modules_2f_receipt_2d_analysis_2f_application
   m_composition --&gt; m_ports
-  m_domain --&gt; m_generated
-  m_domain --&gt; m_ports
   m_http --&gt; p_next_2d_auth
   m_http --&gt; m_composition
-  m_http --&gt; m_domain
   m_http --&gt; m_generated
   m_http --&gt; m_lib_2f_auth
   m_http --&gt; m_lib_2f_log
+  m_http --&gt; m_modules_2f_expenses_2f_domain
+  m_http --&gt; m_modules_2f_identity_2f_domain
+  m_http --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
   m_http --&gt; m_ports
   m_http --&gt; m_types
   m_instrumentation --&gt; p_next
@@ -906,22 +912,36 @@ flowchart TB
   m_lib_2f_outbox --&gt; m_lib_2f_db
   m_lib_2f_outbox --&gt; m_ports
   m_lib_2f_sessionUser --&gt; p_react
-  m_lib_2f_sessionUser --&gt; m_domain
   m_lib_2f_sessionUser --&gt; m_lib_2f_db
+  m_lib_2f_sessionUser --&gt; m_modules_2f_identity_2f_domain
   m_lib_2f_storage --&gt; p__40_aws_2d_sdk
-  m_lib_2f_storage --&gt; m_domain
+  m_lib_2f_storage --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
   m_lib_2f_telemetry --&gt; p__40_opentelemetry
   m_lib_2f_telemetry --&gt; m_lib_2f_log
   m_lib_2f_telemetry --&gt; m_lib_2f_outbox
-  m_ports --&gt; m_domain
+  m_modules_2f_expenses_2f_application --&gt; p_node_3a_crypto
+  m_modules_2f_expenses_2f_application --&gt; m_modules_2f_expenses_2f_domain
+  m_modules_2f_expenses_2f_application --&gt; m_ports
+  m_modules_2f_expenses_2f_domain --&gt; m_modules_2f_identity_2f_domain
+  m_modules_2f_identity_2f_application --&gt; m_modules_2f_identity_2f_domain
+  m_modules_2f_identity_2f_application --&gt; m_ports
+  m_modules_2f_identity_2f_domain --&gt; m_ports
+  m_modules_2f_identity_2f_domain --&gt; m_utils
+  m_modules_2f_receipt_2d_analysis_2f_application --&gt; p_node_3a_crypto
+  m_modules_2f_receipt_2d_analysis_2f_application --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
+  m_modules_2f_receipt_2d_analysis_2f_application --&gt; m_ports
+  m_modules_2f_receipt_2d_analysis_2f_domain --&gt; m_generated
+  m_modules_2f_receipt_2d_analysis_2f_domain --&gt; m_ports
+  m_modules_2f_receipt_2d_analysis_2f_domain --&gt; m_utils
+  m_ports --&gt; m_modules_2f_expenses_2f_domain
+  m_ports --&gt; m_modules_2f_identity_2f_domain
+  m_ports --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
   m_proxy --&gt; p_next
   m_proxy --&gt; m_lib_2f_auth
   m_types --&gt; p_next_2d_auth
   m_worker --&gt; p_pg
   m_worker --&gt; m_adapters
-  m_worker --&gt; m_application
   m_worker --&gt; m_composition
-  m_worker --&gt; m_domain
   m_worker --&gt; m_lib_2f_db
   m_worker --&gt; m_lib_2f_dbRole
   m_worker --&gt; m_lib_2f_email
@@ -929,11 +949,16 @@ flowchart TB
   m_worker --&gt; m_lib_2f_outbox
   m_worker --&gt; m_lib_2f_telemetry
   m_worker --&gt; m_lib_2f_tokens
+  m_worker --&gt; m_modules_2f_expenses_2f_domain
+  m_worker --&gt; m_modules_2f_identity_2f_application
+  m_worker --&gt; m_modules_2f_identity_2f_domain
+  m_worker --&gt; m_modules_2f_receipt_2d_analysis_2f_application
+  m_worker --&gt; m_modules_2f_receipt_2d_analysis_2f_domain
   m_worker --&gt; m_ports
   classDef entrees fill:#dbeafe,stroke:#2563eb,color:#111827
   class m_app,m_app_2f_actions,m_app_2f_api,m_app_2f_verify_2d_email,m_components,m_http,m_instrumentation,m_proxy,m_types,m_worker entrees
   classDef coeur fill:#dcfce7,stroke:#16a34a,color:#111827
-  class m_application,m_domain,m_generated,m_ports,m_utils coeur
+  class m_generated,m_modules_2f_expenses_2f_application,m_modules_2f_expenses_2f_domain,m_modules_2f_identity_2f_application,m_modules_2f_identity_2f_domain,m_modules_2f_receipt_2d_analysis_2f_application,m_modules_2f_receipt_2d_analysis_2f_domain,m_ports,m_utils coeur
   classDef infra fill:#fef9c3,stroke:#a16207,color:#111827
   class m_adapters,m_composition,m_lib_2f_auth,m_lib_2f_authErrors,m_lib_2f_authSecret,m_lib_2f_db,m_lib_2f_dbRole,m_lib_2f_email,m_lib_2f_errors,m_lib_2f_log,m_lib_2f_loginThrottle,m_lib_2f_outbox,m_lib_2f_sessionUser,m_lib_2f_storage,m_lib_2f_telemetry,m_lib_2f_tokens infra
   classDef paquet fill:#f3f4f6,stroke:#6b7280,color:#111827
@@ -1876,7 +1901,7 @@ flowchart TB
           <h4>Décide</h4>
           <ul>
             <li>Monolithe modulaire hexagonal léger : route fine, cas d'usage, domaine pur, ports, adaptateurs.</li>
-            <li>Trois domaines cœurs (identité et tenancy, note de frais, validation) ; OCR et future facturation derrière des ports.</li>
+            <li>Deux domaines cœurs (identité et tenancy ; note de frais avec sa décision, ses listes et l'accès au reçu) ; OCR en prestataire derrière des ports, future facturation idem.</li>
             <li>La matrice « où va quoi » (§3.3) ; une page serveur peut appeler la composition (amendement du 27/10).</li>
             <li>B8 : décision atomique, 409 à la seconde ; B16 : <code>decided_by</code> et <code>decided_at</code>.</li>
           </ul>

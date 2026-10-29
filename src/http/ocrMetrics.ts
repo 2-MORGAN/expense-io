@@ -1,4 +1,4 @@
-import { OcrError } from '@/domain/receipt/OcrError'
+import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
 import { log } from '@/lib/log'
 import { problemCatalogue } from './problem'
 import { requestContext } from './requestContext'

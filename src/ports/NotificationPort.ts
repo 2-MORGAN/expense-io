@@ -1,5 +1,5 @@
-import type { NoteDecision } from '@/domain/Notification'
-import type { UserRole } from '@/domain/User'
+import type { NoteDecision } from '@/modules/expenses/domain/Notification'
+import type { UserRole } from '@/modules/identity/domain/User'
 
 export interface Recipient {
   id: string

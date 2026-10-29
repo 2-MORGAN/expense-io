@@ -5,8 +5,8 @@ import {
   expenseNoteDecided,
   expenseNoteSubmitted,
   type NoteDecision,
-} from '@/domain/Notification'
-import type { UserRole } from '@/domain/User'
+} from '@/modules/expenses/domain/Notification'
+import type { UserRole } from '@/modules/identity/domain/User'
 import type { Recipient } from '@/ports/NotificationPort'
 
 type NoteRef = { id: string; description: string; userId: string }

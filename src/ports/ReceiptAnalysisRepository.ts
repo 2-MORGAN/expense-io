@@ -1,5 +1,5 @@
-import type { ExpenseNoteSuggestion } from '@/domain/receipt/parseReceiptText'
-import type { OcrErrorCode } from '@/domain/receipt/OcrError'
+import type { ExpenseNoteSuggestion } from '@/modules/receipt-analysis/domain/parseReceiptText'
+import type { OcrErrorCode } from '@/modules/receipt-analysis/domain/OcrError'
 
 export interface AnalysisActor { userId: string; companyId: string }
 export interface ReceiptAnalysis {

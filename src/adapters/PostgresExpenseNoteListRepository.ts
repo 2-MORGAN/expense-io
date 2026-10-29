@@ -1,5 +1,5 @@
 import { withUserScope } from '@/lib/db'
-import type { NoteSort } from '@/domain/expense/NoteSort'
+import type { NoteSort } from '@/modules/expenses/domain/NoteSort'
 import type { ExpenseNoteListRepository, ListedExpenseNote } from '@/ports/ExpenseNoteListRepository'
 
 // ORDER BY n'accepte pas de paramètre positionnel pour un nom de colonne :

@@ -1,10 +1,10 @@
 import { beforeEach, expect, it, vi } from 'vitest'
-import { OcrError } from '@/domain/receipt/OcrError'
+import { OcrError } from '@/modules/receipt-analysis/domain/OcrError'
 import { pngReceipt } from '../../e2e/support/files'
 
 vi.mock('@/lib/auth', () => ({ auth: vi.fn(async () => ({ user: { id: 'test-user' } })) }))
 vi.mock('@/composition/ocr', async () => {
-  const { OcrCapacity } = await import('@/application/OcrCapacity')
+  const { OcrCapacity } = await import('@/modules/receipt-analysis/application/OcrCapacity')
   return { ocrCapacity: new OcrCapacity(), ocrRequests: { suggest: vi.fn() } }
 })
 import { ocrRequests } from '@/composition/ocr'

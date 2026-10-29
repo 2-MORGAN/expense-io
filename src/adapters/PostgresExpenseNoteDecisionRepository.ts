@@ -1,6 +1,6 @@
 import { enqueueDecided } from '@/adapters/PgNotificationEvents'
 import { withUserScope } from '@/lib/db'
-import { ExpenseNote } from '@/domain/ExpenseNote'
+import { ExpenseNote } from '@/modules/expenses/domain/ExpenseNote'
 import {
   ExpenseNoteAlreadyDecided,
   ExpenseNoteNotVisible,
@@ -8,7 +8,7 @@ import {
   type Decision,
   type DecisionActor,
   type NoteSubmitter,
-} from '@/domain/validation/DecideExpenseNote'
+} from '@/modules/expenses/domain/DecideExpenseNote'
 import type {
   DecidedExpenseNote,
   ExpenseNoteDecisionRepository,

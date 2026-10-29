@@ -1,4 +1,4 @@
-import type { NoteDecision } from '@/domain/Notification'
+import type { NoteDecision } from '@/modules/expenses/domain/Notification'
 import type { NotificationPort, Recipient } from '@/ports/NotificationPort'
 
 // Identifiants seulement : jamais d'adresse email dans les logs (ADR-005 §5).

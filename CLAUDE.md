@@ -77,34 +77,35 @@ src/
 │   ├── actions/auth.ts      # server actions signup/login/logout
 │   └── {expenses,manager,hr,login,signup}/page.tsx
 ├── components/              # composants React (AdminConsole, PendingApprovalsPanel, NavItem)
-├── application/             # cas d'usage : soumission, décision, listes, URL de reçu, identité, OCR
+├── modules/                 # monolithe modulaire, étape 1 : ports/adapters partagés
+│   ├── expenses/domain/     # ExpenseNote, décision, accès reçu, tri, notifications
+│   ├── expenses/application/ # soumission, décision, listes, URL de reçu
+│   ├── identity/domain/     # User, identité, invitations
+│   ├── identity/application/ # signup, invitation, emails d'identité
+│   ├── receipt-analysis/domain/ # OCR support : OcrError, Receipt, parseReceiptText, UUID via utils
+│   └── receipt-analysis/application/ # analyses, suggestion, capacité, requêtes OCR
 ├── composition/             # branchement des cas d'usage sur leurs adaptateurs
-├── http/                    # transport et problèmes HTTP du module OCR
+├── http/                    # transport et problèmes HTTP (traduit les erreurs domaine en problem+json)
 ├── lib/                     # auth.ts, db.ts, storage.ts, errors.ts, outbox.ts, email.ts, log.ts (journal JSON), telemetry/ (OpenTelemetry, ADR-007)
-├── domain/                  # règles pures : expense/ (tri, accès au reçu), validation/ (décision), identity/, receipt/ (OCR), ExpenseNote.ts, User.ts
-├── ports/                   # stockage, OCR, analyses, exécution et outbox
-├── adapters/                # S3, Tesseract isolé, SMTP, notifications et persistance PostgreSQL
-├── utils/                   # validators.ts, format.ts
+├── ports/                   # partagés étape 1 : stockage, OCR, analyses, exécution et outbox
+├── adapters/                # partagés étape 1 : S3, Tesseract isolé, SMTP, notifications et persistance PostgreSQL
+├── utils/                   # validators.ts, format.ts, uuid.ts (noyau partagé : UUID)
 ├── worker/                  # processus de l'outbox : main.ts, handlers.ts (registre), processNextEvent.ts, outboxStats.ts (métriques)
 ├── instrumentation.ts       # au démarrage : observabilité si activée, contrôles du secret et du rôle de base ; erreurs captées par Next.js (onRequestError)
 └── proxy.ts                 # garde de navigation (ne couvre PAS /api)
-migrations/                  # SQL versionné — seule source de vérité du schéma
-observability/               # pile Grafana optionnelle (docker-compose.observability.yml) : tableau de bord, alertes
-scripts/                     # seed.mjs, ensure-bucket.mjs, architecture/ (graphes de docs/architecture, page docs/index.html), check-api-breaking.sh (oasdiff)
-ops/cron/                    # tâches planifiées à installer sur l'hôte (réconciliation des reçus)
 ```
 
 Règles de placement pour tout **nouveau** code :
 
-- **Règle métier** (statuts, qui peut valider quoi, calculs) → `src/domain/`. Pas d'import de `pg`, `next`, `aws-sdk`, `auth`. Testable sans infrastructure.
-- **Dépendance externe** (S3, notifications, OCR, queue) → interface dans `src/ports/`, implémentation dans `src/adapters/`. Le domaine et les cas d'usage ne dépendent que du port.
+- **Règle métier** (statuts, qui peut valider quoi, calculs) → `src/modules/<contexte>/domain/` (`expenses`, `identity`, `receipt-analysis` en support). Pas d'import de `pg`, `next`, `aws-sdk`, `auth`. Testable sans infrastructure. Seul lien autorisé entre domaines : `expenses` → `identity` pour les rôles ; le reste passe par les ports ou `src/utils/uuid.ts`.
+- **Dépendance externe** (S3, notifications, OCR, queue) → interface dans `src/ports/`, implémentation dans `src/adapters/` (partagés, étape 1 assumée : la découpe en `modules/*/ports` est le suivi, pas cette PR). Le domaine et les cas d'usage ne dépendent que du port.
 - **Route handler** (`route.ts`) → fine couche HTTP : authentifier, valider l'entrée, appeler le domaine/cas d'usage, formater la réponse. **Pas de SQL ni de règle métier dans un route handler.**
 - **Traitement asynchrone** (email, OCR…) → un type d'événement dans l'outbox et un handler déclaré dans `src/worker/handlers.ts` ; le worker (`npm run worker`) ne traite que les types déclarés. Traitement court : `handle(event, client)`, dans la transaction de l'événement ; traitement long (OCR, IA) : `run(event, signal)`, hors transaction, idempotent (exemple : `src/worker/receiptAnalysis.ts`).
 - **Accès base** → via `withUserScope()` de `src/lib/db.ts`, jamais `getPool().query` direct pour des données tenant.
 - **Schéma** → nouvelle migration dans `migrations/` (horodatée, jamais d'édition d'une migration existante), avec `down`.
 - **UI** → `src/components/` ; les pages restent minces.
 - **Métrique, trace** → `src/lib/telemetry/`, avec l'API `@opentelemetry/api` seule (sans effet tant que la télémétrie est désactivée). Étiquettes à peu de valeurs, jamais d'identifiant d'entreprise ou d'utilisateur, ni d'URL réelle (`docs/observability.md`).
-- Réutiliser avant de créer : chaque route passe déjà par un cas d'usage de `src/application/`, branché dans `src/composition/` (ADR-006). Les utilitaires de `src/utils/` restent inutilisés (voir dette).
+- Réutiliser avant de créer : chaque route passe déjà par un cas d'usage de `src/modules/*/application/`, branché dans `src/composition/` (ADR-006). Les utilitaires de `src/utils/` restent inutilisés (voir dette), sauf `uuid.ts` (noyau partagé).
 
 `npm run lint` fait respecter une partie de ces règles (`eslint.config.mjs`, ADR-005 T6) : domaine sans infrastructure ; ni SQL ni accès base dans `src/app/` et `src/components/` ; `getPool()` réservé à `src/lib/db.ts` ; pas de SQL interpolé ; pas de test `.only`, `.skip`, `.fixme` ou `.fail`. Le code existant qui enfreint une règle est listé en exception (listes `LEGACY_*`). Ces listes ne font que raccourcir : retirer un fichier dès qu'il est conforme, **ne jamais en ajouter un** pour faire passer le lint.
 

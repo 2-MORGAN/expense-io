@@ -1,10 +1,9 @@
 import { expect, it } from 'vitest'
-import { ReceiptNotVisible } from '@/domain/expense/ReceiptAccess'
-import { ExpenseNoteNotVisible } from '@/domain/validation/DecideExpenseNote'
+import { ReceiptNotVisible } from '@/modules/expenses/domain/ReceiptAccess'
+import { ExpenseNoteNotVisible } from '@/modules/expenses/domain/DecideExpenseNote'
 import { respondError } from './errors'
 
-// Reçu hors périmètre (domaine Expense) et note non visible (domaine
-// Validation) : même 404 public, au mot près (RECU-05, ISO-04, ISO-05).
+// Reçu hors périmètre et note non visible (domaine Expense) : même 404 public, au mot près (RECU-05, ISO-04, ISO-05).
 it.each([
   ['ReceiptNotVisible', new ReceiptNotVisible()],
   ['ExpenseNoteNotVisible', new ExpenseNoteNotVisible()],

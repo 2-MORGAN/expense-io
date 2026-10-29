@@ -4,7 +4,7 @@ import {
   EXPENSE_NOTE_SUBMITTED,
   isDecidedPayload,
   isSubmittedPayload,
-} from '@/domain/Notification'
+} from '@/modules/expenses/domain/Notification'
 import { findCompanyRecipients } from '@/adapters/PgNotificationEvents'
 import type { OutboxEvent } from '@/lib/outbox'
 import type { NotificationPort, Recipient } from '@/ports/NotificationPort'
