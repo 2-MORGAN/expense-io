@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Statut | **Acceptée** le 28 octobre 2026 par le PO (Florent), fusion avant le gel. Proposée le 28 octobre |
+| Statut | **Acceptée** le 28 octobre 2026 par le PO (Florent), fusion avant le gel. Proposée le 28 octobre. **Amendement du 29 octobre accepté** le 29 octobre par le PO (heatmap et replays sans texte, voir en fin de document) |
 | Date | 28 octobre 2026 |
 | Auteur | Stanislas Beguin (WS5) |
 | Validateur | Florent (PO) |
@@ -153,3 +153,75 @@ script, et les tests E2E existants passent sans modification.
   chaîne de requête retirée par `data-before-send`.
 - Démarrage, scénario de démonstration et lecture des rapports :
   `docs/analytics.md`.
+
+## Amendement du 29 octobre 2026 : heatmap et replays (accepté)
+
+Proposé par Stanislas Beguin (WS5), accepté le 29 octobre 2026 par le PO (Florent). Les sections
+ci-dessus restent la référence ; cet amendement les complète, et revient sur
+la remarque de l'option E (enregistrement des sessions « à proscrire ») pour
+des replays sans aucun texte (point 4).
+
+**Questions.**
+
+| Question | Mesure | Décision possible |
+|---|---|---|
+| Où cliquent les salariés, managers et RH sur leurs pages de travail, et jusqu'où font-ils défiler ? | heatmap des clics et du défilement de `/expenses`, `/manager` et `/hr`, filtrable par appareil | réorganiser le formulaire de note et les listes |
+| Où hésitent-ils ou se trompent-ils sur ces pages ? | replays de ces pages, texte masqué | simplifier les étapes où l'on revient en arrière |
+
+**Constat.** Umami 3.4 mesure clics et défilement avec un second script,
+`recorder.js`, le même que pour les replays (enregistrement de sessions). Ce
+script ne passe pas par `data-before-send` et envoie l'URL complète de la page,
+chaîne de requête comprise. Une fois chargé, il reste actif jusqu'au prochain
+chargement de page, navigations côté client comprises. Umami n'en garde que le
+chemin, mais l'URL complète quitte le navigateur : un jeton d'invitation
+(`/signup?invitation=…`) partirait avec elle.
+
+**Décision.**
+
+1. **Activation.** `UMAMI_HEATMAP=true`, en plus des deux variables du §1 ;
+   sinon aucune page ne charge `recorder.js` (environ 190 Ko). Côté Umami,
+   heatmap et replays s'activent dans les réglages du site ;
+   `npm run analytics:setup` le fait en local, avec 100 % des sessions.
+2. **Pages.** `recorder.js` n'est chargé que sur `HEATMAP_PATHS`
+   (`/expenses`, `/manager`, `/hr`), liste fermée de
+   `src/components/analytics.ts` : des pages de travail, sans jeton dans leur
+   adresse. Les quitter par une navigation côté client recharge la page, ce
+   qui arrête le script avant toute autre page.
+3. **Données de la heatmap.** Position du clic, tailles de la page et de la
+   fenêtre, défilement atteint, URL de la page. Ni texte, ni élément cliqué.
+4. **Replays, sans aucun texte.** Un replay rejoue la page (structure,
+   souris, clics, défilement, saisies) : par défaut il capterait le texte,
+   montants et noms compris, ce qui faisait écarter l'enregistrement des
+   sessions. Ici, le `<body>` porte la classe `rr-mask`, que `recorder.js`
+   respecte quel que soit le réglage d'Umami : tout texte devient des `*`.
+   `npm run analytics:setup` règle en plus le masquage sur « strict ». Les
+   champs saisis sont toujours masqués par le script, et les reçus s'ouvrent
+   dans un autre onglet : aucune URL pré-signée dans la page. Restent lisibles
+   les textes d'exemple des champs (`placeholder`), fixes.
+5. **Rapports.** `npm run analytics:setup` crée aussi les rapports des
+   questions, pour qu'ils ne dépendent pas d'une saisie à la main : entonnoirs
+   « Note commencée → envoyée » (deuxième question, dans l'heure) et
+   « Inscription → invitation » (troisième, sur 24 h), objectifs « Note
+   envoyée » et « Invitation envoyée ». `npm run analytics:demo -- --execute`
+   les remplit avec des parcours joués dans l'application locale, un
+   navigateur par personne, pour une démonstration : les données d'Umami
+   restent sur chaque poste.
+
+**Conséquences.** Avec `UMAMI_HEATMAP=true`, environ 190 Ko de script en plus
+sur les trois pages, et un rechargement de la page suivante quand on les
+quitte par un lien ou la déconnexion. Sans elle, rien ne change, et la classe
+`rr-mask` n'a aucun effet visible. Un replay dit où l'on clique ou hésite, pas
+sur quelle note. En production, l'échantillon de sessions (15 % par défaut
+dans Umami) est à fixer avec la durée de conservation, et l'information des
+utilisateurs doit citer les replays.
+
+**Comportement observable.** Aucun changement par défaut : sans
+`UMAMI_HEATMAP=true`, aucune page ne charge `recorder.js`, et les tests E2E
+existants passent sans modification.
+
+**Vérification.** Vitest : `recordsHeatmap` et `umamiScriptConfig`
+(`recorderSrc`). E2E `USAGE-02` (nouveau) : jamais de `recorder.js` sur
+`/signup?invitation=…` ; avec la heatmap, présent sur `/expenses` et retiré
+après la déconnexion. E2E `USAGE-03` (nouveau) : `rr-mask` sur chaque page.
+Contrôle à la main le 29/10 : un replay d'une saisie de note ne contenait ni
+l'email du compte, ni le texte de la page, ni les valeurs saisies.

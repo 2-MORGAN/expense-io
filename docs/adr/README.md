@@ -13,7 +13,7 @@ Nouvelle décision : copier le [modèle](ADR-000-modele.md) en `ADR-NNN-titre-co
 | [ADR-005](ADR-005-harnais-de-validation.md) | Harnais de validation : tests, CI et garde-fous | Acceptée (points ouverts listés) | Stanislas Beguin | 20/10/2026 |
 | [ADR-006](ADR-006-strategie-de-migration.md) | Stratégie de migration du code legacy (Strangler Fig, Branch by Abstraction) | Acceptée le 28/10 | Amalraj Soupramanien | 27/10/2026 |
 | [ADR-007](ADR-007-observabilite.md) | Observabilité : OpenTelemetry et Grafana | Acceptée le 28/10 (optionnelle, désactivée par défaut ; amende l'ADR-005 §5) | Stanislas Beguin | 27/10/2026 |
-| [ADR-008](ADR-008-mesure-usage-umami.md) | Mesure d'usage du produit : Umami | Acceptée le 28/10 (optionnelle, désactivée par défaut) | Stanislas Beguin | 28/10/2026 |
+| [ADR-008](ADR-008-mesure-usage-umami.md) | Mesure d'usage du produit : Umami | Acceptée le 28/10 (optionnelle, désactivée par défaut) ; amendement du 29/10 accepté : heatmap et replays sans texte | Stanislas Beguin | 28/10/2026 |
 | [ADR-009](ADR-009-couche-integration.md) | Couche d'intégration : Vitest contre PostgreSQL, S3 et SMTP, et tests de composants | Proposée (amende l'ADR-005 §1) | Stanislas Beguin | 29/10/2026 |
 
 Décisions transverses du PO (20/10/2026) :

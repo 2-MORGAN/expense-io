@@ -41,7 +41,7 @@ Next.js 16 (App Router, route handlers) · React 19 · TypeScript strict · Tail
 | Build prod | `npm run build` |
 | Reset des données locales | `make clean` |
 | Observabilité, optionnelle (Grafana : traces, métriques, journaux) | `make observability` → http://localhost:3001, puis `OTEL_EXPORTER_OTLP_ENDPOINT` dans `.env` ; voir `docs/observability.md` |
-| Mesure d'usage, optionnelle (Umami : pages vues, événements) | `make analytics` → http://localhost:3002, puis `UMAMI_SCRIPT_URL` et `UMAMI_WEBSITE_ID` dans `.env` ; voir `docs/analytics.md` |
+| Mesure d'usage, optionnelle (Umami : pages vues, événements, heatmap, replays) | `make analytics` → http://localhost:3002, puis `UMAMI_SCRIPT_URL` et `UMAMI_WEBSITE_ID` dans `.env`, et `UMAMI_HEATMAP=true` pour la heatmap et les replays ; données de démonstration : `npm run analytics:demo -- --execute` ; voir `docs/analytics.md` |
 
 Postgres : port **5433**. LocalStack : port **4567**. Mailpit : SMTP **1025**, interface **http://localhost:8025** (tous les emails de dev y arrivent, aucun ne sort). Comptes de démo (seed) : `hr@expense.io` / `hr1234`, `manager@expense.io` / `manager1234`, `demo@expense.io` / `demo1234`.
 
@@ -109,7 +109,7 @@ Règles de placement pour tout **nouveau** code :
 - **UI** → `src/components/` ; les pages restent minces.
 - **Test** → règle pure : `*.test.ts` à côté ; composant : `*.test.tsx` à côté ; base, S3, SMTP : `*.integration.test.ts` (tableau « Où mettre un test » de `integration/AGENTS.md`) ; parcours utilisateur : `e2e/`.
 - **Métrique, trace** → `src/lib/telemetry/`, avec l'API `@opentelemetry/api` seule (sans effet tant que la télémétrie est désactivée). Étiquettes à peu de valeurs, jamais d'identifiant d'entreprise ou d'utilisateur, ni d'URL réelle (`docs/observability.md`).
-- **Événement d'usage** (ce que fait l'utilisateur dans le navigateur) → déclaré dans `ANALYTICS_EVENTS` (`src/components/analytics.ts`), envoyé par `trackEvent()` après la réponse réussie ; propriétés à valeurs fixes, jamais d'email, d'identifiant ni de montant. Chaque événement répond à une question de l'ADR-008 (`docs/analytics.md`). Ce qui se lit côté serveur relève de la télémétrie, pas d'Umami.
+- **Événement d'usage** (ce que fait l'utilisateur dans le navigateur) → déclaré dans `ANALYTICS_EVENTS` (`src/components/analytics.ts`), envoyé par `trackEvent()` après la réponse réussie ; propriétés à valeurs fixes, jamais d'email, d'identifiant ni de montant. Chaque événement répond à une question de l'ADR-008 (`docs/analytics.md`). Une page n'entre dans `HEATMAP_PATHS` (heatmap, replays) que si son adresse ne porte jamais de jeton : `recorder.js` envoie l'URL complète. Ne pas retirer `rr-mask` du `<body>` (`src/app/layout.tsx`) : c'est ce qui garde les replays sans texte (USAGE-03). Ce qui se lit côté serveur relève de la télémétrie, pas d'Umami.
 - Réutiliser avant de créer : chaque route passe déjà par un cas d'usage de `src/application/`, branché dans `src/composition/` (ADR-006). Les utilitaires de `src/utils/` restent inutilisés (voir dette).
 
 `npm run lint` fait respecter une partie de ces règles (`eslint.config.mjs`, ADR-005 T6) : domaine sans infrastructure ; ni SQL ni accès base dans `src/app/` et `src/components/` ; `getPool()` réservé à `src/lib/db.ts` ; pas de SQL interpolé ; pas de test `.only`, `.skip`, `.fixme` ou `.fail`. Le code existant qui enfreint une règle est listé en exception (listes `LEGACY_*`). Ces listes ne font que raccourcir : retirer un fichier dès qu'il est conforme, **ne jamais en ajouter un** pour faire passer le lint.
