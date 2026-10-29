@@ -3,8 +3,8 @@ flowchart LR
   %% À tenir à jour avec CLAUDE.md (« Où placer le code »).
 
   q{"Que dois-tu<br/>ajouter ?"}
-  domain["src/domain/<br/>règle pure, testée par Vitest à côté"]
-  usecase["src/application/<br/>cas d'usage, ne voit que des ports"]
+  domain["src/modules/&lt;module&gt;/domain/<br/>règle pure, testée par Vitest à côté"]
+  usecase["src/modules/&lt;module&gt;/application/<br/>cas d'usage, ne voit que des ports<br/>et le domaine de son module"]
   port["port dans src/ports/<br/>adaptateur dans src/adapters/<br/>assemblage dans src/composition/"]
   route["openapi.yaml d'abord, npm run generate:api<br/>puis route.ts fine"]
   event["type d'événement de l'outbox<br/>+ handler déclaré dans src/worker/handlers.ts"]

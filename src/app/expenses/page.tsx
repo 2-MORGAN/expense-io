@@ -4,6 +4,7 @@ import { responseErrorMessage, ApiResponseError } from '@/components/apiError'
 
 import type { ExpenseNote } from '@/http/dto'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { ocrSuggestionOutcome, trackEvent, type ReceiptFields } from '@/components/analytics'
 import { analyzeReceipt } from '@/components/receiptAnalysisClient'
 
 const inputClass =
@@ -50,8 +51,18 @@ export default function ExpensesPage() {
   const [description, setDescription] = useState('')
   const receiptInputRef = useRef<HTMLInputElement>(null)
   const analysisController = useRef<AbortController | null>(null)
+  // Mesure d'usage (ADR-008) : une note commencée par formulaire, et les champs
+  // remplis par la suggestion OCR, comparés à ceux envoyés.
+  const noteStarted = useRef(false)
+  const suggestedFields = useRef<Partial<ReceiptFields>>({})
 
   useEffect(() => () => analysisController.current?.abort(), [])
+
+  function markNoteStarted() {
+    if (noteStarted.current) return
+    noteStarted.current = true
+    trackEvent({ name: 'expense-note-started' })
+  }
 
   const loadNotes = useCallback(async () => {
     const response = await fetch('/api/expense-notes')
@@ -78,6 +89,7 @@ export default function ExpensesPage() {
     setError(null)
     const form = event.currentTarget
     const formData = new FormData(form)
+    const submitted: ReceiptFields = { amount, expenseDate, description }
 
     // Même clé à chaque nouvel essai après une erreur, nouvelle clé après un
     // succès (ADR-003 §4) : un renvoi ne crée jamais de doublon.
@@ -96,6 +108,12 @@ export default function ExpensesPage() {
     setSubmitting(false)
 
     if (response.ok) {
+      trackEvent({
+        name: 'expense-note-submitted',
+        data: { ocr: ocrSuggestionOutcome(suggestedFields.current, submitted) },
+      })
+      noteStarted.current = false
+      suggestedFields.current = {}
       idempotencyKey.current = null
       form.reset()
       setAmount('')
@@ -126,18 +144,24 @@ export default function ExpensesPage() {
       const suggestion = await analyzeReceipt(receipt, signal)
       const foundAmount = typeof suggestion.amount === 'number'
       const foundDate = typeof suggestion.expenseDate === 'string'
+      const suggested: Partial<ReceiptFields> = {}
       if (foundAmount) {
         setAmount(String(suggestion.amount))
+        suggested.amount = String(suggestion.amount)
       }
       if (foundDate) {
         setExpenseDate(suggestion.expenseDate as string)
+        suggested.expenseDate = suggestion.expenseDate as string
       }
       // Proposée seulement si le champ est vide : on n'écrase jamais une saisie.
       // Les messages ne portent que sur le montant et la date (comportement figé).
       const suggestedDescription = suggestion.description
       if (typeof suggestedDescription === 'string') {
         setDescription((current) => (current.trim() === '' ? suggestedDescription : current))
+        // Champ vide au clic : une saisie faite pendant l'analyse compte comme une correction.
+        if (description.trim() === '') suggested.description = suggestedDescription
       }
+      suggestedFields.current = suggested
       if (!foundAmount && !foundDate) {
         setSuggestionNotice('Aucune information reconnue sur ce reçu — saisis les champs manuellement.')
       } else if (!foundAmount || !foundDate) {
@@ -191,7 +215,10 @@ export default function ExpensesPage() {
                 min="0.01"
                 required
                 value={amount}
-                onChange={(event) => setAmount(event.target.value)}
+                onChange={(event) => {
+                  setAmount(event.target.value)
+                  markNoteStarted()
+                }}
                 className={inputClass}
               />
             </div>
@@ -205,7 +232,10 @@ export default function ExpensesPage() {
                 type="date"
                 required
                 value={expenseDate}
-                onChange={(event) => setExpenseDate(event.target.value)}
+                onChange={(event) => {
+                  setExpenseDate(event.target.value)
+                  markNoteStarted()
+                }}
                 className={inputClass}
               />
             </div>
@@ -221,7 +251,10 @@ export default function ExpensesPage() {
               placeholder="Ex. Taxi aéroport, repas client…"
               required
               value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={(event) => {
+                setDescription(event.target.value)
+                markNoteStarted()
+              }}
               className={inputClass}
             />
           </div>
@@ -236,6 +269,7 @@ export default function ExpensesPage() {
               type="file"
               accept="image/png,image/jpeg,image/webp,application/pdf"
               required
+              onChange={markNoteStarted}
               className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-400 dark:file:bg-gray-800 dark:file:text-brand-300"
             />
             <button

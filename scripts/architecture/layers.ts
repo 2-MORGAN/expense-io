@@ -122,9 +122,12 @@ export const LAYERS: readonly Layer[] = [
   // Cœur : règles pures et cas d'usage, sans infrastructure. Tout paquet
   // qu'il importe est jugé, déclaré dans PACKAGES ou non (`node:fs`, `zod`…).
   // Les cas d'usage tirent leurs identifiants de node:crypto (ReceiptAnalyses).
-  { path: 'src/modules/expenses/application', group: 'coeur', may: [...MODULE_DOMAINS, 'src/ports', 'src/utils', 'node:crypto'] },
-  { path: 'src/modules/identity/application', group: 'coeur', may: [...MODULE_DOMAINS, 'src/ports', 'src/utils', 'node:crypto'] },
-  { path: 'src/modules/receipt-analysis/application', group: 'coeur', may: [...MODULE_DOMAINS, 'src/ports', 'src/utils', 'node:crypto'] },
+  // Un cas d'usage ne voit que le domaine de son module : un module en appelle
+  // un autre par un port, jamais par ses cas d'usage ni son domaine.
+  { path: 'src/modules/expenses/application', group: 'coeur', may: ['src/modules/expenses/domain', 'src/ports', 'src/utils', 'node:crypto'] },
+  { path: 'src/modules/identity/application', group: 'coeur', may: ['src/modules/identity/domain', 'src/ports', 'src/utils', 'node:crypto'] },
+  { path: 'src/modules/receipt-analysis/application', group: 'coeur', may: ['src/modules/receipt-analysis/domain', 'src/ports', 'src/utils', 'node:crypto'] },
+  // Seul lien entre domaines : les notes de frais lisent les rôles de l'identité.
   { path: 'src/modules/expenses/domain', group: 'coeur', may: ['src/generated', 'src/modules/identity/domain', 'src/ports', 'src/utils'] },
   { path: 'src/modules/identity/domain', group: 'coeur', may: ['src/generated', 'src/ports', 'src/utils'] },
   { path: 'src/modules/receipt-analysis/domain', group: 'coeur', may: ['src/generated', 'src/ports', 'src/utils'] },

@@ -124,11 +124,13 @@ export function erEntities(mmd: string): string[] {
 
 const EVENT_TYPE = /^export const [A-Z_]+ = '([a-z_]+(?:\.[a-z_]+)+)'/gm
 const TEST = /\.test\.[cm]?[jt]sx?$/
+/** Domaine d'un module (ADR-002) : `src/modules/<module>/domain/`. */
+const MODULE_DOMAIN = /^src\/modules\/[^/]+\/domain\//
 
 /** Types d'événements de l'outbox : les constantes `export const X = 'a.b'` du domaine, hors tests. */
 export function outboxEventTypes(sources: readonly SourceFile[]): string[] {
   const types = sources
-    .filter((file) => file.path.startsWith('src/domain/') && !TEST.test(file.path))
+    .filter((file) => MODULE_DOMAIN.test(file.path) && !TEST.test(file.path))
     .flatMap((file) => [...file.text.matchAll(EVENT_TYPE)].map((match) => match[1]))
   return [...new Set(types)].sort(byText)
 }

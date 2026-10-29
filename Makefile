@@ -3,7 +3,7 @@ SHELL := /bin/bash
 
 COMPOSE := docker compose
 
-.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-e2e verify api-breaking reconcile observability observability-down
+.PHONY: help install env up down restart logs migrate ensure-bucket seed worker dev build start lint typecheck clean test-unit test-e2e verify api-breaking frozen reconcile observability observability-down analytics analytics-down
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -77,6 +77,10 @@ api-breaking: ## Contrat d'API sans rupture par rapport à origin/main (oasdiff,
 	git fetch --no-tags --depth=1 origin main
 	bash scripts/check-api-breaking.sh origin/main
 
+frozen: ## Migrations et tests E2E déjà dans main inchangés depuis le départ de la branche (comme la CI)
+	git fetch --no-tags origin main
+	node scripts/check-frozen.mjs "$$(git merge-base HEAD origin/main)"
+
 reconcile: ## Reçus orphelins sur S3 : rapport (dry-run) ; tâche quotidienne dans ops/cron/
 	npm run reconcile:orphan-receipts
 
@@ -94,3 +98,10 @@ observability: ## Démarre Grafana et la collecte des traces, métriques et jour
 
 observability-down: ## Arrête Grafana et la collecte (conserve leurs données)
 	$(COMPOSE) -f docker-compose.observability.yml down
+
+analytics: ## Démarre Umami, la mesure d'usage du produit, et y crée le site (docs/analytics.md)
+	$(COMPOSE) -f docker-compose.analytics.yml up -d --wait
+	npm run analytics:setup
+
+analytics-down: ## Arrête Umami (conserve ses données)
+	$(COMPOSE) -f docker-compose.analytics.yml down

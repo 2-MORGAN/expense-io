@@ -5,7 +5,9 @@ import Link from 'next/link'
 import './globals.css'
 import { auth } from '@/lib/auth'
 import { logout } from '@/app/actions/auth'
+import { umamiScriptConfig } from '@/components/analytics'
 import { NavItem } from '@/components/NavItem'
+import { UmamiScript } from '@/components/UmamiScript'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -24,10 +26,13 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const session = await auth()
+  // Mesure d'usage (ADR-008) : seulement si Umami est configuré, relu à chaque requête.
+  const umami = umamiScriptConfig(process.env)
 
   return (
     <html lang="fr" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="min-h-full bg-gray-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100">
+      {/* rr-mask : un replay d'Umami (ADR-008) n'enregistre aucun texte de la page, quel que soit son réglage. */}
+      <body className="rr-mask min-h-full bg-gray-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100">
         <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:px-6">
             <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
@@ -58,6 +63,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           </div>
         </header>
         <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">{children}</div>
+        {umami && <UmamiScript {...umami} />}
       </body>
     </html>
   )
