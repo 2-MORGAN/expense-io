@@ -2243,7 +2243,7 @@ flowchart TB
             <li><strong>Partir de main à jour</strong><code>git pull</code>, puis <code>npm install</code> si <code>package.json</code> a changé.</li>
             <li><strong>Une branche par changement</strong>Nommée avec le ticket Linear : <code>fix/2-471-correctifs-securite</code>.</li>
             <li><strong>Lire avant d'écrire</strong>l'<code>AGENTS.md</code> de la racine et celui de chaque dossier touché, les ADR acceptées concernées, le contrat si l'API change, les fichiers voisins.</li>
-            <li><strong>Domaine d'abord</strong>Règle et test, puis port et adaptateur, route fine, interface : la recette <code>/nouvelle-fonctionnalite</code> (<a href="#consignes">consignes</a>).</li>
+            <li><strong>Contrat, puis domaine</strong>Le contrat d'abord si l'API change, puis règle et test, port et adaptateur, cas d'usage, route fine, interface : la recette <code>/nouvelle-fonctionnalite</code> (<a href="#consignes">consignes</a>).</li>
             <li><strong>Mettre à jour cette page</strong>Dans la même PR (<a href="#maintenir">comment</a>).</li>
             <li><strong>Vérifier</strong><code>npm run check</code>, puis les E2E concernés.</li>
             <li><strong>Ouvrir la PR</strong><code>gh pr create --repo 2-MORGAN/expense-io --base main</code>, en remplissant le modèle ; commits conventionnels (<code>feat(ocr): …</code>, <code>fix(api): …</code>).</li>
